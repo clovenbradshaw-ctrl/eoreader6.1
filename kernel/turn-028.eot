@@ -1,0 +1,38 @@
+# eoreader6.1 · kernel · turn 028
+# Act: REC−  (Recursion aimed at Ground)   Stance: Cultivating   Site: Atmosphere
+#
+# The Significance triad's third and final operator, first use. EVA
+# "renders judgment... held under evaluation"; REC "transforms the
+# interpretive frame itself" (EO Event Streaming §3 — "schema migration,
+# pivot operations, identity restructuring"). This is not a routine use —
+# it is triggered by an actual finding, not a scheduled step.
+#
+# kernel/data/signal-c-outlier.json: same construction as signal-a/b, a
+# different seed, and index 16 replaced with 97.0 — present, not null, but
+# roughly 100x the magnitude of every other sample in the series. Checked
+# directly against turn-21's frame: its only mechanism for judging this
+# site-role is NUL's null-check, and 97.0 is not null, so the frame reads
+# `sign_at_site_role: "present"` — indistinguishable from noise-control's
+# ordinary -0.46. The frame has no way to notice that one of "present" is
+# unremarkable and the other is a hundredfold anomaly.
+#
+# This is a real limitation, not a contrived one: turn-21's frame was
+# built entirely around NUL's Existence-triad mechanism (something exists
+# or it doesn't), and it is being asked a question outside that mechanism's
+# reach (how anomalous is what exists). Cultivating the ground for REC
+# means naming this honestly rather than forcing the existing frame to
+# answer a question it cannot ask.
+#
+# Earning argument: precondition is a case the current frame demonstrably
+# cannot classify meaningfully — checked above, not asserted. Refuted if
+# turn-21's frame already had a magnitude-sensitive mechanism — it does
+# not; every earned act through turn-27 reasons about presence/absence and
+# consistency of naming, never about degree.
+
+:turn-28  eot:opens        :turn-27 .
+:turn-28  eot:act          eot:REC- .
+:turn-28  eot:stance       "Cultivating" .
+:turn-28  eot:site         "Atmosphere" .
+:turn-28  eot:trigger      "kernel/data/signal-c-outlier.json" .
+:turn-28  eot:limitation   "turn-21's frame has no magnitude-sensitive mechanism" .
+:turn-28  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

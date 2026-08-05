@@ -1,0 +1,45 @@
+# eoreader6.1 · kernel · turn 029
+# Act: REC+  (Recursion aimed at Figure)   Stance: Making   Site: Lens
+#
+# REC's second use: the frame itself, actually revised. NOT a claim that
+# signal-c-outlier.json's anomaly IS or ISN'T signal — this kernel has no
+# mechanism earned yet that could witness such a claim, and asserting one
+# now would be exactly the confabulation gap-002 named at the very start:
+# speaking without witness. What REC+ can honestly do is revise the FRAME
+# to stop being silently blind to the question.
+#
+# turn-21's frame, revised:
+#
+#   OLD: "signal, not noise" — one binary, decided by NUL's presence/
+#        absence mechanism alone.
+#   NEW: "signal, not noise" now names a FAMILY of possible mechanisms,
+#        of which absence-recurrence (turn-000 through turn-27, fully
+#        earned and witnessed) is the first member. Magnitude-anomaly is
+#        named as a second, structurally distinct candidate member — NOT
+#        earned, NOT witnessed, explicitly flagged rather than folded
+#        silently into "not signal" by the accident of which mechanism
+#        happened to be built first.
+#
+# This is the correct shape of a REC in this kernel's own discipline: it
+# does not retroactively change what turn-23/turn-27 witnessed (absence-
+# recurrence stays earned exactly as it was), and it does not manufacture
+# a witnessed answer for the outlier. It changes what the FRAME'S NAME
+# covers, on the record, the same way eoreader6's SEED.md Amendment I
+# generalized "sensitivity" from a property of a statistic to a property
+# of a (statistic, perturbation) pair once a real counterexample forced
+# the distinction — not before one existed.
+#
+# Earning argument: precondition is turn-28 (a demonstrated limitation).
+# Refuted if the revision silently discarded turn-23's earned claim rather
+# than extending the frame around it — checked: turn-23's own text is
+# unchanged and unsuperseded by this turn.
+
+:turn-29  eot:opens        :turn-28 .
+:turn-29  eot:act          eot:REC+ .
+:turn-29  eot:stance       "Making" .
+:turn-29  eot:site         "Lens" .
+:turn-29  eot:revises      :turn-21 .
+:turn-29  eot:frame_old    "signal, not noise - decided by presence/absence alone" .
+:turn-29  eot:frame_new    "signal, not noise - a family; absence-recurrence earned, magnitude-anomaly named but not yet earned" .
+:turn-29  eot:preserves    :turn-23 .
+:turn-29  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

@@ -55,3 +55,22 @@ Numeric series are the cheapest material to check this against honestly —
 turbulence lines and IID noise, long before it read a sentence. Once ground /
 figure / pattern close on data this plain, the same cycle is what gets pointed
 at actual text — which is the whole reason this project is called a reader.
+
+## Stage two, opened honestly by REC (turn-028/029)
+
+All nine operators reached the frame this test built — "signal, not noise,"
+decided by NUL's presence/absence mechanism — and it worked, all the way
+through `EVA*` witnessing it. Then `signal-c-outlier.json` (present, not
+absent, but ~100x every other sample's magnitude at the same site-role)
+showed the frame's actual boundary: it cannot see anomaly, only absence.
+`REC` named this rather than papering over it.
+
+Stage two of this goal, not yet attempted: build the mechanism — something
+sensitive to *degree*, not just presence — that could witness a magnitude
+anomaly the way `NUL`→`INS`→`DEF`→`EVA` built and witnessed absence-
+recurrence. `SIG`'s own definition ("ephemeral salience... registers that
+something matters right now") is the most likely home for it, and has not
+been extended that direction yet — everything `SIG` has done so far names
+existence, not degree. Nothing here decides the outcome in advance; stage
+one's own history (`gap-002` refused, then `turn-002` earned once real
+material existed) is the model for how stage two should go too.
