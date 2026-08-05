@@ -14,12 +14,21 @@ material; `kernel/evidence/` holds the scripts that validated the mechanism.
 `compare(a, b)` (a real, fully-calibrated `level()` check), both on
 `eoreader6`'s live code. `reader.mjs`: a stateful sequential reader —
 processes a stream window by window, keeping a live ground, re-zeroing on
-surfeit. Tested on a stream with a genuine regime shift it had never seen:
-3 quiet windows placed normally, the shift correctly triggers surfeit and
-3 successive re-zeros while the ground catches up, then the next window
-settles back to "placed." That's the actual deliverable — the turns above
-are the record of how the mechanism got checked, not a substitute for it
-running.
+surfeit. Tested on a numeric stream with a genuine regime shift it had
+never seen, and on real text.
+
+**On real text** (`kernel/evidence/read-odyssey.mjs`): the actual Odyssey
+text, run through `eoreader6`'s own text perceiver (`perceiver/text/
+material.js`'s `causalSurprisalSeries`, live) into a real surprisal series,
+then through the same reader mechanism above — no numbers invented, no
+boundaries given. Result: re-zeros cluster near real Book boundaries early
+on, and a dense cluster appears at chunk ~2020 that isn't noise — it's the
+real transition from the narrative's end (Book XXIV, confirmed by reading
+the actual text at that chunk) into Butler's scholarly endnotes (dense with
+citations like "Il. xviii. 349"). The kernel found a real structural
+boundary it was never told to look for. This is the actual deliverable —
+the turns above are the record of how the mechanism got checked, not a
+substitute for it running.
 
 ## The discipline
 
