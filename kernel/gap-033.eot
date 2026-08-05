@@ -1,0 +1,29 @@
+# eoreader6.1 · kernel · turn 033 — REFUSED, not earned
+# Attempted act: SIG*  (Signal aimed at Pattern)   Stance: Tracing   Site: Kind
+#
+# turn-005 already earned SIG* — for the "absent"/"present" kind. This is
+# a SEPARATE attempt, for the NEW "anomalous"/"ordinary" kind turn-32 just
+# bound. Earning one kind's Pattern-grain use does not earn another's; the
+# cell is the same address, but the claim is about a different recurrence,
+# and each recurrence must be checked on its own material — exactly what
+# Amendment I, ported since gap-002's very first note, requires: a license
+# earned for one pair carries no warrant for another.
+#
+# Checked and genuinely absent: turn-32 binds "anomalous" to exactly ONE
+# entity (signal-c-outlier's candidate). There is no second, independently
+# generated anomalous instance to trace consistency across. The sixth
+# refusal of this shape overall, and the first to recur at an ALREADY-
+# EARNED cell rather than a new one — worth naming as its own small
+# finding: earning SIG* once does not make SIG* free everywhere in the
+# grid. Each kind still has to bring its own recurrence.
+#
+# What would earn it: a second, independently-generated series with its
+# own magnitude anomaly at a comparable site-role — not this same outlier
+# reread, and not one invented solely to close this cell.
+
+:gap-033  eot:opens        :turn-32 .
+:gap-033  eot:attempted    eot:SIG* .
+:gap-033  eot:for_kind     "anomalous" .
+:gap-033  eot:refused      true .
+:gap-033  eot:reason       "insufficient_recurrence_for_this_kind" .
+:gap-033  eot:witnessed    false .

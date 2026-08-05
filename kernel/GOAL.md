@@ -65,12 +65,15 @@ absent, but ~100x every other sample's magnitude at the same site-role)
 showed the frame's actual boundary: it cannot see anomaly, only absence.
 `REC` named this rather than papering over it.
 
-Stage two of this goal, not yet attempted: build the mechanism — something
-sensitive to *degree*, not just presence — that could witness a magnitude
-anomaly the way `NUL`→`INS`→`DEF`→`EVA` built and witnessed absence-
-recurrence. `SIG`'s own definition ("ephemeral salience... registers that
-something matters right now") is the most likely home for it, and has not
-been extended that direction yet — everything `SIG` has done so far names
-existence, not degree. Nothing here decides the outcome in advance; stage
-one's own history (`gap-002` refused, then `turn-002` earned once real
-material existed) is the model for how stage two should go too.
+Stage two, started (`turn-031`–`gap-033`): a real mechanism now exists.
+`kernel/data/magnitude-ground-c.json` builds a ground from a series' other
+31 values (excluding the candidate) and reports distance in aperture-widths
+— the outlier reads 96.04 widths beyond; `magnitude-ground-control.json`'s
+ordinary value reads -0.10, inside its own ground. `SIG` bound signs
+("anomalous"/"ordinary") from this directly. What's still missing is
+recurrence: `gap-033` refused `SIG*` for this kind because exactly one
+anomaly exists, and — checked, not assumed — earning `SIG*` for
+"absent"/"present" (`turn-005`) did not carry over to "anomalous"/
+"ordinary." Stage one's model (`gap-002` refused, `turn-002` earned once
+real material existed) is still the template; a second independent
+magnitude anomaly is what's owed next, not a bigger mechanism.

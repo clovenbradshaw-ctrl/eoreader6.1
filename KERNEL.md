@@ -54,15 +54,21 @@ reinvented).
 | `turn-027` | `EVA*` | earned — third Pattern-grain act closed clean | Tracing / Paradigm |
 | `turn-028` | `REC−` | earned (triggered by a real, checked limitation) | Cultivating / Atmosphere |
 | `turn-029` | `REC+` | earned (extends the frame; does not overwrite `turn-23`) | Making / Lens |
-| `gap-030` | `REC*` (attempted) | **refused** — one revision exists; generalizing needs two | Composing / Paradigm |
+| `gap-030` | `REC*` (attempted) | refused — one revision exists; generalizing needs two | Composing / Paradigm |
+| `turn-031` | `SIG−` | earned (opens GOAL.md stage two) | Tending / Void |
+| `turn-032` | `SIG+` | earned (new "anomalous"/"ordinary" sign kind) | Binding / Entity |
+| `gap-033` | `SIG*` (attempted, for the "anomalous" kind) | **refused** — one anomaly exists; this kind's recurrence isn't earned just because `turn-005` earned a different kind's | Tracing / Kind |
 
 **All nine operators have now been reached.** `NUL`, `SIG`, `INS`, `CON`,
-`DEF`, and `EVA` are fully closed (all three Object-axis uses each). `SEG`,
-`SYN`, and `REC` are each open at the identical place: two of three uses
-earned, the third refused for lack of a second instance to generalize
-(`gap-011`, `gap-020`, `gap-030`). See `kernel/GOAL.md` for the falsifiable
-test all of this was earned against (`kernel/data/*.json`) rather than
-against prose alone.
+`DEF`, and `EVA` are fully closed for the sign-kinds attempted on them.
+`SEG`, `SYN`, and `REC` are each open at the identical place: two of three
+uses earned, the third refused for lack of a second instance to generalize
+(`gap-011`, `gap-020`, `gap-030`). `SIG` has now closed one kind
+(`turn-005`, "absent"/"present") and opened, but not closed, a second
+(`gap-033`, "anomalous"/"ordinary") — the same cell, two independent
+recurrence claims, one earned, one not. See `kernel/GOAL.md` for the
+falsifiable test all of this was earned against (`kernel/data/*.json`)
+rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -227,14 +233,29 @@ genuine independent recurrence, and either has it already (`turn-17`,
 recurrence existed). This is now checked at every address in the grid this
 kernel occupies, not assumed from one or two.
 
-## What's actually open, honestly, going into "read"
+## Stage two, started: a real magnitude mechanism, checked not asserted
 
-- Magnitude-anomaly signal (`signal-c-outlier.json`) is real, named, and
-  completely unearned. It is the first concrete next goal: build the
-  mechanism (something sensitive to degree, not just presence — `SIG`'s
-  own definition already gestures at this: "ephemeral salience," not yet
-  built out) that could witness it, the same way `NUL`→`SIG`→`INS`→...
-  built the presence/absence mechanism from nothing.
+`turn-31` tends to the magnitude-distance question as its own class.
+`turn-32` binds an actual, computed sign: `kernel/data/magnitude-ground-c.json`
+builds a ground from a series' other 31 values (excluding the candidate,
+per the contamination discipline `SEED.md` and this kernel's own `turn-9`
+both hold) and reports the outlier at 96.04 aperture-widths beyond it;
+`kernel/data/magnitude-ground-control.json` reports noise-control's
+ordinary value at -0.10 widths — *inside* its own ground. Clean separation,
+computed, not decided in advance. `gap-033` attempts `SIG*` for this new
+kind and is refused: one anomaly exists, and — the actual finding worth
+keeping — earning `SIG*` once (`turn-005`, for "absent"/"present") does
+NOT make `SIG*` free for a different kind at the same cell. Each recurrence
+claim stands on its own material.
+
+## What's actually open, going into stage two proper
+
+- A second, independently-generated magnitude anomaly, at a comparable
+  site-role, is what `gap-033` needs — not manufactured solely to close it.
+- Once (if) that exists, `INS`, `DEF`, `EVA` would need their own
+  magnitude-kind passes too — everything each of them earned so far was
+  for the "absent"/"present" kind specifically, and per `gap-033`'s own
+  finding, none of that transfers automatically.
 - `gap-011`, `gap-020`, `gap-030` stay open; nothing yet proposes the
   second instances any of them needs.
 - What `turn-7`'s direct anchor and `turn-14`'s composed one are to each
