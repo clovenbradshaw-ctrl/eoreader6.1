@@ -1,0 +1,29 @@
+# eoreader6.1 · kernel · turn 030 — REFUSED, not earned
+# Attempted act: REC*  (Recursion aimed at Pattern)   Stance: Composing   Site: Paradigm
+#
+# REC's third use would recognize turn-29's reframing as a NETWORK-level
+# regularity — a general shape "frames get revised when real material
+# exceeds their mechanism" that holds across multiple revisions, not one
+# revision made once. This kernel has revised exactly one frame, exactly
+# once.
+#
+# The fifth refusal of this exact shape (after gap-002, gap-008, gap-011,
+# gap-020), and the last operator in the 27-cell grid to be attempted —
+# every operator this kernel has reached now has direct, checked evidence
+# for the same claim: Pattern-grain acts need genuine independent
+# recurrence, and fail cleanly, specifically, and for a stated reason
+# without it. Seven attempts total across this kernel: five refused for
+# genuine absence of recurrence, three (turn-17, turn-23, turn-27) closed
+# clean because recurrence was already on hand from fixing something else.
+#
+# What would earn it: a second frame, independently forced to revise by
+# its own encounter with material outside its mechanism — not this same
+# revision restated, and not a second frame invented for the purpose,
+# which would be exactly the un-earned generality this kernel has refused
+# to manufacture at every prior gap.
+
+:gap-030  eot:opens        :turn-29 .
+:gap-030  eot:attempted    eot:REC* .
+:gap-030  eot:refused      true .
+:gap-030  eot:reason       "insufficient_revisions_to_generalize" .
+:gap-030  eot:witnessed    false .

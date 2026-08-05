@@ -1,0 +1,27 @@
+# eoreader6.1 · kernel · turn 011 — REFUSED, not earned
+# Attempted act: SEG*  (Segment aimed at Pattern)   Stance: Unraveling   Site: Network
+#
+# SEG's third use would recognize the boundary drawn in turn-10 as a
+# NETWORK-level regularity — a partitioning rule that generalizes, not one
+# field's one partition. That needs a second, independent field with its
+# own comparable boundary to check the rule against. There is exactly one
+# field in this kernel (turn-9's), partitioned exactly once (turn-10's).
+#
+# Same shape as gap-002 and gap-008, and worth naming plainly rather than
+# treating as a coincidence: every Pattern-grain (`*`) act attempted in
+# this kernel so far has needed a genuine second, independent instance,
+# and failed without one. That is not this kernel being unlucky three
+# times — it is Peirce's and Spencer-Brown's actual claim, checked rather
+# than assumed: Thirdness cannot be reduced to Secondness; one crossing
+# never oscillates. A kernel that found itself able to assert Pattern from
+# a single instance would be the one with something to explain.
+#
+# What would earn it: a second field — a different collection admitting a
+# comparable absent/present boundary — not this same field reread. Nothing
+# in this kernel currently proposes one.
+
+:gap-011  eot:opens        :turn-10 .
+:gap-011  eot:attempted    eot:SEG* .
+:gap-011  eot:refused      true .
+:gap-011  eot:reason       "insufficient_fields_to_generalize" .
+:gap-011  eot:witnessed    false .

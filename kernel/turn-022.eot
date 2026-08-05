@@ -1,0 +1,40 @@
+# eoreader6.1 · kernel · turn 022
+# Act: DEF+  (Alteration aimed at Figure)   Stance: Dissecting   Site: Lens
+#
+# DEF's second use: an actual value established, within turn-21's frame,
+# about a specific entity. Two independent claims — not one claim about
+# the kind, but one about each of the kind's two members individually, so
+# DEF* below has real recurrence rather than a single instance to
+# generalize from too early (the mistake turn-7 made for INS, corrected at
+# turn-12/turn-13):
+#
+#   @f1292533... (turn-12, signal-a's anchor) IS "signal, not noise"
+#   @14ba529c... (turn-13, signal-b's anchor) IS "signal, not noise"
+#
+# What earns this claim, stated so it is checkable rather than asserted:
+# both entities are members of the kind turn-2 (NUL*) verified recurs
+# independently of any single instance, and turn-5 (SIG*) verified carries
+# the SAME sign consistently across that recurrence, and turn-10 (SEG+)
+# placed both, and only both, on the same side of a boundary a negative
+# control (noise-control.json) sits outside of. "Signal" here means
+# exactly that: a fact that recurred, was named consistently, and was
+# structurally distinguished from a case built the same way with nothing
+# planted in it. Nothing beyond what was already earned is being assumed.
+#
+# Per EO's own discipline, this is a CLAIM, not a fact discovered — it
+# names an agent and stays revisable: a later turn could DEF a competing
+# value for the same entity, and both would coexist in the log until EVA
+# judges between them (EVA's job, not DEF's, not yet reached).
+#
+# Earning argument: precondition is turn-21 (a frame to claim within) and
+# turn-12/turn-13 (entities to claim about). Refuted if either entity were
+# not actually distinguished from the negative control — checked at
+# turn-10, both are.
+
+:turn-22  eot:opens        :turn-21 .
+:turn-22  eot:act          eot:DEF+ .
+:turn-22  eot:stance       "Dissecting" .
+:turn-22  eot:site         "Lens" .
+:turn-22  eot:claims       [ eot:entity "@f1292533ea4f49108d50bb02e4f2b56e5f62bbdd0686ad9728739b7c2c8aec3e" ; eot:value "signal, not noise" ; eot:agent "kernel/GOAL.md#stage-4" ] .
+:turn-22  eot:claims       [ eot:entity "@14ba529c7c6548b018aa4302dac0e84c97102ee043b421db4c734c3daec2d0d6" ; eot:value "signal, not noise" ; eot:agent "kernel/GOAL.md#stage-4" ] .
+:turn-22  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

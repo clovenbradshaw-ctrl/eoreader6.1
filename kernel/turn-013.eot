@@ -1,0 +1,23 @@
+# eoreader6.1 · kernel · turn 013
+# Act: INS+  (Instance aimed at Figure)   Stance: Making   Site: Entity
+#
+# The same act as turn-12, on signal-b instead of signal-a — the second
+# of the kind's two members, individually anchored on its own evidence
+# (its own seed, its own sign), independent of signal-a.
+#
+# Earning argument: identical in form to turn-12's, against a different
+# target. Precondition is turn-1's figure and turn-4's sign, both already
+# earned for this target specifically (turn-4 bound "absent" to
+# signal-b.json directly, not by inference from signal-a). Anchor computed
+# as SHA-256 over {evidence: file, site_role, sign, seed}, committed in
+# kernel/data/anchor-003.json, independently recomputed before being
+# called earned.
+
+:turn-13  eot:opens        :turn-12 .
+:turn-13  eot:act          eot:INS+ .
+:turn-13  eot:stance       "Making" .
+:turn-13  eot:site         "Entity" .
+:turn-13  eot:target       "kernel/data/signal-b.json" .
+:turn-13  eot:mints        "@14ba529c7c6548b018aa4302dac0e84c97102ee043b421db4c734c3daec2d0d6" .
+:turn-13  eot:evidence     "kernel/data/anchor-003.json" .
+:turn-13  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

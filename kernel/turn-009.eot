@@ -1,0 +1,36 @@
+# eoreader6.1 · kernel · turn 009
+# Act: SEG−  (Segment aimed at Ground)   Stance: Clearing   Site: Field
+#
+# The Structure triad's first operator, first use. Opens from :turn-7, NOT
+# from :gap-008 — a refused attempt produces no closing register (no
+# aperture, no perturbation choice), so there is nothing for a later turn
+# to inherit from it. gap-008 is recorded, on the timeline, honestly; it
+# does not advance the clock. Only earned turns do.
+#
+# Resolving the fork KERNEL.md left open: SEG becomes reachable without
+# INS* closing first. SEG's precondition is an entity to draw a boundary
+# around or within (EO Event Streaming §3, Operator Definitions: SEG
+# "corresponds to WHERE, GROUP BY, FILTER, PARTITION") — that is satisfied
+# by turn-7's anchor alone. INS*'s precondition — a second anchored entity
+# to compose — is a different, harder requirement that SEG does not share.
+# The Helix ordering (NUL→SIG→INS→SEG→...) orders OPERATORS, not every
+# use of every operator; nothing in it says INS must close all three uses
+# before SEG can open its first.
+#
+# SEG− itself: clearing the ground for a partition — establishing that a
+# FIELD (a collection admitting boundaries) exists at all, before any
+# specific boundary is drawn. The field here is the three committed series
+# together (kernel/data/signal-a.json, signal-b.json, noise-control.json)
+# — already read as a collection informally since turn-2; this turn is
+# the first act that names it as one on purpose.
+#
+# Earning argument: precondition is turn-7 (an anchored entity belonging
+# to the field). Refuted if no boundary within this field could ever be
+# drawn without contradiction — checked next, at SEG+, not assumed here.
+
+:turn-9  eot:opens        :turn-7 .
+:turn-9  eot:act          eot:SEG- .
+:turn-9  eot:stance       "Clearing" .
+:turn-9  eot:site         "Field" .
+:turn-9  eot:field        [ eot:members "kernel/data/signal-a.json, kernel/data/signal-b.json, kernel/data/noise-control.json" ] .
+:turn-9  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

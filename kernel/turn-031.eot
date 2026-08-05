@@ -1,0 +1,28 @@
+# eoreader6.1 · kernel · turn 031
+# Act: SIG−  (Signal aimed at Ground)   Stance: Tending   Site: Void
+#
+# GOAL.md stage two, first move. SIG's cell was already earned (turn-003)
+# for one kind of claim — "is something present or absent at this site-
+# role." This turn does not re-earn the cell; it tends to a SECOND,
+# genuinely different class turn-29 (REC+) named but left unearned: "how
+# far is a PRESENT value from its own ground" — a magnitude question,
+# structurally distinct from a presence question, which is exactly why it
+# needed REC rather than a routine SIG extension.
+#
+# Earning argument: precondition is turn-29 (the frame naming this class
+# as a legitimate, distinct member) and a real mechanism to measure it —
+# supplied directly, not asserted: kernel/data/magnitude-ground-c.json
+# builds a ground from a series' OTHER 31 values (excluding the candidate,
+# per SEED.md's contamination discipline — a statistic must never condition
+# on its own material) and reports the candidate's distance from that
+# ground in aperture-widths. This is the same figure-against-a-perturbed-
+# ground mechanism turn-001 used for presence/absence, pointed at degree
+# instead.
+
+:turn-31  eot:opens        :turn-29 .
+:turn-31  eot:act          eot:SIG- .
+:turn-31  eot:stance       "Tending" .
+:turn-31  eot:site         "Void" .
+:turn-31  eot:attends      "magnitude-distance-from-own-ground, at any site-role" .
+:turn-31  eot:mechanism    "kernel/data/magnitude-ground-c.json" .
+:turn-31  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

@@ -1,0 +1,33 @@
+# eoreader6.1 · kernel · turn 003
+# Act: SIG−  (Signal aimed at Ground)   Stance: Tending   Site: Void
+#
+# The Existence triad's second operator, first use. NUL "makes the space";
+# SIG "produces the sign" (EO Event Streaming §3, Operator Definitions).
+# SIG− is the minimal move before any specific sign is bound: attending to
+# a GROUND as worth attending to at all — not yet "this instance is
+# absent/present" (that is SIG+, next), but "this SITE-ROLE, as a class,
+# is one worth watching."
+#
+# Earning argument: SIG− has exactly one precondition — a class to attend
+# to, which did not exist until turn-2 (NUL*) established "index 16 of a
+# 32-length series, comparable across independently-seeded material" as a
+# recurring KIND rather than a coincidence. SIG cannot tend to a class NUL
+# has not yet earned as a class; turn-2 is that precondition, satisfied.
+#
+# What this does NOT claim: no instance is named here, and no judgement is
+# made about whether any particular instance's absence or presence
+# matters. SIG is "ephemeral salience: the spotlight, not the foundation...
+# it does not create enduring structure and does not carry values" — this
+# turn is the spotlight turning toward the site-role, nothing more.
+#
+# Refuted if: a claim about a specific instance's sign appears at this
+# grain. That claim belongs to SIG+ and would be Ground/Figure conflation
+# — exactly the kind of grain error CUBE.md's coherence discipline exists
+# to catch.
+
+:turn-3  eot:opens        :turn-2 .
+:turn-3  eot:act          eot:SIG- .
+:turn-3  eot:stance       "Tending" .
+:turn-3  eot:site         "Void" .
+:turn-3  eot:attends      "site-role: index:16 of 32 — midpoint" .
+:turn-3  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

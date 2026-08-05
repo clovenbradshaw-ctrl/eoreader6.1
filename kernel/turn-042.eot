@@ -1,0 +1,23 @@
+# eoreader6.1 · kernel · turn 042
+# Act: SEG−  (Segment aimed at Ground)   Stance: Clearing   Site: Field
+#
+# A second field, for the "anomalous" kind: kernel/data/signal-c-outlier.json,
+# signal-d-outlier.json, and noise-control.json (reused legitimately — it
+# was built to answer this same question for both kinds, per turn-40's
+# note). This is not turn-9's field reread; it is a different, comparable
+# field that happens to share its negative control, because one control
+# genuinely answers "nothing planted" for both questions asked of the same
+# construction.
+#
+# Earning argument: precondition is turn-41 (the anomalous kind, fully
+# earned through EVA) providing entities to field. Refuted if this field
+# were identical in membership to turn-9's — checked: two of three members
+# differ (signal-c/d vs. signal-a/b); only the control is shared, and
+# legitimately.
+
+:turn-42  eot:opens        :turn-41 .
+:turn-42  eot:act          eot:SEG- .
+:turn-42  eot:stance       "Clearing" .
+:turn-42  eot:site         "Field" .
+:turn-42  eot:field        [ eot:members "kernel/data/signal-c-outlier.json, kernel/data/signal-d-outlier.json, kernel/data/noise-control.json" ] .
+:turn-42  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

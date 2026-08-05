@@ -1,0 +1,46 @@
+{
+  "signal-c-outlier": {
+    "candidate": 97,
+    "deviation": 96.99,
+    "result": {
+      "gap": "exceeds_witness",
+      "observed": 96.99,
+      "support": [
+        0.79,
+        1.44
+      ],
+      "direction": "above",
+      "censoredAt": 0.005,
+      "reZero": true
+    }
+  },
+  "signal-d-outlier": {
+    "candidate": -64,
+    "deviation": 63.95,
+    "result": {
+      "gap": "exceeds_witness",
+      "observed": 63.95,
+      "support": [
+        0.84,
+        1.3900000000000001
+      ],
+      "direction": "above",
+      "censoredAt": 0.005,
+      "reZero": true
+    }
+  },
+  "noise-control": {
+    "candidate": -0.46,
+    "deviation": 0.55,
+    "result": {
+      "gap": "exceeds_witness",
+      "observed": 0.55,
+      "support": [
+        0.84,
+        1.28
+      ],
+      "direction": "below",
+      "censoredAt": 0.005
+    }
+  }
+}

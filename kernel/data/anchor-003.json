@@ -1,0 +1,10 @@
+{
+  "content": {
+    "evidence": "kernel/data/signal-b.json",
+    "site_role": "index:16 of 32 - midpoint",
+    "sign": "absent",
+    "seed": 29
+  },
+  "algorithm": "sha256",
+  "anchor": "14ba529c7c6548b018aa4302dac0e84c97102ee043b421db4c734c3daec2d0d6"
+}

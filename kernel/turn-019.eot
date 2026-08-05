@@ -1,0 +1,39 @@
+# eoreader6.1 · kernel · turn 019
+# Act: SYN+  (Synthesis aimed at Figure)   Stance: Making   Site: Link
+#
+# SYN's second use: the derived whole, actually made. NOT a merge that
+# picks one anchor and discards the other — that would be EVA's job
+# (judging between competing claims) applied where nothing here competes.
+# turn-7's and turn-14's anchors are not competing; they are two true
+# descriptions of related territory built from different content. SYN's
+# job is to produce a THIRD entity that names the relation between them
+# without erasing either.
+#
+# That third entity, minted and committed (kernel/data/anchor-004.json):
+# a record whose content is `{relates: [both anchors, sorted], claim: "..."}`,
+# hashed into its own anchor:
+#
+#   @446a13f9444ded9bc17694d79aa23af37acd40d90f738aecfdbb787faf63b8ab
+#
+# This is a genuine derived whole in the sense EO's definition requires:
+# it exceeds either component (neither turn-7 nor turn-14 alone contains
+# the CLAIM that relates them — that claim is new content, not a repackaging)
+# and it is not reducible to concatenating the two inputs (a different
+# ordering or a different claim about the same two anchors would produce
+# a different digest, so the whole is sensitive to more than its parts'
+# mere presence).
+#
+# Earning argument: precondition is turn-18 (a field admitting synthesis)
+# and turn-7/turn-14 (the two anchors being synthesized). Refuted if the
+# committed digest failed to reproduce from anchor-004.json's own content
+# — independently recomputed, matches.
+
+:turn-19  eot:opens        :turn-18 .
+:turn-19  eot:act          eot:SYN+ .
+:turn-19  eot:stance       "Making" .
+:turn-19  eot:site         "Link" .
+:turn-19  eot:relates      "@444b54f3c0bfb0371d605a7c0d57698df6f6dc895d2a2941cc550d6ae5546f0d" .
+:turn-19  eot:relates      "@a1b3b873bc22f48073387ef56c61172c00b06332a179e453349766dbef2dfa2f" .
+:turn-19  eot:mints        "@446a13f9444ded9bc17694d79aa23af37acd40d90f738aecfdbb787faf63b8ab" .
+:turn-19  eot:evidence     "kernel/data/anchor-004.json" .
+:turn-19  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

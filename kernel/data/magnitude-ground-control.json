@@ -1,0 +1,11 @@
+{
+  "site_role": 16,
+  "candidate": -0.46,
+  "ground": {
+    "q25": -0.555,
+    "q75": 0.36,
+    "aperture": 0.915,
+    "n": 31
+  },
+  "aperture_widths_beyond_ground": -0.10382513661202189
+}
