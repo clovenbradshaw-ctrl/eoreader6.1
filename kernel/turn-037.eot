@@ -1,0 +1,32 @@
+# eoreader6.1 · kernel · turn 037
+# Act: INS*  (Instance aimed at Pattern)   Stance: Composing   Site: Kind
+#
+# INS's Pattern-grain use for the "anomalous" kind — earned on the first
+# attempt, not refused-then-superseded, because turn-36 already anchored
+# two independent instances (the same reason turn-17's CON* and turn-23's
+# DEF* closed clean, now recurring at a new kind rather than a new
+# operator). Composed — SHA-256 over the sorted pair of turn-36's two
+# anchors — into a new, fourth kind-level anchor:
+#
+#   @c167f1db... (composes @cc38c3ae... and @186c8ea0...)
+#
+# Recorded without assuming it relates to turn-7's or turn-14's kind-level
+# anchors (the "absent"/"present" kind's) in any particular way — per
+# turn-14's own precedent, composed anchors are sensitive to exactly what
+# was hashed, and this hashes a different kind's members entirely. No
+# claim of relation is made or needed here.
+#
+# Earning argument: precondition is turn-36 (two independent anchors).
+# Refuted if the composed digest failed to reproduce from anchor-005.json
+# and anchor-006.json alone — checked directly, reproduces exactly.
+
+:turn-37  eot:opens        :turn-36 .
+:turn-37  eot:act          eot:INS* .
+:turn-37  eot:stance       "Composing" .
+:turn-37  eot:site         "Kind" .
+:turn-37  eot:for_kind     "anomalous" .
+:turn-37  eot:composes     "@cc38c3ae498c2dd7e59149ce8b2517c3b8a384840ee896fe4551b07f5f5822f2" .
+:turn-37  eot:composes     "@186c8ea085d542ddc110ccbe16c814b14a7e7502f281796631f2ec04190e9c87" .
+:turn-37  eot:mints        "@c167f1dba32e6bb83b84012e4137032f789a2c195d93a51cb66635930c458c59" .
+:turn-37  eot:witnessed    true .
+:turn-37  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

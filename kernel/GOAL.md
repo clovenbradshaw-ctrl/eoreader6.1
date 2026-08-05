@@ -77,8 +77,18 @@ model stage one set (`gap-002` refused, `turn-002` earned once real
 material existed) — here, `gap-033` refused, `turn-035` earned once a
 second real anomaly existed.
 
-What's owed next: `INS`, `DEF`, and `EVA` each earned their cycles for
-"absent"/"present" specifically, and per `gap-033`'s own finding, none of
-that transfers to "anomalous"/"ordinary" automatically. Anchoring an
-anomalous entity, claiming it as signal within the frame, and witnessing
-that claim against a control are all still unearned for this kind.
+Closed, in full: `INS` anchored both anomalous entities individually and
+composed them (`turn-36`/`turn-37`); `DEF` claimed "signal (magnitude-
+anomaly), not noise" for each, named distinctly from the absence-
+recurrence claim (`turn-38`/`turn-39`); `EVA` witnessed both against the
+same committed negative control (`turn-40`/`turn-41`). Stage two now stands
+at the same depth stage one reached — anchored, claimed, witnessed, traced
+— for a kind this kernel didn't have material for a few turns ago.
+
+Neither kind generalizes past what's anchored. That's the honest
+boundary of "read" this kernel has earned so far: it can recognize two
+specific, checked kinds of departure from an expected ground, consistently
+and independently corroborated, and it re-derives that recognition from
+the committed data every time rather than assuming it. A third kind, or a
+member of either kind not yet anchored, is still unearned — which is
+exactly where this goal's next real test should come from.

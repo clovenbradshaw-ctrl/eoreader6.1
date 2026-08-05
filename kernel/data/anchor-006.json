@@ -1,0 +1,10 @@
+{
+  "content": {
+    "evidence": "kernel/data/signal-d-outlier.json",
+    "site_role": 16,
+    "sign": "anomalous",
+    "widths": 62.48768472906404
+  },
+  "algorithm": "sha256",
+  "anchor": "186c8ea085d542ddc110ccbe16c814b14a7e7502f281796631f2ec04190e9c87"
+}

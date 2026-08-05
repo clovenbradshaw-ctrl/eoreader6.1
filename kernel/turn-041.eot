@@ -1,0 +1,31 @@
+# eoreader6.1 · kernel · turn 041
+# Act: EVA*  (Evaluation aimed at Pattern)   Stance: Tracing   Site: Paradigm
+#
+# Traces turn-40's two independent witness instances — closes clean, the
+# fifth Pattern-grain act in this kernel to do so on the first attempt
+# (turn-17, turn-23, turn-27, turn-39, this turn). Running total across the
+# whole kernel, both kinds: eleven Pattern-grain attempts, five refused for
+# genuine absence of recurrence at the time (gap-002, gap-008, gap-011,
+# gap-020, gap-030 — plus gap-033, later superseded), six closed clean
+# because recurrence was already on hand.
+#
+# What this earns, at last for the anomalous kind: a witnessed PARADIGM,
+# the same standing turn-27 gave the absence-recurrence kind. GOAL.md's
+# stage two is now closed to the same depth stage one reached — not
+# further. This is still bounded to the two entities anchored so far, and
+# still not "reading" by turn-23's own standard: a frame that must be
+# re-verified from nothing on every new instance has not earned that name,
+# and this kernel re-verifies from nothing every single time, on purpose.
+#
+# Earning argument: precondition is turn-40. Refuted if the two witness
+# instances disagreed — checked, they do not.
+
+:turn-41  eot:opens        :turn-40 .
+:turn-41  eot:act          eot:EVA* .
+:turn-41  eot:stance       "Tracing" .
+:turn-41  eot:site         "Paradigm" .
+:turn-41  eot:for_kind     "anomalous" .
+:turn-41  eot:traces       :turn-40 .
+:turn-41  eot:consistent   true .
+:turn-41  eot:witnessed    true .
+:turn-41  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

@@ -1,0 +1,9 @@
+{
+  "content": {
+    "evidence": "kernel/data/signal-c-outlier.json",
+    "site_role": 16,
+    "sign": "anomalous"
+  },
+  "algorithm": "sha256",
+  "anchor": "cc38c3ae498c2dd7e59149ce8b2517c3b8a384840ee896fe4551b07f5f5822f2"
+}

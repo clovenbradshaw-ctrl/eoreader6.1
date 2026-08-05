@@ -59,7 +59,13 @@ reinvented).
 | `turn-032` | `SIG+` | earned (new "anomalous"/"ordinary" sign kind) | Binding / Entity |
 | `gap-033` | `SIG*` (attempted, for the "anomalous" kind) | refused, superseded — one anomaly existed; this kind's recurrence isn't earned just because `turn-005` earned a different kind's | Tracing / Kind |
 | `turn-034` | `SIG+` | earned (second, independent anomalous instance) | Binding / Entity |
-| `turn-035` | `SIG*` | **earned — supersedes `gap-033`** | Tracing / Kind |
+| `turn-035` | `SIG*` | earned — supersedes `gap-033` | Tracing / Kind |
+| `turn-036` | `INS+` | earned, anomalous kind (two individual anchors) | Making / Entity |
+| `turn-037` | `INS*` | earned, anomalous kind — clean, first attempt | Composing / Kind |
+| `turn-038` | `DEF+` | earned, anomalous kind (two independent claims) | Dissecting / Lens |
+| `turn-039` | `DEF*` | earned, anomalous kind — clean, first attempt | Unraveling / Paradigm |
+| `turn-040` | `EVA+` | earned, anomalous kind (witnessed vs. the same control) | Binding / Lens |
+| `turn-041` | `EVA*` | **earned, anomalous kind — clean, first attempt** | Tracing / Paradigm |
 
 **All nine operators have now been reached.** `NUL`, `SIG`, `INS`, `CON`,
 `DEF`, and `EVA` are fully closed for the sign-kinds attempted on them.
@@ -261,15 +267,34 @@ checked it against its own committed ground before writing the claim down.
 cell — the honest way to have two, one at a time, each earning its own
 recurrence.
 
-## What's actually open, going into `INS`/`DEF`/`EVA` for the new kind
+## INS, DEF, EVA all closed for the anomalous kind too
 
-- Per `gap-033`'s own finding: earning a kind at one operator does not
-  transfer to another operator automatically. `INS`, `DEF`, and `EVA` all
-  earned their cycles for "absent"/"present" specifically — anchoring,
-  claiming "signal," and witnessing an "anomalous" entity are all still
-  unearned and would need their own passes, the same way `SIG` just did.
+Same pattern each time, run three more times in a row: `turn-36` anchors
+`signal-c`'s and `signal-d`'s anomalies individually (not the kind
+directly — turn-7's mistake, not repeated); `turn-37` composes them,
+closing `INS*` clean on the first attempt. `turn-38` claims "signal
+(magnitude-anomaly), not noise" for each independently, named distinctly
+from `turn-22`'s absence-recurrence claim rather than reusing the same
+value string; `turn-39` traces it, clean. `turn-40` witnesses both claims
+against the SAME committed negative control turn-32 already ran the
+magnitude check on (-0.10 widths, "ordinary") — legitimately reused, since
+it was built to answer exactly this question for both kinds; `turn-41`
+traces the witnessing, clean.
+
+**Running Pattern-grain total, both kinds, whole kernel: eleven attempts,
+five refused for genuine absence of recurrence at the time, six closed
+clean because recurrence was already on hand.** GOAL.md's stage two is now
+closed to the identical depth stage one reached — anchored, claimed,
+witnessed, traced — for a kind that didn't exist three turns ago.
+
+## What's actually open
+
 - `gap-011`, `gap-020`, `gap-030` stay open; nothing yet proposes the
   second instances any of them needs.
+- Neither kind's paradigm is general — both are bounded to exactly the
+  entities anchored so far, on purpose. `turn-41`'s own text says this
+  directly: re-verifying from nothing on every new instance is not yet
+  reading, and this kernel has not claimed otherwise once.
 - What `turn-7`'s direct anchor and `turn-14`'s composed one are to each
   other, if not competitors — `EVA` left this alone on purpose. May simply
   not be a conflict requiring resolution.
