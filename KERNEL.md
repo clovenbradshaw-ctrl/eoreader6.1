@@ -65,7 +65,10 @@ reinvented).
 | `turn-038` | `DEF+` | earned, anomalous kind (two independent claims) | Dissecting / Lens |
 | `turn-039` | `DEF*` | earned, anomalous kind — clean, first attempt | Unraveling / Paradigm |
 | `turn-040` | `EVA+` | earned, anomalous kind (witnessed vs. the same control) | Binding / Lens |
-| `turn-041` | `EVA*` | **earned, anomalous kind — clean, first attempt** | Tracing / Paradigm |
+| `turn-041` | `EVA*` | earned, anomalous kind — clean, first attempt | Tracing / Paradigm |
+| `turn-042` | `SEG−` | earned (a second, independent field) | Clearing / Field |
+| `turn-043` | `SEG+` | earned (the anomalous kind's own boundary) | Dissecting / Link |
+| `turn-044` | `SEG*` | **earned — supersedes `gap-011`, generalizes across kinds** | Unraveling / Network |
 
 **All nine operators have now been reached.** `NUL`, `SIG`, `INS`, `CON`,
 `DEF`, and `EVA` are fully closed for the sign-kinds attempted on them.
@@ -287,14 +290,30 @@ clean because recurrence was already on hand.** GOAL.md's stage two is now
 closed to the identical depth stage one reached — anchored, claimed,
 witnessed, traced — for a kind that didn't exist three turns ago.
 
+## SEG* closed too — and at a stronger grain than anything earlier
+
+`turn-42`/`turn-43` field and partition the anomalous kind exactly the way
+`turn-9`/`turn-10` fielded and partitioned the absence kind. `turn-44`
+traces something new: not that one kind recurs, but that the SAME SHAPE OF
+BOUNDARY — two independently-anchored kind-members isolated from a shared
+control — holds across two kinds with no mechanism and almost no members in
+common. That's a genuinely Network-grain claim, the first turn in this
+kernel actually earned at that grain rather than at Kind-grain wearing a
+bigger name. Supersedes `gap-011`.
+
 ## What's actually open
 
-- `gap-011`, `gap-020`, `gap-030` stay open; nothing yet proposes the
-  second instances any of them needs.
-- Neither kind's paradigm is general — both are bounded to exactly the
-  entities anchored so far, on purpose. `turn-41`'s own text says this
-  directly: re-verifying from nothing on every new instance is not yet
-  reading, and this kernel has not claimed otherwise once.
+- `gap-020` (`SYN*`) and `gap-030` (`REC*`) stay open. Unlike `SEG*`, the
+  anomalous-kind work didn't produce natural second instances for these —
+  `SYN` was needed for the absent kind specifically because `turn-7`
+  anchored the kind directly before its members (a mistake `turn-36`
+  deliberately didn't repeat), so there's no equivalent divergent pair for
+  `SYN*` to relate. `REC*` still has exactly one frame revision. Neither
+  should be forced closed by manufacturing what's missing.
+- Neither kind's paradigm is general past what's anchored — `turn-41`'s
+  own text says so directly, and `turn-44`'s cross-kind generalization is
+  about the shape of a boundary, not a claim that either kind extends to
+  unanchored members.
 - What `turn-7`'s direct anchor and `turn-14`'s composed one are to each
   other, if not competitors — `EVA` left this alone on purpose. May simply
   not be a conflict requiring resolution.
