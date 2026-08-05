@@ -1,0 +1,34 @@
+# eoreader6.1 · kernel · turn 010
+# Act: SEG+  (Segment aimed at Figure)   Stance: Dissecting   Site: Link
+#
+# SEG's second use: the actual boundary, drawn on a specific figure rather
+# than declared over the field in general. The field turn-9 cleared has an
+# exact, checkable partition already implicit since turn-2 and made
+# explicit here: members whose sign is "absent" (kernel/data/signal-a.json,
+# signal-b.json — the kind turn-5 traced) on one side, and the negative
+# control whose sign is "present" (noise-control.json) on the other.
+#
+# This is not a new finding — it is the SAME partition GOAL.md's negative
+# control has enforced since turn-2, now drawn as its own act rather than
+# living implicitly inside NUL's and SIG's checks. That is exactly SEG's
+# job at Structure-domain: the boundary was always there in the data; SEG
+# is what makes it an addressable thing in its own right (a Link between
+# two named sides) rather than an assumption every other operator quietly
+# relied on.
+#
+# Earning argument: precondition is turn-9 (a field to partition). The
+# partition is checked directly against kernel/data/*.json's
+# `sign_at_site_role` field (turn-4's bindings), not redecided: two
+# members read "absent", one reads "present", and the boundary drawn here
+# places them accordingly. Refuted if any member's `sign_at_site_role`
+# disagreed with the side it's placed on below — checked, not the case.
+
+:turn-10  eot:opens        :turn-9 .
+:turn-10  eot:act          eot:SEG+ .
+:turn-10  eot:stance       "Dissecting" .
+:turn-10  eot:site         "Link" .
+:turn-10  eot:partition    [ eot:side_a "kernel/data/signal-a.json, kernel/data/signal-b.json" ;
+                             eot:side_a_sign "absent" ;
+                             eot:side_b "kernel/data/noise-control.json" ;
+                             eot:side_b_sign "present" ] .
+:turn-10  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

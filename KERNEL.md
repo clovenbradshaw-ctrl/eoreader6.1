@@ -30,14 +30,19 @@ reinvented).
 | `turn-004` | `SIG+` | earned | Binding / Entity |
 | `turn-005` | `SIG*` | earned | Tracing / Kind |
 | `turn-006` | `INS−` | earned | Cultivating / Void |
-| `turn-007` | `INS+` | earned | Making / Entity |
-| `gap-008` | `INS*` (attempted) | **refused** — exactly one anchor exists; composing needs two | Composing / Kind |
+| `turn-007` | `INS+` | earned (anchors the kind directly) | Making / Entity |
+| `gap-008` | `INS*` (attempted) | refused, superseded — one anchor existed; composing needs two | Composing / Kind |
+| `turn-009` | `SEG−` | earned — opens from `turn-7`, not `gap-008` | Clearing / Field |
+| `turn-010` | `SEG+` | earned | Dissecting / Link |
+| `gap-011` | `SEG*` (attempted) | **refused** — one field, one partition; generalizing needs two | Unraveling / Network |
+| `turn-012` | `INS+` | earned (anchors `signal-a` individually) | Making / Entity |
+| `turn-013` | `INS+` | earned (anchors `signal-b` individually) | Making / Entity |
+| `turn-014` | `INS*` | **earned** — supersedes `gap-008` | Composing / Kind |
 
-`NUL`'s and `SIG`'s cycles are closed. `INS`'s is open at the same place
-`NUL`'s once was: two of three uses earned, the third refused for lack of a
-second instance to compose. See `kernel/GOAL.md` for the falsifiable test
-these were earned against (`kernel/data/signal-a.json`, `signal-b.json`,
-`noise-control.json`, `anchor-001.json`) rather than against prose alone.
+`NUL`, `SIG`, and now `INS` are all fully closed. `SEG` is open the same way
+`NUL` once was: two of three uses earned, the third refused for lack of a
+second field. See `kernel/GOAL.md` for the falsifiable test all of this was
+earned against (`kernel/data/*.json`) rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -66,27 +71,49 @@ this grain: a sign earned across independent instances, not one binding
 taken on faith. Turn-4 recorded a wrong draft binding and its correction in
 the open, on purpose — the check is only real if a wrong answer was possible.
 
-## Where INS stopped
+## Where INS stopped, then closed
 
-`turn-006` cultivates the ground for an anchor; `turn-007` mints one for
-real — a SHA-256 digest over exactly what `turn-005` earned, independently
-recomputed and checked against `kernel/data/anchor-001.json` before being
-called earned, not asserted from memory. `gap-008` attempts `INS*` and is
-refused for exactly the reason `gap-002` was: composition needs two things,
-and there is one anchor in this kernel. Manufacturing a second one just to
-close the cell would be the same un-earned generality `eoreader6`'s
-`SEED.md` #1 refuses for priors — so it stays open.
+`turn-006` cultivates the ground for an anchor; `turn-007` mints one for the
+KIND directly — a SHA-256 digest over its shared properties (site-role,
+sign, membership, control), independently recomputed before being called
+earned. `gap-008` attempts `INS*` and is refused: composition needs two
+anchors, and there was one.
+
+What closed it: `turn-007` had skipped a step, not hit a wall. The kind's
+two MEMBERS (`signal-a`, `signal-b`) had been independently evidenced since
+`turn-1` and named since `turn-4`, but never individually anchored.
+`turn-012` and `turn-013` do that — one anchor each, on each member's own
+evidence. `turn-14` composes them, superseding `gap-008` for real.
+
+The honest, checked (not smoothed-over) result: the composed anchor is
+**not** identical to `turn-7`'s kind-anchor. That's correct, not a failure —
+the two were built from different content (shared properties vs. member
+identities), and content-addressing means exactly what was hashed, nothing
+more. There are now two distinct, legitimate anchors for related territory.
+Deciding whether and how they relate is `SYN`'s job when this kernel reaches
+it, not `INS`'s.
+
+## Where SEG stopped
+
+`turn-009` clears the ground for a partition (opens from `turn-7`, since
+`gap-008` produced no closing register to inherit — a refusal doesn't
+advance the clock). `turn-010` draws the boundary the negative control has
+enforced since `turn-2`, checked directly against `sign_at_site_role` in the
+data, not redecided. `gap-011` attempts `SEG*` — generalizing the boundary
+into a network-level rule — and is refused: one field, one partition, no
+second field to check the rule against. This is the third Pattern-grain
+(`*`) act in this kernel to need genuine independent recurrence and fail
+without it (after `gap-002` and `gap-008`) — not bad luck, but Peirce's and
+Spencer-Brown's actual claim, checked three times rather than assumed once.
 
 ## Next
 
-- A second, independently-anchored entity — not this one duplicated — would
-  make `INS*` reachable, the same way `signal-b.json` made `NUL*` reachable.
-  Nothing yet proposes what that second entity should be; inventing one just
-  to close the cell is exactly what's being refused above.
-- Alternatively: `NUL` and `SIG` are both fully closed, and `INS` has an
-  earned anchor (`turn-007`) even with `INS*` open — worth checking directly
-  whether that's enough load to reach the Structure triad's first operator,
-  `SEG`, rather than assuming the Existence triad must close serially before
-  anything else can start.
+- `CON` (Structure triad, second operator) is now reachable with real
+  two-instance material for the first time without any construction:
+  `turn-12`'s and `turn-13`'s individual anchors, plus `turn-10`'s boundary,
+  give two genuine "entity belongs to a side of a partition" facts to
+  connect — which may finally make a Pattern-grain (`CON*`) act reachable
+  on the first attempt, rather than refused and superseded later.
+- `gap-011` (`SEG*`) stays open; nothing yet proposes a second field.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.
