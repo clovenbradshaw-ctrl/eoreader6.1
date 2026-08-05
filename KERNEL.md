@@ -40,13 +40,18 @@ reinvented).
 | `turn-014` | `INS*` | earned — supersedes `gap-008` | Composing / Kind |
 | `turn-015` | `CON−` | earned | Tending / Field |
 | `turn-016` | `CON+` | earned (two independent bindings) | Binding / Link |
-| `turn-017` | `CON*` | **earned — first attempt, no refusal needed** | Tracing / Network |
+| `turn-017` | `CON*` | earned — first attempt, no refusal needed | Tracing / Network |
+| `turn-018` | `SYN−` | earned | Cultivating / Field |
+| `turn-019` | `SYN+` | earned (relates `turn-7` and `turn-14` without collapsing either) | Making / Link |
+| `gap-020` | `SYN*` (attempted) | **refused** — one synthesis exists; generalizing needs two | Composing / Network |
 
-`NUL`, `SIG`, `INS`, and now `CON` are all fully closed. `SEG` alone is
-still open — two of three uses earned, the third (`gap-011`) refused for
-lack of a second field. See `kernel/GOAL.md` for the falsifiable test all
-of this was earned against (`kernel/data/*.json`) rather than against prose
-alone.
+`NUL`, `SIG`, `INS`, and `CON` are fully closed. `SEG` and `SYN` are each
+open at the same place: two of three uses earned, the third refused for
+lack of a second instance to generalize (`gap-011`, `gap-020`). Four
+refusals of this exact shape now (`gap-002`, `gap-008`, `gap-011`,
+`gap-020`), across four different operators — see "The Pattern-grain
+count" below. See `kernel/GOAL.md` for the falsifiable test all of this was
+earned against (`kernel/data/*.json`) rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -127,14 +132,36 @@ they were refused because the specific material wasn't there yet, in each
 specific case. `CON*` closing clean is the predicted consequence of that
 being stated correctly, not an exception to it.
 
+## SYN closed its first two uses by resolving INS's deferral
+
+`turn-18` cultivates a field relating `turn-7`'s and `turn-14`'s distinct
+anchors; `turn-19` makes the actual derived whole — a third, minted entity
+(`kernel/data/anchor-004.json`, independently reverified) whose content is
+the relation between them, not a collapse of one into the other. `gap-020`
+attempts `SYN*` and is refused: one synthesis exists, generalizing needs a
+second, independent one.
+
+## The Pattern-grain count
+
+Four refusals now share the identical structural cause: `gap-002` (`NUL*`),
+`gap-008` (`INS*`), `gap-011` (`SEG*`), `gap-020` (`SYN*`) — every one
+because exactly one instance existed where the act needed two. `CON*`
+(`turn-17`) is the one Pattern-grain act that didn't need refusing, because
+its two instances happened to already exist from fixing `INS`. Four
+failures and one success, all explained by the same rule (recurrence must
+be real, not asserted) rather than by anything specific to an operator —
+which is the check this kernel keeps being able to run on itself.
+
 ## Next
 
-- `SYN` (Structure triad, third operator) is reachable now — and is
-  specifically where the two distinct `INS` anchors (`turn-7`'s direct
-  kind-anchor, `turn-14`'s composed one) were deferred to. SYN "produces a
-  derived whole not reducible to its components" — deciding whether and how
-  those two anchors relate is exactly that.
-- `gap-011` (`SEG*`) stays open; nothing yet proposes a second field. Worth
-  revisiting once `SYN` exists, in case synthesizing something produces one.
+- `DEF` — the Significance triad's first operator, reachable now: the
+  Existence and Structure triads (`NUL`→`SIG`→`INS`→`SEG`→`CON`→`SYN`) have
+  entities, signs, anchors, boundaries, and relations to establish values
+  about. DEF "establishes what holds within a stable interpretive frame" —
+  the workhorse value-setting operator, and the first one in this kernel
+  whose Pattern-grain use might legitimately need something DEF+ itself
+  produces, rather than material left over from elsewhere.
+- `gap-011` and `gap-020` stay open; nothing yet proposes the second
+  instances either needs.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.

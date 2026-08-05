@@ -1,0 +1,11 @@
+{
+  "content": {
+    "relates": [
+      "444b54f3c0bfb0371d605a7c0d57698df6f6dc895d2a2941cc550d6ae5546f0d",
+      "a1b3b873bc22f48073387ef56c61172c00b06332a179e453349766dbef2dfa2f"
+    ],
+    "claim": "both are valid identities for the index:16-of-32 absence kind; direct describes it from shared properties, composed arrives at it from its members; neither is derived from the other"
+  },
+  "algorithm": "sha256",
+  "anchor": "446a13f9444ded9bc17694d79aa23af37acd40d90f738aecfdbb787faf63b8ab"
+}

@@ -1,0 +1,27 @@
+# eoreader6.1 · kernel · turn 020 — REFUSED, not earned
+# Attempted act: SYN*  (Synthesis aimed at Pattern)   Stance: Composing   Site: Network
+#
+# SYN's third use would recognize turn-19's synthesis as a NETWORK-level
+# regularity — a way of relating divergent anchors that generalizes, not
+# one relation made once. That needs a second, independent pair of
+# divergent anchors to synthesize the same way. This kernel has exactly
+# one pair (turn-7, turn-14) and exactly one synthesis of them (turn-19).
+#
+# The fourth refusal of this exact shape in this kernel (after gap-002,
+# gap-008, gap-011), and worth counting rather than treating as routine:
+# every Pattern-grain (`*`) act attempted here has needed genuine
+# independent recurrence and failed cleanly without it, across four
+# different operators spanning both triads earned so far. That is the
+# Object/Time axis's own claim (Ground/Figure/Pattern, Peirce's triad,
+# Spencer-Brown's re-entrant forms) holding at every address tried, not a
+# property of any one operator.
+#
+# What would earn it: a second, independently-arising pair of anchors
+# describing related-but-distinct territory, synthesized the same way.
+# Nothing in this kernel currently proposes one.
+
+:gap-020  eot:opens        :turn-19 .
+:gap-020  eot:attempted    eot:SYN* .
+:gap-020  eot:refused      true .
+:gap-020  eot:reason       "insufficient_syntheses_to_generalize" .
+:gap-020  eot:witnessed    false .
