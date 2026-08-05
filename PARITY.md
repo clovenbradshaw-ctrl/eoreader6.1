@@ -122,15 +122,34 @@ reseed draws) has no analogue yet for the magnitude question, and `level()`
 — the actual growth-rule mechanism — has never been run for real anywhere
 in this kernel's operator ordering.
 
+## Closed: a self-contained, verified-identical native module
+
+`kernel/native.mjs` reimplements `eoreader6/nul/index.js`'s entire public
+API as a standalone module — no import across repos. Verified against the
+real module directly (`kernel/evidence/verify-native.mjs`), on real data,
+including the seeded RNG perturbations (`shuffle`/`resample`/`phase`) at
+multiple seeds: **37/37 checks bit-for-bit identical**, through the full
+`ground → pattern → level → witness → objectify → nexus` pipeline. `run.mjs`
+and `reader.mjs` now import from `native.mjs`, not `eoreader6`.
+
+This is the actual swap-in unlock: anything in `eoreader6` currently doing
+`import { ground, difference, ... } from "../../nul/index.js"` could import
+`native.mjs` instead and get identical behavior, verified rather than
+assumed. What it does *not* yet mean: `kernel/kernel.eot`'s 47 earned turns
+still used the simpler binary sign-checks and single-negative-control
+comparisons `native.mjs` now makes obsolete. Re-earning them against the
+calibrated mechanism is real, undone work — parity at the function level
+came first; parity in how this kernel's own history was built is next.
+
 ## What this means for "swap-in"
 
-Not close yet, and worth saying plainly: this kernel has earned a real,
-checked *shape* (ground/figure/pattern, witness, growth-rule refusal) but
-not yet the *calibration* that shape needs to behave like `eoreader6`'s on
-real material. The next honest step toward swap-in is not more operators —
-it's replacing the binary sign-checks this kernel has used throughout with
-an actual `PERTURBATIONS`-style null built from many draws, and an actual
-calibrated (not asserted) `moved` threshold. Everything built so far in
-`kernel/` would need to be re-earned against that mechanism, not assumed to
-survive the upgrade — the same discipline `gap-033` already applied to a
-smaller case (one kind's license not transferring to another).
+The calibration gap this file originally described is closed at the
+function level. What remains: (1) re-checking `kernel.eot`'s 47 turns
+against `native.mjs`'s calibrated mechanism rather than the ad-hoc checks
+that earned them originally: some may still hold, some may not, and that
+has to be checked, not assumed; (2) the wider engine beyond `nul/index.js`
+— `emergence/binding.js` and `emergence/activation.js` are tested (see
+`kernel/evidence/test-binding.mjs`, `test-activation.mjs`) but not yet
+reimplemented natively the way `nul/index.js` now is; (3) `frame`,
+`holon_level`, `verdict`, `provenance`, `cascade`, `formation`,
+`temporality` — untouched so far.

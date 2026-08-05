@@ -1,4 +1,4 @@
-import { PERTURBATIONS, difference, admissible, isGap, level, ground, burstiness } from "../../eoreader6/nul/index.js";
+import { PERTURBATIONS, difference, admissible, isGap, level, ground, burstiness } from "./native.mjs";
 
 const fingerprint = (m) =>
   `n${m.length}:${m.reduce((h, v) => (Math.imul(h ^ Math.round(v * 1e6), 16777619) | 0), 2166136261) >>> 0}`;

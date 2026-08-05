@@ -1,4 +1,4 @@
-import { ground, difference, reZero, isGap, windowMean } from "../../eoreader6/nul/index.js";
+import { ground, difference, reZero, isGap, windowMean } from "./native.mjs";
 
 const SPEC = { draws: 200, window: 4, perturbation: "shuffle", statistic: "windowMean" };
 

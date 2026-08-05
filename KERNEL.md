@@ -14,6 +14,15 @@ stays minimal and the explanation stays complete. `kernel/run.mjs` and
 in `ANNOTATIONS.md` too. `kernel/data/` holds committed test material;
 `kernel/evidence/` holds the scripts that validated the mechanism.
 
+**`kernel/native.mjs` is a self-contained, verified-identical reimplementation
+of `eoreader6/nul/index.js`'s entire public API** — every export, including
+the seeded RNG perturbations (`shuffle`/`resample`/`phase`), bit-for-bit
+identical on real data (`kernel/evidence/verify-native.mjs`: 37/37 checks
+pass). `run.mjs` and `reader.mjs` now import from `native.mjs`, not across
+repos — `eoreader6`'s repository is no longer needed for this kernel to
+run. This is the actual swap-in step: anything currently importing
+`nul/index.js` could import `native.mjs` instead.
+
 **The working kernel is `kernel/run.mjs` and `kernel/reader.mjs`.**
 `run.mjs`: `classify(series, index)` (absent/present/anomalous) and
 `compare(a, b)` (a real, fully-calibrated `level()` check), both on
