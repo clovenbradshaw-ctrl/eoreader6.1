@@ -37,12 +37,16 @@ reinvented).
 | `gap-011` | `SEG*` (attempted) | **refused** — one field, one partition; generalizing needs two | Unraveling / Network |
 | `turn-012` | `INS+` | earned (anchors `signal-a` individually) | Making / Entity |
 | `turn-013` | `INS+` | earned (anchors `signal-b` individually) | Making / Entity |
-| `turn-014` | `INS*` | **earned** — supersedes `gap-008` | Composing / Kind |
+| `turn-014` | `INS*` | earned — supersedes `gap-008` | Composing / Kind |
+| `turn-015` | `CON−` | earned | Tending / Field |
+| `turn-016` | `CON+` | earned (two independent bindings) | Binding / Link |
+| `turn-017` | `CON*` | **earned — first attempt, no refusal needed** | Tracing / Network |
 
-`NUL`, `SIG`, and now `INS` are all fully closed. `SEG` is open the same way
-`NUL` once was: two of three uses earned, the third refused for lack of a
-second field. See `kernel/GOAL.md` for the falsifiable test all of this was
-earned against (`kernel/data/*.json`) rather than against prose alone.
+`NUL`, `SIG`, `INS`, and now `CON` are all fully closed. `SEG` alone is
+still open — two of three uses earned, the third (`gap-011`) refused for
+lack of a second field. See `kernel/GOAL.md` for the falsifiable test all
+of this was earned against (`kernel/data/*.json`) rather than against prose
+alone.
 
 ## Why it stopped, then closed
 
@@ -106,14 +110,31 @@ second field to check the rule against. This is the third Pattern-grain
 without it (after `gap-002` and `gap-008`) — not bad luck, but Peirce's and
 Spencer-Brown's actual claim, checked three times rather than assumed once.
 
+## CON closed on the first attempt — and why that's not special pleading
+
+`turn-15` tends to `turn-10`'s field as relational; `turn-16` binds both of
+`INS*`'s individually-anchored entities (`turn-12`, `turn-13`) to the same
+side of the partition, independently; `turn-17` traces that the relationship
+holds consistently across both — and is earned immediately, the first
+Pattern-grain act in this kernel not to need a refuse-then-supersede cycle.
+
+The reason is not that `CON` is easier than `NUL`, `SIG`, `SEG`, or `INS`.
+It's that the two-instance material every one of those needed already
+existed by the time `CON` opened — `turn-12` and `turn-13` were earned for
+`INS*`'s sake, and `CON` inherited them for free. `gap-002`, `gap-008`, and
+`gap-011` weren't refused because Pattern-grain acts are hard in general;
+they were refused because the specific material wasn't there yet, in each
+specific case. `CON*` closing clean is the predicted consequence of that
+being stated correctly, not an exception to it.
+
 ## Next
 
-- `CON` (Structure triad, second operator) is now reachable with real
-  two-instance material for the first time without any construction:
-  `turn-12`'s and `turn-13`'s individual anchors, plus `turn-10`'s boundary,
-  give two genuine "entity belongs to a side of a partition" facts to
-  connect — which may finally make a Pattern-grain (`CON*`) act reachable
-  on the first attempt, rather than refused and superseded later.
-- `gap-011` (`SEG*`) stays open; nothing yet proposes a second field.
+- `SYN` (Structure triad, third operator) is reachable now — and is
+  specifically where the two distinct `INS` anchors (`turn-7`'s direct
+  kind-anchor, `turn-14`'s composed one) were deferred to. SYN "produces a
+  derived whole not reducible to its components" — deciding whether and how
+  those two anchors relate is exactly that.
+- `gap-011` (`SEG*`) stays open; nothing yet proposes a second field. Worth
+  revisiting once `SYN` exists, in case synthesizing something produces one.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.
