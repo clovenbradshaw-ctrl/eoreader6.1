@@ -104,6 +104,24 @@ richer calibration (rank, censoring, reseeding nulls) is still real and
 still unmatched here for the questions it *does* answer — but "does
 eoreader6 already solve stage two" is checked now, and the answer is no.
 
+## Closed, partially: a real calibrated pair now exists (turn-45)
+
+`kernel/evidence/maxdev-ground.mjs` builds a ground the way `eoreader6`
+actually does — `draws`-many perturbed trials, quantiles of a *statistic*
+— using their real, live-imported `PERTURBATIONS.resample`, and hands the
+result to their real `difference()`/`admissible()` unmodified, because it's
+built to their exact ground shape. The new statistic (max absolute
+deviation from the material's own median) is licensed the way Amendment I
+requires: checked directly against real data, not assumed. Result: both
+outliers censored above with `reZero: true`; the control censored below,
+correctly read as regularity rather than a hazard.
+
+This closes the *shape* gap for one statistic/perturbation pair. Still
+open: `pattern()`'s reseeding-null calibration (`mean + 3·std` over many
+reseed draws) has no analogue yet for the magnitude question, and `level()`
+— the actual growth-rule mechanism — has never been run for real anywhere
+in this kernel's operator ordering.
+
 ## What this means for "swap-in"
 
 Not close yet, and worth saying plainly: this kernel has earned a real,

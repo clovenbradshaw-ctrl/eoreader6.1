@@ -1,0 +1,47 @@
+# eoreader6.1 · kernel · turn 045
+# Act: EVA+  (Evaluation aimed at Figure)   Stance: Binding   Site: Lens
+#
+# Task #6's real deliverable: turn-40 witnessed the anomalous claims
+# against a single negative control's own IQR check. This turn witnesses
+# them again, more strongly, against an actually calibrated ground built
+# eoreader6's own way — draws=200 resample perturbations, quantiles of a
+# STATISTIC (not raw values), checked through eoreader6's real difference()
+# and admissible(), imported and run live (kernel/evidence/maxdev-ground.mjs),
+# never reimplemented or guessed at.
+#
+# The statistic — max absolute deviation from the material's own median —
+# is new (eoreader6's STATISTICS has none like it), licensed here by the
+# same discipline Amendment I requires: checked directly, not assumed.
+# kernel/evidence/check-real-ground-full.mjs already showed every one of
+# eoreader6's EXISTING pairs misses this kind of anomaly; this pair does
+# not, checked against all three committed series:
+#
+#   signal-c-outlier: deviation 96.99 -> exceeds_witness, ABOVE, reZero:true
+#   signal-d-outlier: deviation 63.95 -> exceeds_witness, ABOVE, reZero:true
+#   noise-control:    deviation  0.55 -> exceeds_witness, BELOW (no reZero)
+#
+# The direction split is the finding, not a detail: both outliers are
+# censored ABOVE (surfeit, per SEED.md #8 — the trigger REC's own turn-28
+# already named), and the control is censored BELOW (regularity per
+# Amendment II, explicitly NOT a hazard). A mechanism that couldn't tell
+# these apart by direction would not be witnessing anything; this one
+# does, on the first real calibrated check run against it.
+#
+# Earning argument: precondition is turn-41 (the anomalous kind already
+# earned by the simpler check) and a properly licensed pair to confirm it
+# against — supplied and run, not asserted. Refuted if the calibrated
+# check disagreed in direction with turn-32/34's IQR-based signs — checked,
+# it agrees and sharpens: both outliers land above, the control lands
+# below, exactly matching "anomalous" vs. "ordinary."
+
+:turn-45  eot:opens        :turn-44 .
+:turn-45  eot:act          eot:EVA+ .
+:turn-45  eot:stance       "Binding" .
+:turn-45  eot:site         "Lens" .
+:turn-45  eot:strengthens  :turn-40 .
+:turn-45  eot:mechanism    "kernel/evidence/maxdev-ground.mjs" .
+:turn-45  eot:evidence     "kernel/evidence/maxdev-ground-results.json" .
+:turn-45  eot:tests        [ eot:target "kernel/data/signal-c-outlier.json" ; eot:direction "above" ; eot:reZero true  ; eot:witnessed true ] .
+:turn-45  eot:tests        [ eot:target "kernel/data/signal-d-outlier.json" ; eot:direction "above" ; eot:reZero true  ; eot:witnessed true ] .
+:turn-45  eot:tests        [ eot:target "kernel/data/noise-control.json"    ; eot:direction "below" ; eot:reZero false ; eot:witnessed true ] .
+:turn-45  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "resample" ] .

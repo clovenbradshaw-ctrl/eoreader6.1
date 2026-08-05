@@ -68,7 +68,8 @@ reinvented).
 | `turn-041` | `EVA*` | earned, anomalous kind — clean, first attempt | Tracing / Paradigm |
 | `turn-042` | `SEG−` | earned (a second, independent field) | Clearing / Field |
 | `turn-043` | `SEG+` | earned (the anomalous kind's own boundary) | Dissecting / Link |
-| `turn-044` | `SEG*` | **earned — supersedes `gap-011`, generalizes across kinds** | Unraveling / Network |
+| `turn-044` | `SEG*` | earned — supersedes `gap-011`, generalizes across kinds | Unraveling / Network |
+| `turn-045` | `EVA+` | **earned — real calibrated ground, eoreader6's own `difference()`, run live** | Binding / Lens |
 
 **All nine operators have now been reached.** `NUL`, `SIG`, `INS`, `CON`,
 `DEF`, and `EVA` are fully closed for the sign-kinds attempted on them.
@@ -300,6 +301,19 @@ control — holds across two kinds with no mechanism and almost no members in
 common. That's a genuinely Network-grain claim, the first turn in this
 kernel actually earned at that grain rather than at Kind-grain wearing a
 bigger name. Supersedes `gap-011`.
+
+## A real calibrated mechanism, not just a plan (task #6)
+
+`turn-45` closes the gap `PARITY.md` named: not by reimplementing
+`eoreader6`'s `ground()`, but by importing and running its real
+`difference()`/`admissible()` live against a properly-constructed ground —
+draws=200 `resample` perturbations, quantiles of a new statistic (max
+absolute deviation from the material's own median), licensed by checking
+it directly rather than assuming it (`kernel/evidence/maxdev-ground.mjs`).
+Both outliers land `exceeds_witness`/above with `reZero: true`; the control
+lands `exceeds_witness`/below — correctly regularity, not a hazard,
+per Amendment II. This is the same direction split `eoreader6`'s own
+kernel makes everywhere else, now actually running, not asserted.
 
 ## What's actually open
 
