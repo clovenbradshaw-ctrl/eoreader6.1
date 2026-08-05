@@ -1,0 +1,28 @@
+# eoreader6.1 · kernel · turn 024
+# Act: EVA−  (Evaluation aimed at Ground)   Stance: Tending   Site: Atmosphere
+#
+# The Significance triad's second operator, first use. DEF "establishes
+# what holds"; EVA "renders judgment by testing a particular against a
+# general" (EO Event Streaming §3) — and, per eoreader6's own nul/index.js
+# doctrine this kernel is rebuilding, EVA is specifically the WITNESS gate:
+# "it will not speak without independent corroborating evidence." A claim
+# that only confirms itself is not yet witnessed, however consistent.
+#
+# EVA− tends to the atmosphere of judgment: recognizing that turn-23's
+# claim ("signal, not noise," traced consistent across two entities) is
+# now a candidate FOR witnessing — not yet witnessed, which is EVA+'s job,
+# next.
+#
+# Earning argument: precondition is turn-23 (a claim that exists to be
+# tested) and the general it will be tested against, named here rather
+# than invented at EVA+: kernel/data/noise-control.json, the same negative
+# control every earlier operator's Pattern-grain use has relied on without
+# yet asking it to do EVA's specific job — corroborate independently.
+
+:turn-24  eot:opens        :turn-23 .
+:turn-24  eot:act          eot:EVA- .
+:turn-24  eot:stance       "Tending" .
+:turn-24  eot:site         "Atmosphere" .
+:turn-24  eot:candidate    :turn-23 .
+:turn-24  eot:general      "kernel/data/noise-control.json" .
+:turn-24  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

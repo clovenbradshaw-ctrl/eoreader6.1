@@ -47,15 +47,17 @@ reinvented).
 
 | `turn-021` | `DEF−` | earned | Clearing / Atmosphere |
 | `turn-022` | `DEF+` | earned (two independent value-claims) | Dissecting / Lens |
-| `turn-023` | `DEF*` | **earned — second Pattern-grain act closed clean** | Unraveling / Paradigm |
+| `turn-023` | `DEF*` | earned — second Pattern-grain act closed clean | Unraveling / Paradigm |
+| `turn-024` | `EVA−` | earned | Tending / Atmosphere |
+| `turn-025` | `EVA+` | earned (witnesses `turn-23`'s whole claim) | Binding / Lens |
+| `turn-026` | `EVA+` | earned (witnesses `turn-22`'s two claims separately) | Binding / Lens |
+| `turn-027` | `EVA*` | **earned — third Pattern-grain act closed clean** | Tracing / Paradigm |
 
-`NUL`, `SIG`, `INS`, `CON`, and now `DEF` are fully closed. `SEG` and `SYN`
-are each open at the same place: two of three uses earned, the third
+`NUL`, `SIG`, `INS`, `CON`, `DEF`, and now `EVA` are fully closed. `SEG` and
+`SYN` are each open at the same place: two of three uses earned, the third
 refused for lack of a second instance to generalize (`gap-011`, `gap-020`).
-`DEF` is the first Significance-domain operator closed — the pivot from
-structural fact to interpretation. See `kernel/GOAL.md` for the falsifiable
-test all of this was earned against (`kernel/data/*.json`) rather than
-against prose alone.
+See `kernel/GOAL.md` for the falsifiable test all of this was earned
+against (`kernel/data/*.json`) rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -175,14 +177,38 @@ text says so directly — but it is the first operator whose entire domain is
 meaning rather than structure, and it closed against real, checked material
 rather than argument alone.
 
+## EVA closed as the witness gate, not as a chooser between anchors
+
+The open question `SYN` left — what `turn-7`'s and `turn-14`'s two distinct
+anchors are to each other — turned out not to be EVA's job after all.
+Nothing in this kernel ever proposed they compete, and EVA's own
+definition ("not resolved, not reduced, held under evaluation") argues
+against forcing a choice where none was asked for. Choosing between
+genuinely competing claims is EVA's job when a real conflict exists; this
+kernel doesn't have one yet.
+
+What EVA actually did: `turn-24` names `turn-23`'s claim as a candidate and
+`kernel/data/noise-control.json` as the general to test it against.
+`turn-25` witnesses the claim as a whole; `turn-26` witnesses `turn-12`'s
+and `turn-13`'s underlying claims separately — checked directly against the
+control (value -0.46, `sign_at_site_role: "present"`, nothing planted) —
+so `turn-27` (`EVA*`) has two independent witness instances and closes
+clean, the third Pattern-grain act in this kernel not needing a
+refuse-then-supersede cycle. Running count: six Pattern-grain attempts,
+four refused for genuine absence of recurrence, three closed clean because
+recurrence was already on hand.
+
 ## Next
 
-- `EVA` — the Significance triad's second operator. Renders judgment by
-  testing a particular against a general; specifically, this kernel now has
-  an actual open question for it to judge: `turn-7`'s and `turn-14`'s two
-  distinct, un-collapsed anchors (`turn-19`'s synthesis relates them but
-  does not decide between them) are exactly the kind of competing claim
-  EVA exists for.
+- `REC` — the Significance triad's third and final operator, and the last
+  one before the Existence/Structure/Significance grid has an example in
+  every domain. REC "transforms the interpretive frame itself" — a real
+  candidate exists: reframing what "signal, not noise" even means once a
+  member outside the two currently anchored is encountered.
+- The genuinely open question `EVA` left alone — what `turn-7`'s direct
+  kind-anchor and `turn-14`'s composed one are to each other, if not
+  competitors — stays open. Not every deferred question has to resolve;
+  this one may simply not be a conflict.
 - `gap-011` and `gap-020` stay open; nothing yet proposes the second
   instances either needs.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
