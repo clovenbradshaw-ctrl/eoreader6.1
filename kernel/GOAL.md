@@ -4,6 +4,9 @@ A north-star test for this kernel, stated so it can fail. Everything earned
 in `kernel/` should be measured against whether it moves toward this, not
 against whether it sounds right in prose.
 
+All turns and gaps referenced below (`turn-N`/`gap-N`) live as acts inside
+the single file `kernel/kernel.eot`, not as separate files — see `KERNEL.md`.
+
 ## The test
 
 Three committed series, generated once and never regenerated at runtime
