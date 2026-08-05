@@ -1,0 +1,26 @@
+# eoreader6.1 · kernel · turn 000
+# Act: NUL−  (Void aimed at Ground)   Stance: Clearing   Site: Void
+#
+# The one operation, first use: a ground is constructed, not received.
+# This is Peirce's Firstness — quality prior to any distinction — made
+# operational: not "nothing exists" but "a nothing has now been built,
+# against which a difference could register." Nothing is claimed yet.
+#
+# Earning argument: this is the cell eoreader6's CUBE.md names as the
+# foundational one — Differentiate · Existence · Ground, its E. coli
+# exemplar (perfect adaptation: re-zeroing the receptor baseline
+# continuously, since it cannot sense a gradient directly). It has no
+# predecessor to be earned against. Per SEED.md Amendment IX's
+# discipline, this turn does not claim a firstness it wasn't given —
+# it opens :own because nothing precedes it, and says so.
+#
+# Refuted if: any later turn is shown not to depend on a ground having
+# been cleared first — i.e. if some act could occur with no ground at
+# all. Nothing in this kernel claims that; every subsequent act reads
+# against a ground this turn or a descendant of it produced.
+
+:turn-0  eot:opens        :own .
+:turn-0  eot:act          eot:NUL- .
+:turn-0  eot:stance       "Clearing" .
+:turn-0  eot:site         "Void" .
+:turn-0  eot:closes       [ eot:aperture 0.0 ; eot:perturbation "none" ] .
