@@ -22,6 +22,18 @@ processes a stream window by window, keeping a live ground, re-zeroing on
 surfeit. Tested on a numeric stream with a genuine regime shift it had
 never seen, and on real text.
 
+**Activation and the arrow of time** (`kernel/evidence/test-activation.mjs`):
+`eoreader6`'s real `emergence/activation.js` (Hebbian associative memory,
+recall-then-encode, incremental idf) run against the full Odyssey. Its own
+causality invariant — reading the first *k* frames must produce identical
+records to reading the whole document and taking the first *k* — verified
+directly: true, no divergence anywhere in the first 400 frames checked.
+Activation itself builds up exactly as a left-to-right memory should:
+lowest early (nothing yet to recall against), peaking in the final third —
+Books 19-24, the recognition and reunion sequences, which are the actual
+narrative content most full of callbacks to earlier events. Not asserted;
+measured.
+
 **On real text** (`kernel/evidence/read-odyssey.mjs`): the actual Odyssey
 text, run through `eoreader6`'s own text perceiver (`perceiver/text/
 material.js`'s `causalSurprisalSeries`, live) into a real surprisal series,
