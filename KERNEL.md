@@ -45,13 +45,17 @@ reinvented).
 | `turn-019` | `SYN+` | earned (relates `turn-7` and `turn-14` without collapsing either) | Making / Link |
 | `gap-020` | `SYN*` (attempted) | **refused** — one synthesis exists; generalizing needs two | Composing / Network |
 
-`NUL`, `SIG`, `INS`, and `CON` are fully closed. `SEG` and `SYN` are each
-open at the same place: two of three uses earned, the third refused for
-lack of a second instance to generalize (`gap-011`, `gap-020`). Four
-refusals of this exact shape now (`gap-002`, `gap-008`, `gap-011`,
-`gap-020`), across four different operators — see "The Pattern-grain
-count" below. See `kernel/GOAL.md` for the falsifiable test all of this was
-earned against (`kernel/data/*.json`) rather than against prose alone.
+| `turn-021` | `DEF−` | earned | Clearing / Atmosphere |
+| `turn-022` | `DEF+` | earned (two independent value-claims) | Dissecting / Lens |
+| `turn-023` | `DEF*` | **earned — second Pattern-grain act closed clean** | Unraveling / Paradigm |
+
+`NUL`, `SIG`, `INS`, `CON`, and now `DEF` are fully closed. `SEG` and `SYN`
+are each open at the same place: two of three uses earned, the third
+refused for lack of a second instance to generalize (`gap-011`, `gap-020`).
+`DEF` is the first Significance-domain operator closed — the pivot from
+structural fact to interpretation. See `kernel/GOAL.md` for the falsifiable
+test all of this was earned against (`kernel/data/*.json`) rather than
+against prose alone.
 
 ## Why it stopped, then closed
 
@@ -152,15 +156,33 @@ failures and one success, all explained by the same rule (recurrence must
 be real, not asserted) rather than by anything specific to an operator —
 which is the check this kernel keeps being able to run on itself.
 
+## DEF closed clean, the same way CON did
+
+`turn-21` clears the interpretive atmosphere, naming the frame GOAL.md
+already set up ("signal, not noise"). `turn-22` makes two independent value
+claims — not one claim about the kind, but one about each of `turn-12`'s
+and `turn-13`'s already-anchored entities separately, learning from turn-7's
+premature kind-level anchor rather than repeating it. `turn-23` traces
+consistency across both and closes immediately — the second Pattern-grain
+act in this kernel not needing a refuse-then-supersede cycle, for the same
+reason `CON*` didn't: the two-instance material was already on hand.
+
+This is the pivot `GOAL.md` was written toward: the kernel has now moved
+from structural fact (something recurs, is named, is anchored, is bounded,
+is related, is composed) to interpretation (that recurrence IS signal,
+consistently, not asserted once). It is not yet reading — `turn-23`'s own
+text says so directly — but it is the first operator whose entire domain is
+meaning rather than structure, and it closed against real, checked material
+rather than argument alone.
+
 ## Next
 
-- `DEF` — the Significance triad's first operator, reachable now: the
-  Existence and Structure triads (`NUL`→`SIG`→`INS`→`SEG`→`CON`→`SYN`) have
-  entities, signs, anchors, boundaries, and relations to establish values
-  about. DEF "establishes what holds within a stable interpretive frame" —
-  the workhorse value-setting operator, and the first one in this kernel
-  whose Pattern-grain use might legitimately need something DEF+ itself
-  produces, rather than material left over from elsewhere.
+- `EVA` — the Significance triad's second operator. Renders judgment by
+  testing a particular against a general; specifically, this kernel now has
+  an actual open question for it to judge: `turn-7`'s and `turn-14`'s two
+  distinct, un-collapsed anchors (`turn-19`'s synthesis relates them but
+  does not decide between them) are exactly the kind of competing claim
+  EVA exists for.
 - `gap-011` and `gap-020` stay open; nothing yet proposes the second
   instances either needs.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
