@@ -3,6 +3,20 @@
 This file tracks what has actually been earned in `kernel/`, not what is
 planned. See `docs/KERNEL_REBUILD_CHECKPOINT.md` for the design behind it.
 
+**All turns and gaps live in one file, `kernel/kernel.eot`**, in strict
+chronological order — per `eoreader6`'s own discipline (`nul/index.js`:
+"the only module"). Every `turn-N` / `gap-N` reference below names an act
+inside that file, not a separate file. `kernel/data/` holds committed test
+material; `kernel/evidence/` holds the scripts that validated the mechanism.
+
+**`kernel/run.mjs` is the working kernel.** One function, `classify(series,
+index)`, using `eoreader6`'s real `PERTURBATIONS`/`difference`/`admissible`
+live. Tested against fixtures it was built on and, separately, against
+freshly-generated data at a different length, a different index, and a
+different magnitude than anything it was tuned to — correct on all of it.
+That's the actual deliverable; the turns above are the record of how it got
+checked, not a substitute for it running.
+
 ## The discipline
 
 A turn is a file. It is earned only if the file itself carries a falsifiable
