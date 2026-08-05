@@ -1,0 +1,72 @@
+{
+  "gap+isGap": {
+    "isGap": true,
+    "typesCount": 28
+  },
+  "shuffle preserves length": true,
+  "resample preserves length": true,
+  "phase preserves length": true,
+  "burstiness": 8759573.020736773,
+  "windowMean": 5654412.407599176,
+  "permutationEntropy": 0.8846253386999721,
+  "irreversibility": 0.25937292331187267,
+  "licensed(burstiness,shuffle)": true,
+  "licensed(burstiness,phase)": false,
+  "preserves(phase,spectrum)": true,
+  "ground admissible": true,
+  "cites(own, early)": true,
+  "cites(own, wrong material)": false,
+  "extremeGround n=1 matches ground()": true,
+  "extremeGround n=5 support": [
+    8468102.27090711,
+    8840781.036109794
+  ],
+  "received admissible": true,
+  "received without provenance gaps": true,
+  "keep sets kept:true": true,
+  "anchor sets anchor:true": true,
+  "reZero admissible, tagged via:reZero": true,
+  "volume(own)": 142917.8361068815,
+  "tailSpan(own)": 341954.0769976955,
+  "difference on own material's own statistic": {
+    "observed": 8759573.020736773,
+    "support": [
+      8315508.747203448,
+      8830161.26490584
+    ],
+    "rank": 0.015,
+    "volume": 142917.8361068815
+  },
+  "pattern(before,after)": {
+    "moved": true,
+    "displacement": 161058.97488982044,
+    "opened": null
+  },
+  "level(observed,before,after)": {
+    "relationship": "above",
+    "displacement": 0.245
+  },
+  "disagreement": {
+    "n": 2,
+    "censored": 1,
+    "split": true,
+    "spread": null
+  },
+  "witness with mismatched figure (expect gap)": "exceeds_witness",
+  "witness with valid figure + moved pattern (expect success)": "SUCCEEDED",
+  "objectify(successful witness)": {
+    "value": 2.021864947508757,
+    "rank": 0.015,
+    "opened": null,
+    "provenance": "n60:3152210864"
+  },
+  "nexus([witnessOk])": {
+    "material": [
+      2.021864947508757
+    ],
+    "givers": [
+      "n60:3152210864"
+    ],
+    "n": 1
+  }
+}

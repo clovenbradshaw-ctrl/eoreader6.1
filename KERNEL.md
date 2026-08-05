@@ -9,13 +9,26 @@ chronological order — per `eoreader6`'s own discipline (`nul/index.js`:
 inside that file, not a separate file. `kernel/data/` holds committed test
 material; `kernel/evidence/` holds the scripts that validated the mechanism.
 
-**`kernel/run.mjs` is the working kernel.** One function, `classify(series,
-index)`, using `eoreader6`'s real `PERTURBATIONS`/`difference`/`admissible`
-live. Tested against fixtures it was built on and, separately, against
-freshly-generated data at a different length, a different index, and a
-different magnitude than anything it was tuned to — correct on all of it.
-That's the actual deliverable; the turns above are the record of how it got
-checked, not a substitute for it running.
+**The working kernel is `kernel/run.mjs` and `kernel/reader.mjs`.**
+`run.mjs`: `classify(series, index)` (absent/present/anomalous) and
+`compare(a, b)` (a real, fully-calibrated `level()` check), both on
+`eoreader6`'s live code. `reader.mjs`: a stateful sequential reader —
+processes a stream window by window, keeping a live ground, re-zeroing on
+surfeit. Tested on a numeric stream with a genuine regime shift it had
+never seen, and on real text.
+
+**On real text** (`kernel/evidence/read-odyssey.mjs`): the actual Odyssey
+text, run through `eoreader6`'s own text perceiver (`perceiver/text/
+material.js`'s `causalSurprisalSeries`, live) into a real surprisal series,
+then through the same reader mechanism above — no numbers invented, no
+boundaries given. Result: re-zeros cluster near real Book boundaries early
+on, and a dense cluster appears at chunk ~2020 that isn't noise — it's the
+real transition from the narrative's end (Book XXIV, confirmed by reading
+the actual text at that chunk) into Butler's scholarly endnotes (dense with
+citations like "Il. xviii. 349"). The kernel found a real structural
+boundary it was never told to look for. This is the actual deliverable —
+the turns above are the record of how the mechanism got checked, not a
+substitute for it running.
 
 ## The discipline
 

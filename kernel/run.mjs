@@ -1,7 +1,7 @@
 // The working kernel entry point. Given material and a candidate index,
 // classifies it: absent, or present-and-{anomalous,ordinary}. Uses
 // eoreader6's real PERTURBATIONS/difference/admissible, live.
-import { PERTURBATIONS, difference, admissible, isGap } from "../../eoreader6/nul/index.js";
+import { PERTURBATIONS, difference, admissible, isGap, level, ground, burstiness } from "../../eoreader6/nul/index.js";
 
 const fingerprint = (m) =>
   `n${m.length}:${m.reduce((h, v) => (Math.imul(h ^ Math.round(v * 1e6), 16777619) | 0), 2166136261) >>> 0}`;
@@ -50,6 +50,25 @@ export function classify(series, index) {
     return { site: index, sign: "present", magnitude: d.direction === "above" ? "anomalous" : "ordinary", deviation, rank: null, gap: d.gap, direction: d.direction, reZero: d.reZero ?? false };
   }
   return { site: index, sign: "present", magnitude: "ordinary", deviation, rank: d.rank };
+}
+
+/**
+ * Is series A's own burstiness "above", "below", or "peer" relative to
+ * series B's ground? Fully calibrated, via eoreader6's real ground()
+ * (registered statistic, so reZero()'s internal reconstruction works) and
+ * real level() (reseeding null, mean+3*std over `reseeds` draws) - not the
+ * resolution-floor-only path.
+ */
+export function compare(seriesA, seriesB, { draws = 200, window = 4, reseeds = 12, seed = 7 } = {}) {
+  const groundA = ground({ material: seriesA, draws, window, perturbation: "shuffle", statistic: "burstiness", seed });
+  const groundB = ground({ material: seriesB, draws, window, perturbation: "shuffle", statistic: "burstiness", seed: seed + 1000 });
+  if (isGap(groundA)) return groundA;
+  if (isGap(groundB)) return groundB;
+
+  const observed = burstiness(seriesA, { window });
+  const result = level(observed, groundA, groundB, { material: seriesA, reseeds });
+  if (isGap(result)) return result;
+  return { relationship: result.relationship, displacement: result.displacement, threshold: result.threshold, rank: result.rank, cross: result.cross };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
