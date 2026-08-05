@@ -9,13 +9,17 @@ chronological order — per `eoreader6`'s own discipline (`nul/index.js`:
 inside that file, not a separate file. `kernel/data/` holds committed test
 material; `kernel/evidence/` holds the scripts that validated the mechanism.
 
-**`kernel/run.mjs` is the working kernel.** One function, `classify(series,
-index)`, using `eoreader6`'s real `PERTURBATIONS`/`difference`/`admissible`
-live. Tested against fixtures it was built on and, separately, against
-freshly-generated data at a different length, a different index, and a
-different magnitude than anything it was tuned to — correct on all of it.
-That's the actual deliverable; the turns above are the record of how it got
-checked, not a substitute for it running.
+**The working kernel is `kernel/run.mjs` and `kernel/reader.mjs`.**
+`run.mjs`: `classify(series, index)` (absent/present/anomalous) and
+`compare(a, b)` (a real, fully-calibrated `level()` check), both on
+`eoreader6`'s live code. `reader.mjs`: a stateful sequential reader —
+processes a stream window by window, keeping a live ground, re-zeroing on
+surfeit. Tested on a stream with a genuine regime shift it had never seen:
+3 quiet windows placed normally, the shift correctly triggers surfeit and
+3 successive re-zeros while the ground catches up, then the next window
+settles back to "placed." That's the actual deliverable — the turns above
+are the record of how the mechanism got checked, not a substitute for it
+running.
 
 ## The discipline
 
