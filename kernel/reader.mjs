@@ -1,7 +1,3 @@
-// A sequential reader: processes a stream one WINDOW at a time (matching
-// what the ground's statistic actually measures - windowMean, not a raw
-// value), keeping a live ground, re-zeroing on surfeit. eoreader6's real
-// ground()/difference()/reZero(), used live throughout.
 import { ground, difference, reZero, isGap, windowMean } from "../../eoreader6/nul/index.js";
 
 const SPEC = { draws: 200, window: 4, perturbation: "shuffle", statistic: "windowMean" };
@@ -17,7 +13,6 @@ export function makeReader({ received, seed = 0 } = {}) {
   let buffer = [];
 
   return {
-    /** Feed one raw value. Returns null until a full window has accumulated, then a verdict. */
     read(value) {
       material = [...material, value];
       buffer.push(value);

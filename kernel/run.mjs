@@ -1,6 +1,3 @@
-// The working kernel entry point. Given material and a candidate index,
-// classifies it: absent, or present-and-{anomalous,ordinary}. Uses
-// eoreader6's real PERTURBATIONS/difference/admissible, live.
 import { PERTURBATIONS, difference, admissible, isGap, level, ground, burstiness } from "../../eoreader6/nul/index.js";
 
 const fingerprint = (m) =>
@@ -32,7 +29,6 @@ function magnitudeGround(material, draws = 200, seed = 11) {
   });
 }
 
-/** Classify one candidate site in a series. Never conditions the ground on the candidate itself. */
 export function classify(series, index) {
   const candidate = series[index];
   if (candidate === null || candidate === undefined) return { site: index, sign: "absent" };
@@ -52,13 +48,6 @@ export function classify(series, index) {
   return { site: index, sign: "present", magnitude: "ordinary", deviation, rank: d.rank };
 }
 
-/**
- * Is series A's own burstiness "above", "below", or "peer" relative to
- * series B's ground? Fully calibrated, via eoreader6's real ground()
- * (registered statistic, so reZero()'s internal reconstruction works) and
- * real level() (reseeding null, mean+3*std over `reseeds` draws) - not the
- * resolution-floor-only path.
- */
 export function compare(seriesA, seriesB, { draws = 200, window = 4, reseeds = 12, seed = 7 } = {}) {
   const groundA = ground({ material: seriesA, draws, window, perturbation: "shuffle", statistic: "burstiness", seed });
   const groundB = ground({ material: seriesB, draws, window, perturbation: "shuffle", statistic: "burstiness", seed: seed + 1000 });
