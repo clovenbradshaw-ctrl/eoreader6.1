@@ -5,9 +5,14 @@ planned. See `docs/KERNEL_REBUILD_CHECKPOINT.md` for the design behind it.
 
 **All turns and gaps live in one file, `kernel/kernel.eot`**, in strict
 chronological order — per `eoreader6`'s own discipline (`nul/index.js`:
-"the only module"). Every `turn-N` / `gap-N` reference below names an act
-inside that file, not a separate file. `kernel/data/` holds committed test
-material; `kernel/evidence/` holds the scripts that validated the mechanism.
+"the only module"). The kernel file itself is pure notation: no comments,
+no prose, just the triples. Every reason, earning argument, and refutation
+condition lives in `kernel/ANNOTATIONS.md`, indexed by the same subject
+(`turn-N`/`gap-N`) — extracted out rather than interleaved, so the kernel
+stays minimal and the explanation stays complete. `kernel/run.mjs` and
+`kernel/reader.mjs` are comment-free the same way; their explanations are
+in `ANNOTATIONS.md` too. `kernel/data/` holds committed test material;
+`kernel/evidence/` holds the scripts that validated the mechanism.
 
 **The working kernel is `kernel/run.mjs` and `kernel/reader.mjs`.**
 `run.mjs`: `classify(series, index)` (absent/present/anomalous) and
