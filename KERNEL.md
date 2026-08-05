@@ -25,11 +25,15 @@ reinvented).
 | `turn-000` | `NUL−` | earned | Clearing / Void |
 | `turn-001` | `NUL+` | earned | Dissecting / Entity |
 | `gap-002` | `NUL*` (attempted) | refused, superseded — insufficient recurrence at the time | Unraveling / Kind |
-| `turn-002` | `NUL*` | **earned** — supersedes `gap-002` | Unraveling / Kind |
+| `turn-002` | `NUL*` | earned — supersedes `gap-002` | Unraveling / Kind |
+| `turn-003` | `SIG−` | earned | Tending / Void |
+| `turn-004` | `SIG+` | earned | Binding / Entity |
+| `turn-005` | `SIG*` | **earned** | Tracing / Kind |
 
-`NUL`'s cycle is closed. See `kernel/GOAL.md` for the falsifiable test this
-was earned against (`kernel/data/signal-a.json`, `signal-b.json`,
-`noise-control.json`) rather than against prose alone.
+`NUL`'s and `SIG`'s cycles are both closed. See `kernel/GOAL.md` for the
+falsifiable test these were earned against (`kernel/data/signal-a.json`,
+`signal-b.json`, `noise-control.json`, now also carrying a mechanically
+derived `sign_at_site_role` field) rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -48,13 +52,23 @@ site-role, different seeds) plus a negative control that correctly turns up
 nothing (`noise-control`). The gap wasn't wrong when it was written — the
 material that would have refuted the refusal didn't exist yet.
 
+## What SIG added that NUL couldn't
+
+NUL* (turn-2) verified a fact: the same kind of absence recurs. SIG* (turn-5)
+verified a different, further thing: the same NAME for that fact — "absent"
+— holds across every member of the kind, and a different name holds in the
+negative control. That's what "matters, not just is true" cashes out to at
+this grain: a sign earned across independent instances, not one binding
+taken on faith. Turn-4 recorded a wrong draft binding and its correction in
+the open, on purpose — the check is only real if a wrong answer was possible.
+
 ## Next
 
-- `SIG` becomes reachable now — the Existence triad's next operator,
-  dependency-satisfied by `NUL` having made the space and closed its own
-  cycle for real, not just claimed.
-- Extend `GOAL.md`'s test to `SIG`: registering that one of the two recurring
-  absences *matters* (a signal, not just a fact) is a different claim than
-  finding it at all, and needs its own falsifiable check.
+- `INS` becomes reachable now — the Existence triad's third operator,
+  dependency-satisfied by `SIG` having produced a stable sign to instantiate
+  against. INS mints an anchor: content-addressed, immutable, frame-
+  independent — a different kind of identity than SIG's mutable sign.
+- Closing `INS`'s cycle finishes the Existence triad entirely, which is the
+  precondition the Structure triad (SEG/CON/SYN) depends on next.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.
