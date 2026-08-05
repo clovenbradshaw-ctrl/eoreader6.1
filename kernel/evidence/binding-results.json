@@ -1,0 +1,161 @@
+{
+  "entityCounts": {
+    "ulysses": 655,
+    "telemachus": 282,
+    "penelope": 117,
+    "minerva": 156,
+    "eumaeus": 83,
+    "suitors": 252,
+    "antinous": 59,
+    "eurycleia": 0
+  },
+  "links": [
+    {
+      "a": "ulysses",
+      "b": "telemachus",
+      "direction": null,
+      "polarity": null,
+      "strength": 0.000014444912533252002
+    },
+    {
+      "a": "ulysses",
+      "b": "penelope",
+      "direction": null,
+      "polarity": null,
+      "strength": 6.444177127261732e-9
+    },
+    {
+      "a": "ulysses",
+      "b": "minerva",
+      "direction": null,
+      "polarity": null,
+      "strength": 9.890089627677298e-9
+    },
+    {
+      "a": "ulysses",
+      "b": "eumaeus",
+      "direction": null,
+      "polarity": null,
+      "strength": 0.00000133334147537941
+    },
+    {
+      "a": "ulysses",
+      "b": "suitors",
+      "direction": null,
+      "polarity": null,
+      "strength": 0.000006665268512822035
+    },
+    {
+      "a": "ulysses",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 2.5203630947264923e-9
+    },
+    {
+      "a": "telemachus",
+      "b": "penelope",
+      "direction": null,
+      "polarity": null,
+      "strength": 0.000004198303450386668
+    },
+    {
+      "a": "telemachus",
+      "b": "minerva",
+      "direction": null,
+      "polarity": null,
+      "strength": 2.4657935956471653e-8
+    },
+    {
+      "a": "telemachus",
+      "b": "eumaeus",
+      "direction": "a→b",
+      "polarity": "+",
+      "strength": 0.000008103600132556641
+    },
+    {
+      "a": "telemachus",
+      "b": "suitors",
+      "direction": null,
+      "polarity": null,
+      "strength": 0.0000067701436050700686
+    },
+    {
+      "a": "telemachus",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 8.798333392472307e-9
+    },
+    {
+      "a": "penelope",
+      "b": "minerva",
+      "direction": null,
+      "polarity": null,
+      "strength": 2.3112213193707098e-10
+    },
+    {
+      "a": "penelope",
+      "b": "eumaeus",
+      "direction": null,
+      "polarity": null,
+      "strength": 1.001327469605397e-8
+    },
+    {
+      "a": "penelope",
+      "b": "suitors",
+      "direction": null,
+      "polarity": null,
+      "strength": 1.2936389557041992e-9
+    },
+    {
+      "a": "penelope",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 1.2986787605000222e-10
+    },
+    {
+      "a": "minerva",
+      "b": "eumaeus",
+      "direction": null,
+      "polarity": null,
+      "strength": 1.351696650045786e-8
+    },
+    {
+      "a": "minerva",
+      "b": "suitors",
+      "direction": null,
+      "polarity": null,
+      "strength": 1.2270508067626296e-9
+    },
+    {
+      "a": "minerva",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 2.897058970260493e-10
+    },
+    {
+      "a": "eumaeus",
+      "b": "suitors",
+      "direction": null,
+      "polarity": null,
+      "strength": 2.2495812529227507e-8
+    },
+    {
+      "a": "eumaeus",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 4.95619022654093e-9
+    },
+    {
+      "a": "suitors",
+      "b": "antinous",
+      "direction": null,
+      "polarity": null,
+      "strength": 9.320628456913641e-10
+    }
+  ]
+}
