@@ -24,9 +24,14 @@ reinvented).
 |---|---|---|---|
 | `turn-000` | `NUL−` | earned | Clearing / Void |
 | `turn-001` | `NUL+` | earned | Dissecting / Entity |
-| `gap-002` | `NUL*` (attempted) | **refused** — insufficient recurrence | Unraveling / Kind |
+| `gap-002` | `NUL*` (attempted) | refused, superseded — insufficient recurrence at the time | Unraveling / Kind |
+| `turn-002` | `NUL*` | **earned** — supersedes `gap-002` | Unraveling / Kind |
 
-## Why it stopped where it did
+`NUL`'s cycle is closed. See `kernel/GOAL.md` for the falsifiable test this
+was earned against (`kernel/data/signal-a.json`, `signal-b.json`,
+`noise-control.json`) rather than against prose alone.
+
+## Why it stopped, then closed
 
 `turn-000` and `turn-001` complete the first two of NUL's three uses: clearing
 a ground, then reading one specific figure against it. The third use —
@@ -37,15 +42,19 @@ prior occurrence to re-enter on: it fails, because a single crossing never
 oscillates (Spencer-Brown) and a rule cannot be asserted from a sample of one
 (`eoreader6`'s confabulation gate, ported by discipline rather than by import).
 
-This is the correct state for the kernel to be in right now. `NUL*` stays a
-gap until a second, independent absence at a comparable target exists to test
-recurrence against — not until someone decides to write it differently.
+`turn-002` is what happens once a second, independently generated occurrence
+of the same kind of absence exists (`GOAL.md`'s `signal-a`/`signal-b`, same
+site-role, different seeds) plus a negative control that correctly turns up
+nothing (`noise-control`). The gap wasn't wrong when it was written — the
+material that would have refuted the refusal didn't exist yet.
 
 ## Next
 
-- A second target for `NUL+` (a structurally comparable absence, not the same
-  address restated) so `NUL*` has something real to re-enter on.
-- Once `NUL`'s cycle actually closes, `SIG` becomes reachable — the Existence
-  triad's next operator, dependency-satisfied by `NUL` having made the space.
+- `SIG` becomes reachable now — the Existence triad's next operator,
+  dependency-satisfied by `NUL` having made the space and closed its own
+  cycle for real, not just claimed.
+- Extend `GOAL.md`'s test to `SIG`: registering that one of the two recurring
+  absences *matters* (a signal, not just a fact) is a different claim than
+  finding it at all, and needs its own falsifiable check.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.
