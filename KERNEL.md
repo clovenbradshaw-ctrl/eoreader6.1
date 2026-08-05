@@ -28,12 +28,16 @@ reinvented).
 | `turn-002` | `NUL*` | earned — supersedes `gap-002` | Unraveling / Kind |
 | `turn-003` | `SIG−` | earned | Tending / Void |
 | `turn-004` | `SIG+` | earned | Binding / Entity |
-| `turn-005` | `SIG*` | **earned** | Tracing / Kind |
+| `turn-005` | `SIG*` | earned | Tracing / Kind |
+| `turn-006` | `INS−` | earned | Cultivating / Void |
+| `turn-007` | `INS+` | earned | Making / Entity |
+| `gap-008` | `INS*` (attempted) | **refused** — exactly one anchor exists; composing needs two | Composing / Kind |
 
-`NUL`'s and `SIG`'s cycles are both closed. See `kernel/GOAL.md` for the
-falsifiable test these were earned against (`kernel/data/signal-a.json`,
-`signal-b.json`, `noise-control.json`, now also carrying a mechanically
-derived `sign_at_site_role` field) rather than against prose alone.
+`NUL`'s and `SIG`'s cycles are closed. `INS`'s is open at the same place
+`NUL`'s once was: two of three uses earned, the third refused for lack of a
+second instance to compose. See `kernel/GOAL.md` for the falsifiable test
+these were earned against (`kernel/data/signal-a.json`, `signal-b.json`,
+`noise-control.json`, `anchor-001.json`) rather than against prose alone.
 
 ## Why it stopped, then closed
 
@@ -62,13 +66,27 @@ this grain: a sign earned across independent instances, not one binding
 taken on faith. Turn-4 recorded a wrong draft binding and its correction in
 the open, on purpose — the check is only real if a wrong answer was possible.
 
+## Where INS stopped
+
+`turn-006` cultivates the ground for an anchor; `turn-007` mints one for
+real — a SHA-256 digest over exactly what `turn-005` earned, independently
+recomputed and checked against `kernel/data/anchor-001.json` before being
+called earned, not asserted from memory. `gap-008` attempts `INS*` and is
+refused for exactly the reason `gap-002` was: composition needs two things,
+and there is one anchor in this kernel. Manufacturing a second one just to
+close the cell would be the same un-earned generality `eoreader6`'s
+`SEED.md` #1 refuses for priors — so it stays open.
+
 ## Next
 
-- `INS` becomes reachable now — the Existence triad's third operator,
-  dependency-satisfied by `SIG` having produced a stable sign to instantiate
-  against. INS mints an anchor: content-addressed, immutable, frame-
-  independent — a different kind of identity than SIG's mutable sign.
-- Closing `INS`'s cycle finishes the Existence triad entirely, which is the
-  precondition the Structure triad (SEG/CON/SYN) depends on next.
+- A second, independently-anchored entity — not this one duplicated — would
+  make `INS*` reachable, the same way `signal-b.json` made `NUL*` reachable.
+  Nothing yet proposes what that second entity should be; inventing one just
+  to close the cell is exactly what's being refused above.
+- Alternatively: `NUL` and `SIG` are both fully closed, and `INS` has an
+  earned anchor (`turn-007`) even with `INS*` open — worth checking directly
+  whether that's enough load to reach the Structure triad's first operator,
+  `SEG`, rather than assuming the Existence triad must close serially before
+  anything else can start.
 - A structural survey of `eoreader6`'s current kernel (`nul/index.js` and
   neighbors) to build the swap-in parity checklist this rebuild is aiming at.
