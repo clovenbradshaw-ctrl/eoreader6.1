@@ -71,6 +71,39 @@ to anything this kernel has built a defense against explicitly.
   enforces by construction (a turn can only open from what actually closed
   immediately before it).
 
+## A correction, checked by running the real code, not assumed
+
+The framing above treats this kernel's magnitude mechanism as a simpler
+approximation of `eoreader6`'s `ground()`/`difference()`. That was checked
+directly (`check-real-ground-full.mjs`, importing `eoreader6/nul/index.js`
+live) rather than left as an assumption, and it's wrong in an important way:
+
+```
+burstiness/shuffle on outlier:        rank=0.415   (not flagged)
+windowMean/shuffle on outlier:        rank=0.540   (not flagged)
+permutationEntropy/shuffle on outlier: rank=0.525  (not flagged)
+irreversibility/shuffle on outlier:   rank=0.875   (not flagged)
+irreversibility/phase on outlier:     rank=0.910   (not flagged)
+```
+
+**Every one of `eoreader6`'s currently licensed (statistic, perturbation)
+pairs ranks the outlier series as unremarkable.** Shuffle preserves the
+multiset of values (97.0 is still in there, just relocated), and none of
+the four statistics isolate a single point's distance from its neighbors —
+they measure windowed bursts, distributional order, and reversal asymmetry,
+not pointwise deviation. `eoreader6`'s own kernel has the *identical* blind
+spot `turn-28` found in this kernel's own frame, empirically, not by
+analogy: it cannot see this outlier either.
+
+This means `turn-31`/`turn-32`'s mechanism isn't a placeholder for
+something `eoreader6` already does better — it's a capability neither
+kernel had until this one built it. The honest parity claim narrows to
+Amendment I's own terms: no (statistic, perturbation) pair carries a
+warrant it hasn't been checked against, in either direction. `eoreader6`'s
+richer calibration (rank, censoring, reseeding nulls) is still real and
+still unmatched here for the questions it *does* answer — but "does
+eoreader6 already solve stage two" is checked now, and the answer is no.
+
 ## What this means for "swap-in"
 
 Not close yet, and worth saying plainly: this kernel has earned a real,
