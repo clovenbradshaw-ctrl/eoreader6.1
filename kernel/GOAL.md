@@ -65,15 +65,20 @@ absent, but ~100x every other sample's magnitude at the same site-role)
 showed the frame's actual boundary: it cannot see anomaly, only absence.
 `REC` named this rather than papering over it.
 
-Stage two, started (`turn-031`–`gap-033`): a real mechanism now exists.
-`kernel/data/magnitude-ground-c.json` builds a ground from a series' other
-31 values (excluding the candidate) and reports distance in aperture-widths
-— the outlier reads 96.04 widths beyond; `magnitude-ground-control.json`'s
-ordinary value reads -0.10, inside its own ground. `SIG` bound signs
-("anomalous"/"ordinary") from this directly. What's still missing is
-recurrence: `gap-033` refused `SIG*` for this kind because exactly one
-anomaly exists, and — checked, not assumed — earning `SIG*` for
-"absent"/"present" (`turn-005`) did not carry over to "anomalous"/
-"ordinary." Stage one's model (`gap-002` refused, `turn-002` earned once
-real material existed) is still the template; a second independent
-magnitude anomaly is what's owed next, not a bigger mechanism.
+Stage two, closed for `SIG` (`turn-031`–`turn-035`): a real mechanism,
+checked before being claimed. `kernel/data/magnitude-ground-c.json` builds
+a ground from a series' other 31 values (excluding the candidate) and
+reports distance in aperture-widths — the first outlier reads 96.04 widths
+beyond; a second, independent one (`signal-d-outlier.json`, opposite sign,
+different magnitude) reads 62.49 widths beyond; `magnitude-ground-control.json`'s
+ordinary value reads -0.10, inside its own ground. `SIG` bound and traced
+"anomalous"/"ordinary" as its own stable kind, following exactly the
+model stage one set (`gap-002` refused, `turn-002` earned once real
+material existed) — here, `gap-033` refused, `turn-035` earned once a
+second real anomaly existed.
+
+What's owed next: `INS`, `DEF`, and `EVA` each earned their cycles for
+"absent"/"present" specifically, and per `gap-033`'s own finding, none of
+that transfers to "anomalous"/"ordinary" automatically. Anchoring an
+anomalous entity, claiming it as signal within the frame, and witnessing
+that claim against a control are all still unearned for this kind.

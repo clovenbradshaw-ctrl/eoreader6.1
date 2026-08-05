@@ -1,0 +1,41 @@
+# eoreader6.1 · kernel · turn 035 — supersedes gap-033
+# Act: SIG*  (Signal aimed at Pattern)   Stance: Tracing   Site: Kind
+#
+# gap-033 refused this act for the "anomalous" kind specifically, for lack
+# of a second independent instance. That gap is superseded, not deleted:
+# turn-32 bound "anomalous" to signal-c's outlier (96.04 widths); turn-34
+# binds it to signal-d's, independently generated (seed 101 vs. 83),
+# opposite sign, different magnitude (62.49 widths) — the same kind of
+# claim, not the same instance.
+#
+# Traced directly: both entities' signs read "anomalous," both computed by
+# the identical mechanism (a ground built from the other 31 values,
+# distance measured in aperture-widths), neither inferred from the other.
+# noise-control's "ordinary" (-0.10 widths, turn-32) remains the negative
+# control this kind's sign is checked against, same as the "absent"/
+# "present" kind's own control — one control, reused legitimately across
+# both kinds it was built the same way to serve.
+#
+# What this earns, precisely: "anomalous" is now a stable sign for THIS
+# kind (present, far outside a ground built from its own series' other
+# values), independently of "absent"/"present," which is a different kind
+# at the same cell. Gap-033's own finding stands unmodified — the two
+# kinds' recurrences were never the same claim, and this turn closes only
+# the one it was missing.
+#
+# Earning argument: precondition is turn-34 (a second independent
+# instance) and turn-32 (the first, plus the negative control). Refuted if
+# the two anomalous instances disagreed in sign — checked, both read
+# "anomalous."
+
+:turn-35  eot:opens        :turn-34 .
+:turn-35  eot:supersedes   :gap-033 .
+:turn-35  eot:act          eot:SIG* .
+:turn-35  eot:stance       "Tracing" .
+:turn-35  eot:site         "Kind" .
+:turn-35  eot:for_kind     "anomalous" .
+:turn-35  eot:traces       :turn-32 .
+:turn-35  eot:traces       :turn-34 .
+:turn-35  eot:consistent   true .
+:turn-35  eot:witnessed    true .
+:turn-35  eot:closes       [ eot:aperture 1.0 ; eot:perturbation "none" ] .

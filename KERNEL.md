@@ -57,7 +57,9 @@ reinvented).
 | `gap-030` | `REC*` (attempted) | refused — one revision exists; generalizing needs two | Composing / Paradigm |
 | `turn-031` | `SIG−` | earned (opens GOAL.md stage two) | Tending / Void |
 | `turn-032` | `SIG+` | earned (new "anomalous"/"ordinary" sign kind) | Binding / Entity |
-| `gap-033` | `SIG*` (attempted, for the "anomalous" kind) | **refused** — one anomaly exists; this kind's recurrence isn't earned just because `turn-005` earned a different kind's | Tracing / Kind |
+| `gap-033` | `SIG*` (attempted, for the "anomalous" kind) | refused, superseded — one anomaly existed; this kind's recurrence isn't earned just because `turn-005` earned a different kind's | Tracing / Kind |
+| `turn-034` | `SIG+` | earned (second, independent anomalous instance) | Binding / Entity |
+| `turn-035` | `SIG*` | **earned — supersedes `gap-033`** | Tracing / Kind |
 
 **All nine operators have now been reached.** `NUL`, `SIG`, `INS`, `CON`,
 `DEF`, and `EVA` are fully closed for the sign-kinds attempted on them.
@@ -248,14 +250,24 @@ keeping — earning `SIG*` once (`turn-005`, for "absent"/"present") does
 NOT make `SIG*` free for a different kind at the same cell. Each recurrence
 claim stands on its own material.
 
-## What's actually open, going into stage two proper
+## SIG's "anomalous" kind closed too
 
-- A second, independently-generated magnitude anomaly, at a comparable
-  site-role, is what `gap-033` needs — not manufactured solely to close it.
-- Once (if) that exists, `INS`, `DEF`, `EVA` would need their own
-  magnitude-kind passes too — everything each of them earned so far was
-  for the "absent"/"present" kind specifically, and per `gap-033`'s own
-  finding, none of that transfers automatically.
+`turn-34` generated a second, independent magnitude anomaly
+(`signal-d-outlier.json`, seed 101, candidate -64.0 — opposite sign and
+different magnitude from `signal-c`'s 97.0, so not the same instance) and
+checked it against its own committed ground before writing the claim down.
+`turn-35` traces both instances, finds them consistent, and supersedes
+`gap-033`. `SIG` has now closed two independent sign-kinds at the same
+cell — the honest way to have two, one at a time, each earning its own
+recurrence.
+
+## What's actually open, going into `INS`/`DEF`/`EVA` for the new kind
+
+- Per `gap-033`'s own finding: earning a kind at one operator does not
+  transfer to another operator automatically. `INS`, `DEF`, and `EVA` all
+  earned their cycles for "absent"/"present" specifically — anchoring,
+  claiming "signal," and witnessing an "anomalous" entity are all still
+  unearned and would need their own passes, the same way `SIG` just did.
 - `gap-011`, `gap-020`, `gap-030` stay open; nothing yet proposes the
   second instances any of them needs.
 - What `turn-7`'s direct anchor and `turn-14`'s composed one are to each
