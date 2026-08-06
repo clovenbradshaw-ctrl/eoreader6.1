@@ -1,0 +1,78 @@
+{
+  "causalityInvariantHolds": true,
+  "firstDiffAt": null,
+  "totalFrames": 2176,
+  "framesWithActivation": 2161,
+  "topActivations": [
+    {
+      "order": 1631,
+      "offset": 97860,
+      "activation": 34129.35144203036,
+      "reach": 1379,
+      "recalled": 1424
+    },
+    {
+      "order": 1901,
+      "offset": 114060,
+      "activation": 32995.55515110057,
+      "reach": 10,
+      "recalled": 1872
+    },
+    {
+      "order": 1769,
+      "offset": 106140,
+      "activation": 32899.32652334787,
+      "reach": 1200,
+      "recalled": 1744
+    },
+    {
+      "order": 1253,
+      "offset": 75180,
+      "activation": 32530.63379977388,
+      "reach": 987,
+      "recalled": 1133
+    },
+    {
+      "order": 1391,
+      "offset": 83460,
+      "activation": 32476.446207015586,
+      "reach": 1139,
+      "recalled": 1327
+    },
+    {
+      "order": 1854,
+      "offset": 111240,
+      "activation": 32132.86083722784,
+      "reach": 486,
+      "recalled": 1833
+    },
+    {
+      "order": 1957,
+      "offset": 117420,
+      "activation": 31478.58716350763,
+      "reach": 374,
+      "recalled": 1924
+    },
+    {
+      "order": 1910,
+      "offset": 114600,
+      "activation": 31190.828208563627,
+      "reach": 575,
+      "recalled": 1885
+    },
+    {
+      "order": 1995,
+      "offset": 119700,
+      "activation": 30904.8072200502,
+      "reach": 467,
+      "recalled": 1967
+    },
+    {
+      "order": 1980,
+      "offset": 118800,
+      "activation": 30675.656465308733,
+      "reach": 1295,
+      "recalled": 1962
+    }
+  ]
+}

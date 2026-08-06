@@ -1321,3 +1321,16 @@ value — the units mismatch caught during development), keeping a live
 ground, re-zeroing on surfeit. eoreader6's real `ground()`/`difference()`/
 `reZero()`, used live throughout. `read(value)` feeds one raw value and
 returns null until a full window has accumulated, then a verdict.
+
+## native.mjs
+
+A self-contained reimplementation of `eoreader6/nul/index.js`'s entire
+public API — no cross-repo import. Every function, including the seeded
+RNG perturbations (`shuffle`/`resample`/`phase`), verified bit-for-bit
+identical to the real module on real data (`kernel/evidence/
+verify-native.mjs`, 37/37 checks). This is the actual swap-in unlock:
+`run.mjs`/`reader.mjs` import from here now, not from `eoreader6` — the
+kernel no longer depends on that repository being present to run. See
+`PARITY.md` for what this closes and what's still open (re-earning
+`kernel.eot`'s 47 turns against this calibrated mechanism; the wider
+engine beyond `nul/index.js`).

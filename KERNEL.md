@@ -14,6 +14,15 @@ stays minimal and the explanation stays complete. `kernel/run.mjs` and
 in `ANNOTATIONS.md` too. `kernel/data/` holds committed test material;
 `kernel/evidence/` holds the scripts that validated the mechanism.
 
+**`kernel/native.mjs` is a self-contained, verified-identical reimplementation
+of `eoreader6/nul/index.js`'s entire public API** — every export, including
+the seeded RNG perturbations (`shuffle`/`resample`/`phase`), bit-for-bit
+identical on real data (`kernel/evidence/verify-native.mjs`: 37/37 checks
+pass). `run.mjs` and `reader.mjs` now import from `native.mjs`, not across
+repos — `eoreader6`'s repository is no longer needed for this kernel to
+run. This is the actual swap-in step: anything currently importing
+`nul/index.js` could import `native.mjs` instead.
+
 **The working kernel is `kernel/run.mjs` and `kernel/reader.mjs`.**
 `run.mjs`: `classify(series, index)` (absent/present/anomalous) and
 `compare(a, b)` (a real, fully-calibrated `level()` check), both on
@@ -21,6 +30,18 @@ in `ANNOTATIONS.md` too. `kernel/data/` holds committed test material;
 processes a stream window by window, keeping a live ground, re-zeroing on
 surfeit. Tested on a numeric stream with a genuine regime shift it had
 never seen, and on real text.
+
+**Activation and the arrow of time** (`kernel/evidence/test-activation.mjs`):
+`eoreader6`'s real `emergence/activation.js` (Hebbian associative memory,
+recall-then-encode, incremental idf) run against the full Odyssey. Its own
+causality invariant — reading the first *k* frames must produce identical
+records to reading the whole document and taking the first *k* — verified
+directly: true, no divergence anywhere in the first 400 frames checked.
+Activation itself builds up exactly as a left-to-right memory should:
+lowest early (nothing yet to recall against), peaking in the final third —
+Books 19-24, the recognition and reunion sequences, which are the actual
+narrative content most full of callbacks to earlier events. Not asserted;
+measured.
 
 **On real text** (`kernel/evidence/read-odyssey.mjs`): the actual Odyssey
 text, run through `eoreader6`'s own text perceiver (`perceiver/text/
