@@ -51,6 +51,46 @@ export const THIRD_PERSON_SINGULAR = Object.freeze({
 });
 export const THIRD_PERSON_SINGULAR_META = Object.freeze({ giver: "lang/en", scope: null });
 
+/**
+ * Indefinite determiners — a closed grammatical class, not an open semantic
+ * list. An indefinite determiner INTRODUCES its noun rather than pointing
+ * back at one already established; whether the noun it introduces names a
+ * whole new thing or a detail of something already present is a further
+ * question this class does not decide (a consumer like widget.js's routing
+ * still has to read what the noun IS, not just that the determiner is
+ * indefinite — "some color" and "another one" both carry a member of this
+ * set, and only one of them names a new artifact).
+ */
+export const INDEFINITE_DETERMINERS = Object.freeze(new Set([
+  "a", "an", "some", "any", "another",
+]));
+export const INDEFINITE_DETERMINERS_META = Object.freeze({ giver: "lang/en", scope: null });
+
+/**
+ * Definite determiners — a closed grammatical class. A definite determiner
+ * presupposes its noun is already identifiable to the listener; whether
+ * that noun is actually present in some specific material is, again, for
+ * the consumer to check against bytes, not for this class to know.
+ */
+export const DEFINITE_DETERMINERS = Object.freeze(new Set([
+  "the", "this", "that", "these", "those",
+]));
+export const DEFINITE_DETERMINERS_META = Object.freeze({ giver: "lang/en", scope: null });
+
+/**
+ * Anaphoric pronoun forms — tokens that, used pronominally, point back at
+ * something already established rather than naming it fresh. "this" and
+ * "that" overlap with DEFINITE_DETERMINERS by form (English does not mark
+ * determiner-use vs. pronoun-use morphologically); a consumer distinguishing
+ * "make it bigger" (pronoun, nothing follows) from "make this widget bigger"
+ * (determiner, a noun follows) reads the surrounding tokens, not this set
+ * alone.
+ */
+export const ANAPHORIC_PRONOUNS = Object.freeze(new Set([
+  "it", "it's", "this", "this's", "that", "that's", "these", "those",
+]));
+export const ANAPHORIC_PRONOUNS_META = Object.freeze({ giver: "lang/en", scope: null });
+
 // ── script/latn — Latin-script typographic conventions ──────────────────────
 
 /** Sentence-ending punctuation marks. */
