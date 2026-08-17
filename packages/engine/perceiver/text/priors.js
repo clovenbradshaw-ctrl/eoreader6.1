@@ -91,6 +91,23 @@ export const ANAPHORIC_PRONOUNS = Object.freeze(new Set([
 ]));
 export const ANAPHORIC_PRONOUNS_META = Object.freeze({ giver: "lang/en", scope: null });
 
+/**
+ * Inflectional suffixes — the closed set of English inflection endings. A
+ * received grammatical class, not vocabulary: these are the morphemes by
+ * which one FORM of a word varies from another while pointing at the same
+ * referent ("color"/"colors", "button"/"buttons", "big"/"bigger"). A
+ * consumer testing whether two tokens are forms of one referent strips or
+ * appends members of this set — it never stems heuristically (there is no
+ * stemmer in this engine, deliberately). Orthographic variance between
+ * dialects ("colour"/"color") is NOT inflection and is not this class's to
+ * unify — that closes only through a received spelling prior with its own
+ * giver, when one exists.
+ */
+export const INFLECTIONAL_SUFFIXES = Object.freeze(new Set([
+  "s", "es", "ed", "ing", "er", "est", "'s",
+]));
+export const INFLECTIONAL_SUFFIXES_META = Object.freeze({ giver: "lang/en", scope: null });
+
 // ── script/latn — Latin-script typographic conventions ──────────────────────
 
 /** Sentence-ending punctuation marks. */
