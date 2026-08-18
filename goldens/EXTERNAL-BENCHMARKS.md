@@ -89,15 +89,16 @@ mine1-essays.json` (105 essays / 1,575 facts, the real published MINE-1
 dataset, retrieved 2026-08-18), full write-up at `the-fold/eval/results/
 mine-1-RESULTS.md`.
 
-Headline, read against MINE-1's own full fact count: **5.8%** bound (92/1,575);
-against only the facts the reader could form a claim about at all: **17.1%**
-(92/537). The standard LLM-judge arm did not run — no `OPENAI_API_KEY` was
-configured in the session that ran this — so the substrate-swap agreement
-rate Section A actually asks for is **not yet measurable**; what exists is
-half of that comparison, disclosed as exactly that in the results file, not
-rounded up to a finding.
+Baseline headline (name-only referent resolution), read against MINE-1's
+own full fact count: **5.8%** bound (92/1,575); against only the facts the
+reader could form a claim about at all: **17.1%** (92/537). The standard
+LLM-judge arm did not run — no `OPENAI_API_KEY` was configured in the
+session that ran this — so the substrate-swap agreement rate Section A
+actually asks for is **not yet measurable**; what exists is half of that
+comparison, disclosed as exactly that in the results file, not rounded up
+to a finding.
 
-The failure shape independently confirms this document's own prediction in
+The failure shape independently confirmed this document's own prediction in
 Section B: 57.2% of facts that did extract a claim landed `beyond-reach` —
 the essays are encyclopedic and topic-general ("Butterflies undergo…"),
 so plain-noun subjects rarely register as referents, the identical
@@ -105,6 +106,28 @@ name-anchored-mouth limit the agency-civic golden already measured on civic
 prose (13.3% recall there; 17.1%/5.8% here, two unrelated corpora, one
 joint). Zero contradictions across 537 read claims, on a fact set drawn
 from its own essays — a mild, real honesty check the mechanism passed.
+
+**Amended same day — the gap was worked backwards, and priors was ruled
+out before the real lever was found.** Two follow-up passes, both in
+`the-fold`: (1) a direct test of whether `live_priors` (fully activated,
+no toggle gate) would recover more facts — it did not (`0/1,575`
+`stated-by-library`; `live_priors` is a philosophy/classics/law canon with
+no shelf for roller coasters or butterfly metamorphosis, ruled out by
+running it, `the-fold/eval/mine-1-priors-RESULTS.md`); (2) `beyond-reach`'s
+own cause — a plain recurring noun subject never resolving to a referent —
+turned out to be the SAME starvation this engine's own `host/terrains.js`
+had already diagnosed and fixed for the Network graph ("concept documents
+starve the cast ladder," recurring-form co-arrival binding). Applying the
+identical, already-justified identity to `hypergraph.js`'s subject gate
+(reusing `FORM_BINDING`'s own `arrivals >= 2` floor verbatim, nothing
+tuned against this score) lifted bound facts from 92 to 222 — **14.1%** /
+**41.3%** on the same two denominators, a 2.4x headline gain — and
+`beyond-reach` from 307 down to 87. `no_claims_extracted` (65.9% of all
+facts) is untouched by this fix and remains the larger, still-open
+bottleneck: the same clause-shape widening `goldens/agency-civic`'s own
+README already named as its next step. Full write-up, the two bugs caught
+building it, and the honest ceiling accounting:
+`the-fold/eval/mine-1-forms-RESULTS.md`.
 
 **Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
 PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
