@@ -74,3 +74,39 @@ Every benchmark above tests one rung on one genre someone else chose. The litera
 6. **TExEval and FCA** for kind induction, FCA first as the exact-answer sanity check.
 
 Everything in this document answers the same question the discovery-procedure essay posed and left as future work: not whether the ladder builds *a* structure, but whether the structure it builds is the kind a stranger, holding a different text nobody chose for this project, would recognize as true.
+
+---
+
+## Status
+
+**MINE-1, house-verdict-reader arm: run 2026-08-18, partial.** Since
+`hypergraph.js`'s five-verdict reader — the mechanism Section A proposes
+substituting for the LLM judge — lives in the `the-fold` repo (it composes
+this engine's `perceiver/text/relations.js` and `surfaces.js` organs, it is
+not itself an engine module), the run lives there too:
+`the-fold/eval/mine-1.mjs`, fixture at `the-fold/eval/fixtures/
+mine1-essays.json` (105 essays / 1,575 facts, the real published MINE-1
+dataset, retrieved 2026-08-18), full write-up at `the-fold/eval/results/
+mine-1-RESULTS.md`.
+
+Headline, read against MINE-1's own full fact count: **5.8%** bound (92/1,575);
+against only the facts the reader could form a claim about at all: **17.1%**
+(92/537). The standard LLM-judge arm did not run — no `OPENAI_API_KEY` was
+configured in the session that ran this — so the substrate-swap agreement
+rate Section A actually asks for is **not yet measurable**; what exists is
+half of that comparison, disclosed as exactly that in the results file, not
+rounded up to a finding.
+
+The failure shape independently confirms this document's own prediction in
+Section B: 57.2% of facts that did extract a claim landed `beyond-reach` —
+the essays are encyclopedic and topic-general ("Butterflies undergo…"),
+so plain-noun subjects rarely register as referents, the identical
+name-anchored-mouth limit the agency-civic golden already measured on civic
+prose (13.3% recall there; 17.1%/5.8% here, two unrelated corpora, one
+joint). Zero contradictions across 537 read claims, on a fact set drawn
+from its own essays — a mild, real honesty check the mechanism passed.
+
+**Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
+PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
+still the proposal this document originally was — nothing below Section A
+has a results file yet.
