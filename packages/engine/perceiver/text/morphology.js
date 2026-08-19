@@ -25,10 +25,33 @@
 // UniMorph is WITNESS-TIER: an external fact about a language, not derivable
 // from the text being read. Injected as a prior, never computed. Missing
 // prior ⇒ typed gap and a documented fallback, never a silent guess.
+//
+// AMENDED 2026-08-19 — the suffix RULE is English too, and was not gated on
+// declared language the way the TABLE already is. `loadMorphology` has
+// always required a prior to name its `language` and its `giver` — real
+// quarantine for the DATA half of this module. `stemsOf` never got the same
+// treatment: it is hardcoded ASCII English suffix-stripping (-ies/-ied/
+// -ing/-es/-ed/-s), and `lemmasOf`/`sameAct` ran it unconditionally on
+// every lookup regardless of what language the loaded table itself
+// declared — a hypothetical Ancient Greek MorphologyPrior@1 would still
+// get English regular-inflection guesses folded into its lemma sets
+// underneath it, exactly the "high-level prior steering for a different
+// grammar" failure this repo's own quarantine discipline exists to
+// prevent. `createLemmatizer` now takes `language` and only runs the rule
+// when it is "eng" (English, INCLUDING when omitted — flipping the
+// default would have silently broken this module's own decision #2 above
+// and its pinned tests, all of which call this function with no language
+// and depend on the rule firing). A caller that threads a loaded prior's
+// own `language` through (the natural path — `loadMorphology(path).language`,
+// not a second value to remember) gets this for free: an English prior
+// still gets the rule, any other declared language does not, no caller
+// discipline required beyond using the prior's own declaration.
 
 import { readFileSync } from "node:fs";
 
 // The regular English suffixes the prior's build dropped as rule-recoverable.
+// ENGLISH-SPECIFIC BY CONSTRUCTION — gated on language === "eng" in
+// createLemmatizer below, never run unconditionally.
 const stemsOf = (w) => {
   const out = new Set();
   const add = (s) => { if (s && s.length > 1) out.add(s); };
@@ -51,13 +74,20 @@ export const loadMorphology = (path) => {
 };
 
 /**
- * createLemmatizer(index) -> { lemmasOf, sameAct, size, gap }
+ * createLemmatizer(index, { fallback, language }) -> { lemmasOf, sameAct, size, gap }
  *
  * Absent index ⇒ every lookup reports a gap and `sameAct` falls back to the
  * caller's comparator, so a missing prior degrades LOUDLY to the previous
  * behaviour rather than silently changing answers.
+ *
+ * `language`, when given and not "eng", disables the English-only suffix
+ * RULE (table lookups still run — a non-English prior's own irregular/
+ * received forms are never refused). Omitted, the rule runs — this
+ * module's own decision #2, "the suffix rule is part of the lookup, not
+ * an alternative to it," predates and does not change with this amendment;
+ * only an EXPLICIT non-English declaration opts out.
  */
-export const createLemmatizer = (index, { fallback = null } = {}) => {
+export const createLemmatizer = (index, { fallback = null, language = null } = {}) => {
   const map = new Map();
   if (index instanceof Map) for (const [k, v] of index) map.set(k, new Set(v));
   else if (index && typeof index === "object") for (const [k, v] of Object.entries(index)) map.set(k, new Set(v));
@@ -67,13 +97,17 @@ export const createLemmatizer = (index, { fallback = null } = {}) => {
         detail: "irregular inflections (lay/lie, went/go, saw/see) will not be recognised" }
     : null;
 
-  // Candidates are the table's lemmas AND the rule's stem — union, always.
+  const englishRule = language == null || language === "eng";
+
+  // Candidates are the table's lemmas AND the rule's stem, when the rule
+  // applies to this declared language — union, always, never a fallback
+  // chosen between them (decision #2 above).
   const lemmasOf = (form) => {
     const w = String(form || "").toLowerCase();
     const out = new Set();
     if (w) out.add(w);
     for (const l of map.get(w) ?? []) out.add(l);
-    for (const s of stemsOf(w)) out.add(s);
+    if (englishRule) for (const s of stemsOf(w)) out.add(s);
     return out;
   };
 
