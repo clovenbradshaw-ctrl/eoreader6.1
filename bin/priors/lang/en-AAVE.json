@@ -1,0 +1,19 @@
+{
+  "$comment": "A LANGUAGE prior. Data only, no code. Staged here for transfer to eoPriors; nothing in packages/ may hardcode any of it.",
+  "schema": "NegationPrior@1",
+  "language": "en-AAVE",
+  "provenance": {
+    "source": "English Wikipedia, 'African-American Vernacular English' and 'Ain't' articles, fetched 2026-08-19, quoted directly: \"AAVE... employs ain't as a general negative marker\" that can substitute for \"am not, isn't, aren't, haven't, and hasn't,\" and some speakers use it \"instead of don't, doesn't, or didn't\" (example: \"I ain't know that\"). Corroborated by Jack Sidnell, 'Outline of AAVE Grammar' (2002), and by real occurrence counts in a genuine CORAAL-derived transcript sample (147 lines containing 'ain't' in a 4,454-row sample, Koenecke et al. 2020 PNAS reproducibility data).",
+    "built_by": "hand-curated from cited sources plus real transcript evidence, deliberately minimal rather than padded with recalled-but-uncited items"
+  },
+  "notes": [
+    "'en-AAVE' is a DESCRIPTIVE LABEL, not a registered BCP-47 language/variant subtag -- there is no formal IETF-registered code for African American Vernacular English at the time this file was written, and this file does not pretend otherwise.",
+    "negation: this list holds ONLY what AAVE adds beyond Standard English's own NEGATION_WORDS (priors.js, giver lang/en) -- 'not', 'never', 'don't', etc. are already covered there and are not repeated here. A caller wanting BOTH must union this file's `negation` array with lang/en.json's own set (this file is additive, not a replacement).",
+    "'ain't' is the one addition: a general preverbal negator that, in AAVE, reaches into past-tense and habitual slots Standard English's own 'ain't' (where it exists at all, as an informal contraction of 'am not'/'isn't'/'aren't'/'haven't'/'hasn't') does not cover -- 'I ain't know that' (= 'I didn't know that') is the diagnostic example both cited sources give.",
+    "Negative concord (multiple negation within one clause co-referring to a single negative meaning, e.g. 'They didn't have no books') is DELIBERATELY NOT represented as additional trigger words here: it is a co-occurrence PATTERN on the SAME existing negators (ain't/don't/didn't/never), never a new negation-bearing word. Verified directly against real transcript data (not just asserted): every 'nobody'/'nothing' occurrence found alongside a negator in the real CORAAL-derived sample checked here had an explicit co-present auxiliary negator (ain't/don't/can't) -- 'nobody'/'nothing' never carried negation alone, the same exclusion Standard English's own NEGATION_WORDS list already makes.",
+    "DISCLOSED STRUCTURAL LIMIT, found while researching this file rather than glossed over: AAVE's negative-inversion construction fronts the negator+auxiliary before the subject ('Can't nobody afford that' = 'Nobody can afford that') -- here the negation trigger sits BEFORE the subject, not immediately before the finite verb the way this mechanism's before-the-verb window assumes. Adding 'ain't'/'can't' to the vocabulary does not by itself fix this: the window's own adjacency assumption is what would need to change to catch negative-inversion sentences, a larger, unattempted change here.",
+    "Consumed by perceiver/text/relations.js::discoverRelationVocab and ::extractRelations via the injected `negationWords` option (a Set) -- the same seam bin/priors/lang/en.json's own abbreviations already opened, and bin/priors/lang/eu.json (Basque) and bin/priors/lang/pcm.json (Nigerian Pidgin) already use.",
+    "Measured against real material: eval/vendored-prior-eval.md in the-fold repo records the before/after result of injecting this file's `negation` set (unioned with lang/en.json's own) against real CORAAL-derived transcript text (Koenecke et al. 2020 PNAS reproducibility data, CC BY-NC-SA 4.0, research use -- kept local, not redistributed in either repo)."
+  ],
+  "negation": ["ain't"]
+}

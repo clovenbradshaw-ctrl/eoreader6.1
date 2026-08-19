@@ -8,6 +8,8 @@ import { discoverRelationVocab, extractRelations } from "../packages/engine/perc
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EU = new Set(JSON.parse(readFileSync(join(root, "bin/priors/lang/eu.json"), "utf8")).negation);
+const PCM = new Set(JSON.parse(readFileSync(join(root, "bin/priors/lang/pcm.json"), "utf8")).negation);
+const AAVE = new Set(JSON.parse(readFileSync(join(root, "bin/priors/lang/en-AAVE.json"), "utf8")).negation);
 
 // A tiny, hand-shaped Basque-like fixture: "Ez" (the vendored negation
 // particle) fronts a finite verb before a candidate object, twice — enough
@@ -86,4 +88,98 @@ test("nothing in relations.js hardcodes \"ez\" — the vendored file is the only
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
   assert.ok(!/["']ez["']/.test(code), 'relations.js hardcodes "ez" — that belongs in the vendored prior, not the organ');
+});
+
+// Nigerian Pidgin (pcm). Same shape as the Basque fixture above and for the
+// same reason: "sabi" must first clear vocabulary discovery via an
+// AFFIRMATIVE use after a DIFFERENT surface (Ngozi), since the token
+// immediately after Chidi in his own negated clause is "no" itself.
+// Confirmed live via a scratch script before this was written into the
+// suite; real material is eval/vendored-prior-eval.md in the-fold repo.
+const PCM_SURFACE = "Chidi";
+const PCM_OTHER = "Ngozi";
+const PCM_TEXT = `${PCM_OTHER} sabi am well. ${PCM_SURFACE} dey house. ${PCM_SURFACE} no sabi am well.`;
+const pcmFunctionWords = new Set(["am", "well", "house", "dey"]);
+
+test("an injected Nigerian Pidgin prior lets a real 'no' clause read negative", () => {
+  const { verbs } = discoverRelationVocab(PCM_TEXT, {
+    surfaces: [PCM_SURFACE, PCM_OTHER],
+    minSurfaces: 1,
+    negationWords: PCM,
+    functionWords: pcmFunctionWords,
+  });
+  const rels = extractRelations(PCM_TEXT, { verbs, negationWords: PCM, functionWords: pcmFunctionWords });
+  const negated = rels.filter((r) => r.polarity === "-");
+  assert.ok(negated.length > 0, `expected at least one negated relation, got: ${JSON.stringify(rels)}`);
+});
+
+test("the Nigerian Pidgin particle 'no' is never admitted into the measured vocabulary", () => {
+  const { verbs } = discoverRelationVocab(PCM_TEXT, {
+    surfaces: [PCM_SURFACE, PCM_OTHER],
+    minSurfaces: 1,
+    negationWords: PCM,
+    functionWords: pcmFunctionWords,
+  });
+  assert.ok(!verbs.has("no"), `"no" must never be admitted as a verb: ${[...verbs].join(", ")}`);
+});
+
+// AAVE. Same two-surface shape: "know" must clear vocabulary discovery via
+// Tanya's affirmative use before Marcus's "ain't" clause is ever read.
+const AAVE_SURFACE = "Marcus";
+const AAVE_OTHER = "Tanya";
+const AAVE_TEXT = `${AAVE_OTHER} know that answer. ${AAVE_SURFACE} home today. ${AAVE_SURFACE} ain't know that answer.`;
+const aaveFunctionWords = new Set(["that", "answer", "today", "home"]);
+
+test("an injected AAVE prior lets a real 'ain't' clause read negative", () => {
+  const { verbs } = discoverRelationVocab(AAVE_TEXT, {
+    surfaces: [AAVE_SURFACE, AAVE_OTHER],
+    minSurfaces: 1,
+    negationWords: AAVE,
+    functionWords: aaveFunctionWords,
+  });
+  const rels = extractRelations(AAVE_TEXT, { verbs, negationWords: AAVE, functionWords: aaveFunctionWords });
+  const negated = rels.filter((r) => r.polarity === "-");
+  assert.ok(negated.length > 0, `expected at least one negated relation, got: ${JSON.stringify(rels)}`);
+});
+
+test("the AAVE particle \"ain't\" is never admitted into the measured vocabulary", () => {
+  const { verbs } = discoverRelationVocab(AAVE_TEXT, {
+    surfaces: [AAVE_SURFACE, AAVE_OTHER],
+    minSurfaces: 1,
+    negationWords: AAVE,
+    functionWords: aaveFunctionWords,
+  });
+  assert.ok(!verbs.has("ain't"), `"ain't" must never be admitted as a verb: ${[...verbs].join(", ")}`);
+});
+
+test("without an injected prior, Nigerian Pidgin 'no' and AAVE \"ain't\" read as affirmative", () => {
+  const { verbs: pcmVerbs } = discoverRelationVocab(PCM_TEXT, {
+    surfaces: [PCM_SURFACE, PCM_OTHER],
+    minSurfaces: 1,
+    functionWords: pcmFunctionWords,
+  });
+  const pcmRels = extractRelations(PCM_TEXT, { verbs: pcmVerbs, functionWords: pcmFunctionWords });
+  assert.ok(
+    pcmRels.every((r) => r.polarity === "+"),
+    `with no Pidgin prior injected, nothing in this fixture can read as negated: ${JSON.stringify(pcmRels)}`,
+  );
+
+  const { verbs: aaveVerbs } = discoverRelationVocab(AAVE_TEXT, {
+    surfaces: [AAVE_SURFACE, AAVE_OTHER],
+    minSurfaces: 1,
+    functionWords: aaveFunctionWords,
+  });
+  const aaveRels = extractRelations(AAVE_TEXT, { verbs: aaveVerbs, functionWords: aaveFunctionWords });
+  assert.ok(
+    aaveRels.every((r) => r.polarity === "+"),
+    `with no AAVE prior injected, nothing in this fixture can read as negated: ${JSON.stringify(aaveRels)}`,
+  );
+});
+
+test("nothing in relations.js hardcodes \"ain't\" or \"neva\" — the vendored files are the only place they live", () => {
+  const code = readFileSync(join(root, "packages/engine/perceiver/text/relations.js"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  assert.ok(!/["']ain't["']/.test(code), 'relations.js hardcodes "ain\'t" — that belongs in the vendored prior, not the organ');
+  assert.ok(!/["']neva["']/.test(code), 'relations.js hardcodes "neva" — that belongs in the vendored prior, not the organ');
 });

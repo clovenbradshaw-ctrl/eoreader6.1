@@ -1,0 +1,18 @@
+{
+  "$comment": "A LANGUAGE prior. Data only, no code. Staged here for transfer to eoPriors; nothing in packages/ may hardcode any of it.",
+  "schema": "NegationPrior@1",
+  "language": "pcm",
+  "provenance": {
+    "source": "APiCS Online (Atlas of Pidgin and Creole Language Structures), Survey chapter 17, 'Nigerian Pidgin', author Nicholas Faraclas, https://apics-online.info/surveys/17 — a real academic typological database, not a general-audience summary. Corroborated by naija.guru's 'Negation in Nigerian Pidgin' grammar page and, for the anterior/completive form, an example sentence in a university pidgin-creole teaching handout (martinschaefer.info).",
+    "built_by": "hand-curated from real cited sources, deliberately minimal rather than padded with recalled-but-uncited items"
+  },
+  "notes": [
+    "negation: the free-standing negation particle(s) that precede a finite verb — the same slot perceiver/text/relations.js's negation-before-verb window already checks (before the verb, within the clause), and priors.js::NEGATION_WORDS holds for English (giver lang/en).",
+    "'no' is the GENERAL preverbal negator: 'A no bay nyam' = 'I didn't buy yams' (APiCS Survey 17). Also negates nouns ('no wód' = 'no way'), which this prior does not attempt to capture — only the preverbal-negator use is in scope for this mechanism.",
+    "'neva' and 'never' are recorded as attested orthographic variants of ONE negative completive/anterior particle — it replaces the affirmative 'no...don' construction ('A neva bay nyam' = 'I haven't bought yams'), a genuinely distinct grammatical slot from bare 'no', not merely a spelling variant of English 'never'.",
+    "Consumed by perceiver/text/relations.js::discoverRelationVocab and ::extractRelations via the injected `negationWords` option (a Set) — the same seam bin/priors/lang/en.json's own abbreviations already opened on spans.js::splitSentences, and bin/priors/lang/eu.json (Basque) already uses.",
+    "Deliberately EXCLUDED, each checked and refused rather than assumed: 'abi' is a sentence-final tag-question/pragmatic particle (Yoruba-derived, 'isn't it?'), not a negator, confirmed against multiple sources describing its pragmatic-marker function. 'nothing'/'nobody'/'nowhere'/'none of' are negative indefinite pronouns/determiners (compositional 'no' + a noun), not free-standing negation triggers themselves — the same distinction English's own NEGATION_WORDS list already draws by excluding 'nothing'/'nobody'. APiCS Survey 17 itself states Nigerian Pidgin has NO negative concord (unlike, say, AAVE) and uses 'eni' ('any') for negative-polarity indefinites, not a distinct negator. 'no be'/'no dey'/'no go'/'no fit' are not separate negators — they are 'no' plus an ordinary TAM auxiliary or verb ('be'/'dey'/'go'/'fit'), already covered by the single entry 'no'.",
+    "Measured against real material: eval/vendored-prior-eval.md in the-fold repo records the before/after result of injecting this file's `negation` set against real prose fetched from pcm.wikipedia.org (8+ full articles, ~117K characters) — negation particles confirmed present in the real fetched text before this file was built, e.g. 'Fela mama no sopot di Oyinbo rul ova Naija' ('Fela's mother did not support the British rule over Nigeria')."
+  ],
+  "negation": ["no", "neva", "never"]
+}
