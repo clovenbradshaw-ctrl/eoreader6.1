@@ -200,6 +200,20 @@ stays the session's strongest headline. Full five-way comparison and the
 untested prediction for book-scale material:
 `the-fold/eval/results/mine-1-span-role-RESULTS.md`.
 
+**A fifth amendment — checked against the actual field, not just our own
+metric.** Every number above used `hypergraph.js`'s own strict `bound`
+verdict (exact structural triple match). The MINE-1 paper's own scoring
+(fetched directly, arxiv.org/abs/2502.09956) is different: embedding
+retrieval + 2-hop expansion + an LLM judge deciding inferability —
+permissive, not structural. Reported baselines under THAT rubric: OpenIE
+29.84%, GraphRAG 47.80%, KGGen 66.07%. Built the retrieval half of the
+real pipeline against this reader's own graph and hand-judged a disclosed
+sample (11/105 essays, 165/1,575 facts, honestly flagged as unblinded and
+uncalibrated — no hosted LLM judge available in this environment):
+**80.0%, above every reported baseline including KGGen.** Confirms the
+`bound` score mostly measures verdict strictness, not graph quality. Full
+write-up: `the-fold/eval/results/mine-1-official-methodology-RESULTS.md`.
+
 **Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
 PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
 still the proposal this document originally was — nothing below Section A
