@@ -160,6 +160,24 @@ it by default is a flagged, undecided question, not resolved here. Full
 comparison table and the spot-check evidence:
 `the-fold/eval/results/mine-1-unimorph-RESULTS.md`.
 
+**Amended a third time, same day — "what about both?" tested, and it
+loses.** The disclosed boundary-quality cost above (UniMorph's noun-verb
+ambiguity, ~half of spot-checked triples) prompted the obvious next try:
+combine the received prior with a local distributional vote (does an
+ambiguous word tend to follow a determiner in THIS essay). It does not
+help — headline-on-examined ticks up marginally (38.3% → 39.8%) while
+headline-on-all-facts drops (33.7% → 30.7%), `no_claims_extracted` nearly
+doubles (189 → 362), and it introduces the session's first two
+`contradicted` verdicts, both traced to the vote admitting a UniMorph-
+tagged function word ("but", "more") as a verb inside a negation-scope or
+clause-boundary construction the extractor doesn't model — not a real
+semantic disagreement. The cheap local heuristic conflates two different
+ambiguity sources (real noun-verb conversion vs. UniMorph's own overly
+broad function-word tagging) that need different fixes; a real POS tagger
+or a narrower ambiguity list remains untried. UniMorph unfiltered stays
+the strongest result of the four runs. Full write-up:
+`the-fold/eval/results/mine-1-unimorph-disambiguated-RESULTS.md`.
+
 **Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
 PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
 still the proposal this document originally was — nothing below Section A
