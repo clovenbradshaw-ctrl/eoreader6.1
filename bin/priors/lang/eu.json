@@ -1,0 +1,17 @@
+{
+  "$comment": "A LANGUAGE prior. Data only, no code. Staged here for transfer to eoPriors; nothing in packages/ may hardcode any of it.",
+  "schema": "NegationPrior@1",
+  "language": "eu",
+  "provenance": {
+    "source": "English Wikipedia, 'Basque grammar', section on negation, fetched 2026-08-19 — itself drawing on the standard academic descriptions of Basque syntax (the article's own citation lineage traces to de Rijk's 'Standard Basque: A Progressive Grammar' and comparable reference grammars). Quoted directly: 'Negation is expressed by ez preceding the finite verb form.' and, for compound tenses: 'Compound tense forms of verbs, and also compound verbs, are negated by placing ez in front of the finite auxiliary (or light verb).'",
+    "built_by": "hand-curated from one citable source, deliberately minimal rather than padded with recalled-but-uncited items"
+  },
+  "notes": [
+    "negation: the free-standing negation particle(s) that precede a finite verb or auxiliary — the same slot perceiver/text/relations.js's NEGATION_BEFORE_VERB window already checks (before the verb, within the clause), and priors.js::NEGATION_WORDS holds for English (giver lang/en).",
+    "Consumed by perceiver/text/relations.js::discoverRelationVocab and ::extractRelations via the injected `negationWords` option (a Set) — the same seam bin/priors/lang/en.json's own abbreviations already opened on spans.js::splitSentences.",
+    "'ez' is the ONLY entry, deliberately: the source article also names negative-polarity ITEMS used in negative contexts (inor 'anybody', ezer 'anything', inon 'anywhere', inoiz 'ever', inola 'any way') — these are NOT negation markers themselves (the same distinction English 'anybody' has from 'not': a negative-polarity item can appear in some non-negative contexts too, e.g. questions and conditionals), so including them here would fabricate false negatives on ordinary affirmative material. A padded list built from recalled-but-unverified extras (e.g. 'ezta') was deliberately left out rather than guessed at — this file states only what its one citation actually supports.",
+    "STRUCTURAL NOTE, worth keeping: Basque negation fronts BEFORE the finite verb by the grammar's own word order, unlike English's postposed 'not' (does NOT want). This means the existing before-the-verb window this organ already checks for is, if anything, a MORE natural fit for Basque's own negation position than for English's — not a mechanism bent to accommodate a foreign grammar, a mechanism that happens to already match a different one.",
+    "Measured against real material: eval/asserted-crosslingual.md and eval/vendored-prior-eval.md in the-fold repo record the before/after result of injecting this file's `negation` set against Domingo Agirre's Garoa (1912, public domain, klasikoak.armiarma.eus)."
+  ],
+  "negation": ["ez"]
+}
