@@ -154,6 +154,75 @@ number to move — a moved number from a real fix is not the same failure as
 regression from an unrelated change, and the two must not be reported the
 same way.
 
+## A scaffolded prior sitting unused is still "search first" — check what already exists before hand-typing a closed class
+
+**`scripts/build-pos-prior.mjs` existed before this pass, fully written, fully
+commented, and had never been run: a transform from a real, human-annotated
+treebank (Universal Dependencies UD_English-EWT, CC BY-SA 4.0) into
+`POSPrior@1` — every English word form's attested part-of-speech tags, with
+real counts, ambiguity preserved rather than collapsed. Nothing consumed it.
+`grep -rl POSPrior` before this pass found exactly one file: the builder
+itself.**
+
+The incident this rule is named for (2026-08-19, a session working from
+the-fold's own committed evidence that `extractRelations`'s connector slot
+sometimes holds a preposition or pronoun instead of a verb — see
+`eval/results/asserted-crosslingual.md`, the-fold): the fix looked like it
+needed two new hand-typed closed classes (prepositions, conjunctions,
+mirroring `priors.js`'s existing `NEGATION_WORDS`/`DEFINITE_DETERMINERS`
+pattern) — English has small, genuinely closed inventories for both, so
+hand-typing them would not itself have been the mistake this file's other
+sections warn about. But `find . -iname "*prior*"` first, the way this
+file's own top rule demands, surfaced `build-pos-prior.mjs` instead — a
+real 16,654-word, giver-cited, ambiguity-preserving prior sitting one
+`curl` and one `node` invocation away, covering not just prepositions and
+conjunctions but all of Dionysius Thrax's ancient eight parts of speech at
+once, built from real annotation rather than a hand-typed list. Fetching
+the real treebank and running the existing script (`scripts/corpus/` is
+gitignored, so this is a local, reproducible build, never a git-history
+cost) took under a minute and produced a strictly better foundation than
+the two lists that were about to be hand-typed.
+
+**Files.** `perceiver/text/wordclass.js` (new, pure, organs injected):
+`THRAX_MAP` (Universal Dependencies UPOS tags → Thrax's own eight
+categories, every entry naming exactly where the two schemes agree and
+where they do not — UD's AUX/VERB split and CCONJ/SCONJ split have no
+ancient counterpart; Thrax's own article was narrower than UD's DET;
+`INTJ` is Donatus and Priscian's later Latin addition, not Thrax's own),
+`THRAX_OUT_OF_SCOPE` (ADJ/PART/NUM/PUNCT/SYM/X — UD categories with no
+Thrax-tradition analogue, kept OUT of the map rather than silently forced
+into the nearest one), `classifyWord` (every attested class for a form,
+real counts, never collapsed), `dominantClass` (the one permitted
+convenience — a caller-declared `minShare` floor, never defaulted, the
+same standing `roles.js::resolveSpanRole`'s own `minActivation`/
+`minMargin` already hold). `conformance/wordclass.test.mjs` (10 cases
+against real treebank counts, including one composition test proving a
+type-level tie `classifyWord` correctly refuses to collapse — a plain
+majority TABLE cannot separate "walked to the station" from "wanted to
+leave" — is resolvable per-OCCURRENCE by `roles.js::resolveSpanRole`,
+given real local company; no new resolution mechanism, the existing organ
+composed exactly as its own header already invites).
+
+**SLOT is not CLASS, and this file only ever answers CLASS.** Which
+position a span fills in a clause (subject/connector/object —
+`extractRelations`'s own structure) and which part of speech a word's FORM
+is (independent of any one clause) are different questions — Halliday's
+Systemic Functional Grammar keeps them apart for exactly this reason
+(function vs. class: a function can be realised by any class), and
+conflating them is the defect this whole pass closes. `wordclass.js` has
+no notion of a clause, a triple, or a slot; it answers one question, about
+one word, and always as a disclosed set of candidates rather than a
+verdict.
+
+**Disclosed, not fixed: participle.** Thrax's `metokhē` (μετοχή, participle)
+has no clean signal in `POSPrior@1` as currently built — UD's own UPOS
+tagset has no separate participle tag (`VerbForm=Part` lives in FEATS,
+which `build-pos-prior.mjs` reads from the CoNLL-U columns but does not
+currently tally); `THRAX_MAP` omits it rather than guessing from a `VERB`
+tag alone. Extending the builder to also tally FEATS is real, scoped,
+unattempted future work, named here so the next pass does not have to
+re-discover the gap.
+
 ## When a rewrite is still the right call
 
 Not everything is built. `goldens/network/read.mjs`'s chapter-boundary
