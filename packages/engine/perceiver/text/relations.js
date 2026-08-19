@@ -77,6 +77,7 @@
 
 import { diaNorm } from "./surfaces.js";
 import { NEGATION_WORDS, THIRD_PERSON_SINGULAR } from "./priors.js";
+import { classifyWord, dominantClass } from "./wordclass.js";
 
 // The cell this organ occupies on the operator grid (engine/operators.js):
 // CON · Link · Binding — subject · verb · object triples; the graph's
@@ -204,10 +205,40 @@ const SENTENCE_END = /[.!?;]/g;
  * followed — so a causal reader can accumulate admission frame by frame
  * (LOSS-LESS-LADDER.md L3: a verb is admitted once it has ALREADY followed
  * minSurfaces distinct surfaces, never on the strength of the whole text).
+ *
+ * `posPrior` (optional, POSPrior@1-shaped — perceiver/text/wordclass.js's
+ * own contract, e.g. scripts/corpus/pos-prior-eng.json): when supplied,
+ * every entry in `candidates` also carries `grammar` — this candidate's
+ * FORM classified by wordclass.js's `classifyWord`/`dominantClass` against
+ * real Universal Dependencies treebank evidence, never a guess and never
+ * collapsed unless a class clears `grammarMinShare` (required alongside
+ * `posPrior`, the same "declared, never defaulted" contract `dominantClass`
+ * itself already holds). ADDITIVE ONLY: `verbs` is unchanged either way —
+ * this organ's own header already establishes why a wider vocabulary can
+ * only widen what extractRelations HEARS, never fabricate an edge, so nothing
+ * is filtered out on a caller's behalf. What `grammar` gives a caller is a
+ * measured answer to a question this file's own header names as open,
+ * twice: SLOT (which position a candidate fills — the ONE thing this
+ * function has ever measured) is not CLASS (what part of speech the token's
+ * FORM actually is). "party" recurred after 2 distinct surfaces in a real
+ * live specimen (the-fold, 2026-08-19) and was admitted as a verb candidate
+ * on slot evidence alone; the treebank's own count for that form is
+ * `{PROPN:9, NOUN:22, VERB:1}` — 68.75% noun, 3% verb — exactly the
+ * "auxiliaries and prepositions the Zipf threshold didn't catch" class this
+ * file's own header already named as residual noise in the anchor-one-end
+ * design, now measurable instead of merely disclosed as a limitation.
+ * `posPrior` omitted (the default): behavior and shape are BYTE-IDENTICAL
+ * to before this parameter existed — no `grammar` key is added at all,
+ * so an existing caller snapshotting `candidates` sees no difference.
  */
-export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS } = {}) => {
+export const discoverRelationVocab = (
+  text,
+  { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS, posPrior = null, grammarMinShare } = {},
+) => {
   if (!Number.isInteger(minSurfaces) || minSurfaces < 1)
     throw new TypeError("discoverRelationVocab: minSurfaces is declared — how much recurrence counts as a pattern is the caller's to say, never a default here");
+  if (posPrior && !Number.isFinite(grammarMinShare))
+    throw new TypeError("discoverRelationVocab: grammarMinShare is declared alongside posPrior — how dominant a class must be to collapse is never a default (dominantClass's own contract)");
 
   const s = String(text ?? "");
   const names = [...(surfaces ?? [])]
@@ -244,7 +275,21 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
   const verbs = new Set();
   const candidates = [];
   for (const [token, seenAfter] of surfacesByToken) {
-    candidates.push({ verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter) });
+    const entry = { verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter) };
+    // Additive only (see this function's own header): `grammar` never
+    // changes which tokens land in `verbs` — it answers a question SLOT
+    // evidence alone cannot, disclosed for a caller that wants it.
+    if (posPrior) {
+      const classification = classifyWord(token, { posPrior });
+      const top = classification.found ? dominantClass(classification, { minShare: grammarMinShare }) : null;
+      entry.grammar = {
+        found: classification.found,
+        candidates: classification.candidates,
+        dominant: top,
+        plausibleAsVerb: top ? top.thraxClass === "verb" : null,
+      };
+    }
+    candidates.push(entry);
     if (seenAfter.size >= minSurfaces) verbs.add(token);
   }
   candidates.sort((x, y) => y.surfaces - x.surfaces);
