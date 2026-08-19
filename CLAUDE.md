@@ -64,6 +64,22 @@ extraction → belief graph → population understanding, in the order those
 organs actually compose. A new driver's job is usually to ask a new
 QUESTION of that pipeline's output, not to rebuild pieces of the pipeline.
 
+**Instance-level role resolution** (`perceiver/text/roles.js::resolveSpanRole`,
+added 2026-08-19) — the general sibling of `pronouns.js::resolvePronouns`:
+given a span of unknown role and other spans already known to fill
+declared roles, resolves which role THIS occurrence's own local vocabulary
+resembles, by the same causal one-hop `emergence/activation.js` recall
+pronouns.js already trusts for referent identity. "Role" is never typed
+in — it is a caller-declared label, so this is the organ to reach for
+before hand-rolling any type-level word statistic (a determiner-adjacency
+vote, a POS-frequency table) to decide what a specific occurrence of an
+ambiguous word is doing — that class of mistake, and the type-vs-instance
+reasoning behind the fix, is recorded in the-fold's own CLAUDE.md ("Closed
+the same day — a new engine organ, not another word-level proxy") along
+with a measured limitation: the mechanism needs same-role vocabulary to
+actually recur within the material, which book-length text has and a
+single short passage often does not.
+
 ## Never tune a parameter by checking what it does to a golden's own score
 
 **If a number feeds a reading (a threshold, a window, a `minX`), its value
