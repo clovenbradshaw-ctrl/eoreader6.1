@@ -178,6 +178,28 @@ or a narrower ambiguity list remains untried. UniMorph unfiltered stays
 the strongest result of the four runs. Full write-up:
 `the-fold/eval/results/mine-1-unimorph-disambiguated-RESULTS.md`.
 
+**Amended a fourth time, same day — a new engine organ closed the arc,
+rather than a fourth word-level proxy.** Checking eoreader6/5/4.2 for prior
+art (per user direction) found eoreader6.1's own stripped research scratch
+had already diagnosed this exact failure shape for a related problem:
+"a surface span is never the thing with a part of speech — the referent
+is." `perceiver/text/roles.js::resolveSpanRole` (new) is the general
+sibling of `pronouns.js::resolvePronouns` — same causal one-hop
+`emergence/activation.js` recall, generalized so "role" is a caller-
+declared label rather than pronoun-specific. Resolves each MINE-1
+ambiguous-word occurrence instance-by-instance against UniMorph-
+unambiguous verb/noun evidence within the same essay: **22.4%/42.7%,
+zero contradictions** — the cleanest precision of everything tried,
+matching plain UniMorph's own cleanliness where both refinement attempts
+introduced 2 — at a real, checked (not assumed) recall cost: a single
+essay's unambiguous-verb evidence rarely recurs enough to clear
+`activation.js`'s own sparse-coding floor, while its topic nouns clear it
+easily — a data-scale mismatch with `pronouns.js`'s own book-length
+proving ground, not a defect in the mechanism. Plain UniMorph's raw 33.7%
+stays the session's strongest headline. Full five-way comparison and the
+untested prediction for book-scale material:
+`the-fold/eval/results/mine-1-span-role-RESULTS.md`.
+
 **Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
 PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
 still the proposal this document originally was — nothing below Section A
