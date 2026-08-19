@@ -27,7 +27,7 @@
 // expensive half only ever runs for a population nothing has certified yet.
 
 import { deriveBeingRecords, understand } from "../engine/emergence/jati.js";
-import { classifyWord, dominantClass, THRAX_META } from "../engine/perceiver/text/wordclass.js";
+import { classifyWord, dominantClass, THRAX_META, POS_PRIOR_META } from "../engine/perceiver/text/wordclass.js";
 import { sessionRelations } from "./corpus.js";
 import { referentLookup } from "./graph.js";
 
@@ -103,14 +103,33 @@ const POSITION_GIVER = "perceiver/text/relations.js SVO-positional heuristic —
 const positionGloss = (position) =>
   Object.freeze({ source: "position-heuristic", reading: position === "a" ? "subject" : position === "b" ? "object" : "verb", giver: POSITION_GIVER });
 
-function grammarGloss(word, position, posPrior) {
+// TWO SEPARATE GIVERS, NEVER BLENDED INTO ONE. `giver` names who NAMED the
+// eight-way category scheme (Thrax); `evidenceGiver` names who PRODUCED the
+// counts that put THIS word in one of those categories (Universal
+// Dependencies' UD_English-EWT treebank — POS_PRIOR_META, already defined
+// in wordclass.js, previously computed but never actually attached here).
+// A reader seeing "preposition" next to a word was seeing Thrax's category
+// NAME with no visible sign the number behind it came from an external,
+// finite, 16,654-word annotated sample rather than this corpus itself or
+// the engine's own judgment — exactly the "received, never invented"
+// distinction genre-seed.js already holds elsewhere in this codebase, made
+// explicit here instead of left implicit in a field nothing read.
+//
+// `form` is the EXACT treebank key this classification is FOR — classifyWord
+// lowercases internally and looks up ONE literal surface string; "afforded"
+// and "afford" and "affords" are three separate keys with independently
+// attested (and potentially contradictory) distributions, never
+// interchangeable. Stated here so no caller has to re-derive or assume it.
+export function grammarGloss(word, position, posPrior) {
   if (!posPrior) return positionGloss(position);
   const classification = classifyWord(word, { posPrior });
   if (!classification.found) return positionGloss(position);
   const top = dominantClass(classification, { minShare: WORDCLASS_MIN_SHARE });
   return Object.freeze({
     source: "wordclass",
+    form: word.toLowerCase(),
     giver: THRAX_META.giver,
+    evidenceGiver: POS_PRIOR_META.giver,
     candidates: classification.candidates.map((c) => Object.freeze({ upos: c.upos, count: c.count, share: c.share, thraxClass: c.thraxClass })),
     dominant: top ? Object.freeze({ upos: top.upos, thraxClass: top.thraxClass, share: top.share }) : null,
     // no candidate cleared minShare (e.g. "that": SCONJ 994 vs PRON 851 in

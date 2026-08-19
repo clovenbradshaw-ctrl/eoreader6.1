@@ -23,7 +23,10 @@ import { toAttributeRecords } from "../induction/attributes.js";
 import { induceKinds } from "../packages/engine/emergence/kinds.js";
 import { createSession, admitChunked, sessionReferents } from "../packages/host/corpus.js";
 import { admitGraph } from "../packages/host/graph.js";
-import { wordCompany } from "../packages/host/hyperlexicon.js";
+import { wordCompany, grammarGloss } from "../packages/host/hyperlexicon.js";
+import { referentGenderEvidence, genderClass } from "../packages/engine/perceiver/text/pronouns.js";
+import { classifyByContext, POS_CONTEXT_META, POSITION_MIN_SHARE } from "../packages/engine/perceiver/text/posContext.js";
+import { classifyWord, dominantClass } from "../packages/engine/perceiver/text/wordclass.js";
 
 // Real evidence, not a positional guess: POSPrior@1 built from Universal
 // Dependencies' UD_English-EWT treebank (scripts/build-pos-prior.mjs,
@@ -32,7 +35,14 @@ import { wordCompany } from "../packages/host/hyperlexicon.js";
 // weaker position-heuristic reading when this is absent; here it is
 // always present, so every company entry's grammar reading is the real,
 // giver-cited classification, not the slot-order guess.
-const posPrior = JSON.parse(readFileSync("./corpus/pos-prior-eng.json", "utf8"));
+const posPrior = JSON.parse(readFileSync("scripts/corpus/pos-prior-eng.json", "utf8"));
+// Third tier, under real per-form evidence: certified POSITIONAL
+// association (scripts/build-pos-context-prior.mjs, permutation-tested
+// against the same treebank, committed at bin/priors/pos-context/en.json
+// since it is a measured finding worth a durable home, not a mechanical
+// re-derivable pass-through like posPrior above). Consulted only for a
+// word classifyWord found nothing for — see grammarWithContext below.
+const contextPrior = JSON.parse(readFileSync("bin/priors/pos-context/en.json", "utf8"));
 
 // Full corpus, not a slice — the holon-level partition (below) is what
 // makes this tractable at full size; measured previously only on a
@@ -40,14 +50,25 @@ const posPrior = JSON.parse(readFileSync("./corpus/pos-prior-eng.json", "utf8"))
 // search could still finish in reasonable time. Kept as a named constant
 // in case full-corpus timing turns out to need a fallback.
 const SLICE_CHARS = Infinity;
-const path = "./adversarial/fixtures/pg84-frankenstein.txt";
+// CLI-overridable so the same pipeline can be pointed at a different
+// corpus for a real scale test — never hardcoded to one book, and the
+// title is passed through to the output so the viewer's own fiction-check
+// (Wikipedia lookup) resolves against the right work instead of a stale
+// default.
+const path = process.argv[2] || "scripts/adversarial/fixtures/pg84-frankenstein.txt";
+const CORPUS_TITLE = process.argv[3] || "Frankenstein";
+const CORPUS_SLUG = path.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
 const t0 = Date.now();
 const wrapped = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 const { text: stripped } = stripContainer(wrapped);
 const raw = Number.isFinite(SLICE_CHARS) ? stripped.slice(0, SLICE_CHARS) : stripped;
 console.log(`[${Date.now() - t0}ms] stripContainer: ${wrapped.length} -> ${stripped.length} chars, using ${raw.length}`);
 
-const sentences = splitSentences(raw).map((s) => s.text);
+// Frames kept whole (text + offset + order) — pronouns.js's own
+// referentGenderEvidence needs the FULL frame, not just the text, to gate
+// evidence to same-clause co-occurrence (see mergeReferents below).
+const sentenceFrames = splitSentences(raw);
+const sentences = sentenceFrames.map((s) => s.text);
 
 const BAND_OPTS = { minAnchorFrequency: 5, maxAnchorFrequency: 150, foldCase: (t) => t.toLowerCase() };
 const bands = frequencyBands(sentences, BAND_OPTS); // same call extractOccurrences makes internally; reused, not recomputed differently
@@ -75,10 +96,72 @@ function structuralProfile(word, companyFull) {
   const tally = { a: 0, b: 0, label: 0 };
   for (const c of companyFull) tally[c.position] = (tally[c.position] ?? 0) + 1;
   const band = bands.gap ? "unknown" : bands.band(word); // earned: corpus-frequency band, not a grammar claim
-  const grammar = companyFull.find((c) => c.grammar?.source === "wordclass")?.grammar
-    ?? companyFull[0]?.grammar
-    ?? null;
+  // Grammar is a property of the word's FORM (classifyWord reads posPrior
+  // by form, wordclass.js's own contract) — it must never depend on
+  // whether THIS reading's relation-extraction happened to capture a Link
+  // for it. Scanning companyFull for a pre-computed grammar (the old
+  // approach) silently returned null for every word with zero company —
+  // measured: 408 of 1125 non-proper-name words in the Frankenstein full
+  // run, dwarfing the 88 genuinely not in the treebank and the 4 with no
+  // majority reading combined. representativePosition only feeds the
+  // never-classified-by-wordclass fallback reading (subject/object/verb);
+  // it never gates whether classification itself runs.
+  const topPosition = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
+  const representativePosition = topPosition && topPosition[1] > 0 ? topPosition[0] : "a";
+  let grammar = grammarGloss(word, representativePosition, posPrior);
+  // THIRD TIER: classifyWord found nothing for this exact form (grammar
+  // stayed "position-heuristic") — try the certified POSITIONAL signal
+  // (perceiver/text/posContext.js, bin/priors/pos-context/en.json) before
+  // falling all the way back to an unverified slot guess. Real per-form
+  // treebank evidence above always wins when it exists; this only ever
+  // runs for a form the treebank never attested at all.
+  if (grammar.source === "position-heuristic") {
+    const positional = classifyByContext(occurrenceContextsFor(word), contextPrior);
+    if (positional.found) {
+      const top = dominantClass(positional, { minShare: POSITION_MIN_SHARE });
+      grammar = Object.freeze({
+        source: "pos-context",
+        form: word,
+        giver: POS_CONTEXT_META.giver,
+        candidates: positional.candidates,
+        dominant: top ? Object.freeze({ upos: top.upos, thraxClass: top.thraxClass, share: top.share }) : null,
+      });
+    }
+  }
   return { tally, band, grammar };
+}
+
+// This word's own real occurrences in THIS reading, each carrying its
+// immediate neighbors' OWN resolved tags — never the target word's own
+// identity, which is exactly what lets classifyByContext work on a form
+// the treebank has never attested. sentencesContaining/sentenceTokens are
+// defined further down (closures resolve at call time, and this function
+// is only ever CALLED after both are built). NEIGHBOR_MIN_SHARE is the
+// same standing majority bar WORDCLASS_MIN_SHARE already holds
+// (hyperlexicon.js), restated here since that constant is private there.
+const NEIGHBOR_MIN_SHARE = 0.5;
+function occurrenceContextsFor(word) {
+  const sentIdxs = sentencesContaining.get(word);
+  if (!sentIdxs) return [];
+  const neighborTag = (tok) => {
+    if (tok == null) return null;
+    const c = classifyWord(tok, { posPrior });
+    if (!c.found) return null;
+    const top = dominantClass(c, { minShare: NEIGHBOR_MIN_SHARE });
+    return top ? top.upos : null;
+  };
+  const contexts = [];
+  for (const si of sentIdxs) {
+    const toks = sentenceTokens[si];
+    for (let ti = 0; ti < toks.length; ti++) {
+      if (toks[ti] !== word) continue;
+      contexts.push({
+        prevUpos: ti === 0 ? "SENT_START" : neighborTag(toks[ti - 1]),
+        nextUpos: ti === toks.length - 1 ? "SENT_END" : neighborTag(toks[ti + 1]),
+      });
+    }
+  }
+  return contexts;
 }
 
 // ── related forms: UniMorph's own giver-tagging discipline, no table ───────
@@ -131,11 +214,16 @@ function relatedFormsOf(word, vocabulary) {
 // provenance — real treebank evidence when classified, the weaker
 // positional fallback when a form isn't in the prior, and an honest "no
 // dominant reading" when the treebank itself is split, never a guess.
+// Two separate provenance facts, never blended: g.giver names WHO NAMED the
+// category (Thrax's tradition); g.evidenceGiver names WHOSE EVIDENCE put
+// this exact word FORM (g.form — never assumed shared with any other
+// inflection of the same word) in it (the UD_English-EWT treebank sample).
 function grammarClause(g) {
   if (g.source === "wordclass") {
-    if (g.dominant) return `[grammar — giver: ${g.giver}: ${g.dominant.share > 0.5 ? "" : "leading candidate "}${g.dominant.thraxClass} (${(g.dominant.share * 100).toFixed(0)}% of ${g.candidates.reduce((s, c) => s + c.count, 0)} attested tags)]`;
+    const forWhat = `for the exact form "${g.form}" — not shared with any other inflection`;
+    if (g.dominant) return `[grammar — evidence: ${g.evidenceGiver}, ${forWhat} (${g.candidates.reduce((s, c) => s + c.count, 0)} attested tags); category named by: ${g.giver}: ${g.dominant.share > 0.5 ? "" : "leading candidate "}${g.dominant.thraxClass} (${(g.dominant.share * 100).toFixed(0)}%)]`;
     const top2 = g.candidates.slice(0, 2).map((c) => `${c.thraxClass ?? c.upos} ${(c.share * 100).toFixed(0)}%`).join(" vs ");
-    return `[grammar — giver: ${g.giver}: no dominant reading (${top2}) — an occurrence-level check (resolveSpanRole) would be needed to resolve this one, not a type-level table]`;
+    return `[grammar — evidence: ${g.evidenceGiver}, ${forWhat}; category named by: ${g.giver}: no dominant reading (${top2}) — an occurrence-level check (resolveSpanRole) would be needed to resolve this one, not a type-level table]`;
   }
   return `[grammar — giver: ${g.giver}: read as ${g.reading}, unverified]`;
 }
@@ -262,15 +350,114 @@ const { referents } = sessionReferents(session, { sourceId: "s", limit: 2000 });
 // Frankenstein share "Frankenstein" but neither display is a substring of
 // the other's, so they correctly do NOT merge; a shared surname among
 // distinct family members is exactly the false-merge this guards against.
-function mergeReferents(refs) {
-  const parent = refs.map((_, i) => i);
-  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  const union = (i, j) => { const a = find(i), b = find(j); if (a !== b) parent[a] = b; };
+// CONTRADICTORY PARAMETERS MUST NEVER MERGE — measured at War and Peace's
+// scale (2026-08-19), the raw containment rule above catastrophically
+// over-merges once a real referent happens to be a bare TITLE: "Prince"
+// whole-word-matches 30+ distinct "Prince X" referents, and transitive
+// union-find fuses Pierre, Natásha, Andrew, and Napoleon into ONE "person"
+// through that single hub. Two things being the same requires their
+// measured parameters to AGREE, not merely fail to be checked — a
+// contradiction on any real parameter means either mixed observations or
+// (as here) more than one entity, never a merge. GENDER is the one such
+// parameter already engine-tier and mechanical, not invented for this
+// script: perceiver/text/pronouns.js's own gender-evidence tally (which
+// gendered pronoun co-occurs, same clause, with this referent's own named
+// mentions — "GENDER IS A HARD FILTER... DERIVED, NOT TYPED IN", that
+// file's own header) is real physics, not a guess. Natásha (evidenced "f")
+// and Pierre/Andrew/Napoleon (evidenced "m") directly contradict and can
+// never merge under this rule, no threshold involved.
+//
+// Gender alone does not close the whole hub failure — many distinct men
+// share a title ("Prince Andrew" and "Prince Vasíli" both read "m", so
+// gender alone would still let "Prince" bridge them, TRANSITIVELY, even
+// with no direct edge between the two full names themselves). A second
+// real parameter closes that gap: CO-OCCURRENCE AS DISTINCT ACTORS. If
+// "Prince Andrew" and "Prince Vasíli" are ever both named in the SAME
+// sentence as two separate (non-overlapping) mentions, that is direct,
+// mechanical, physics-only proof the text treats them as two different
+// people — a text does not name someone twice, as two different specific
+// forms, in one sentence about themself. Overlap-aware (a sentence
+// containing "Prince Andrew" trivially also whole-word-matches "Prince" at
+// the SAME position — that must never count as two distinct mentions).
+//
+// BOTH checks run at the GROUP level, not just the direct edge: unioning
+// i into j must be refused if EITHER signal contradicts for ANY existing
+// member of i's group against ANY existing member of j's group — checking
+// only the (i, j) pair itself would still let two already-hubbed groups
+// merge through a THIRD hub without ever directly comparing their real,
+// contradicting members. HUB_DEGREE_CAP remains a secondary, DISCLOSED-AS-
+// A-HEURISTIC guard underneath both: a genuine coref split (Clerval /
+// Henry Clerval / M Clerval, the real bug this mitigation was written for)
+// fans out only to the small handful of fragments ONE person's own
+// discovery produced — never to dozens of unrelated people sharing a title.
+const HUB_DEGREE_CAP = 3;
+function mergeReferents(refs, sentenceFrames) {
   const wordBoundary = (needle, haystack) => new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(haystack);
+
+  const referentSurfaces = new Map(); // surface -> ref index (string key, referentGenderEvidence's own contract)
+  refs.forEach((r, i) => { for (const s of [r.display, ...r.surfaces]) if (s) referentSurfaces.set(s, String(i)); });
+  const genderEvidence = referentGenderEvidence(sentenceFrames, referentSurfaces);
+  const genders = refs.map((_, i) => genderClass(genderEvidence.get(String(i))));
+
+  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matchSpans = (display, text) => {
+    const re = new RegExp(`\\b${escapeRe(display)}\\b`, "gi");
+    const spans = [];
+    let m;
+    while ((m = re.exec(text))) spans.push([m.index, m.index + m[0].length]);
+    return spans;
+  };
+  const overlaps = (a, b) => a[0] < b[1] && b[0] < a[1];
+  // Cached per-referent, per-sentence spans — computed once, reused across
+  // every pair check below, instead of re-scanning the whole corpus per pair.
+  const spansByRef = refs.map((r) => sentenceFrames.map((f) => matchSpans(r.display, f.text)));
+  const coOccursDistinctly = (i, j) => {
+    if (refs[i].display === refs[j].display) return false;
+    for (let s = 0; s < sentenceFrames.length; s++) {
+      const as = spansByRef[i][s], bs = spansByRef[j][s];
+      if (!as.length || !bs.length) continue;
+      for (const a of as) for (const b of bs) if (!overlaps(a, b)) return true;
+    }
+    return false;
+  };
+
+  const edges = [];
+  const degree = refs.map(() => 0);
   for (let i = 0; i < refs.length; i++) {
     for (let j = i + 1; j < refs.length; j++) {
-      if (wordBoundary(refs[i].display, refs[j].display) || wordBoundary(refs[j].display, refs[i].display)) union(i, j);
+      if (wordBoundary(refs[i].display, refs[j].display) || wordBoundary(refs[j].display, refs[i].display)) {
+        edges.push([i, j]);
+        degree[i]++; degree[j]++;
+      }
     }
+  }
+  const parent = refs.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const groupMembers = refs.map((_, i) => new Set([i]));
+  const union = (i, j) => {
+    const a = find(i), b = find(j);
+    if (a === b) return;
+    parent[a] = b;
+    for (const m of groupMembers[a]) groupMembers[b].add(m);
+    groupMembers[a] = groupMembers[b];
+  };
+  const contradicts = (i, j) => {
+    const gi = genders[i], gj = genders[j];
+    if (gi !== "unknown" && gj !== "unknown" && gi !== gj) return true;
+    return coOccursDistinctly(i, j);
+  };
+  for (const [i, j] of edges) {
+    if (degree[i] > HUB_DEGREE_CAP || degree[j] > HUB_DEGREE_CAP) continue;
+    const rootI = find(i), rootJ = find(j);
+    if (rootI === rootJ) continue;
+    let anyContradiction = false;
+    for (const a of groupMembers[rootI]) {
+      for (const b of groupMembers[rootJ]) {
+        if (contradicts(a, b)) { anyContradiction = true; break; }
+      }
+      if (anyContradiction) break;
+    }
+    if (!anyContradiction) union(i, j);
   }
   const groups = new Map();
   refs.forEach((r, i) => {
@@ -286,7 +473,7 @@ function mergeReferents(refs) {
     return { display, mentions, surfaces, mergedFrom };
   });
 }
-const mergedReferents = mergeReferents(referents);
+const mergedReferents = mergeReferents(referents, sentenceFrames);
 const merges = mergedReferents.filter((r) => r.mergedFrom);
 if (merges.length) console.log(`[${Date.now() - t0}ms] pragmatic referent merges (upstream coref split, mitigated locally): ${merges.map((r) => `${r.display} <- [${r.mergedFrom.join(", ")}]`).join("; ")}`);
 
@@ -302,7 +489,7 @@ console.log(`[${Date.now() - t0}ms] referents discovered: ${referents.length}, s
 const partitionsOut = {};
 for (const [holon, subset] of Object.entries(partitions)) {
   const tp = Date.now();
-  const kinds = induceKinds(subset, { population: `pg84:${holon}`, ...KIND_OPTS });
+  const kinds = induceKinds(subset, { population: `${CORPUS_SLUG}:${holon}`, ...KIND_OPTS });
   console.log(`[${Date.now() - t0}ms] induceKinds(${holon}, n=${subset.length}): ${Date.now() - tp}ms, ${kinds.length} kinds`);
   partitionsOut[holon] = {
     population: subset.length,
@@ -337,6 +524,7 @@ for (const [holon, subset] of Object.entries(partitions)) {
 
 const out = {
   corpus: path,
+  corpusTitle: CORPUS_TITLE,
   sliceChars: SLICE_CHARS,
   strippedContainer: true,
   sentences: sentences.length,
@@ -353,5 +541,5 @@ const out = {
   partitions: partitionsOut,
 };
 
-writeFileSync("./hyperlexicon-definitions-data.json", JSON.stringify(out, null, 2));
+writeFileSync("scripts/hyperlexicon-definitions-data.json", JSON.stringify(out, null, 2));
 console.log(`[${Date.now() - t0}ms] wrote hyperlexicon-definitions-data.json`);

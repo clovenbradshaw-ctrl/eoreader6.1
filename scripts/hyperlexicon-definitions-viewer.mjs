@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
-const data = JSON.parse(readFileSync("./hyperlexicon-definitions-data.json", "utf8"));
+const data = JSON.parse(readFileSync("scripts/hyperlexicon-definitions-data.json", "utf8"));
 
 const html = `<!doctype html>
 <html>
@@ -135,15 +135,23 @@ const openWords = new Set(); // survives re-render across a toggle flip
 // re-render, never a page reload or a server round-trip. Grammar is no
 // longer toggleable — real treebank evidence earned "always on" — so it's
 // unconditional here, matching the server side.
+// Two separate provenance facts, never blended: WHO NAMED the category
+// (g.giver, Thrax's tradition) is a different claim from WHOSE EVIDENCE put
+// this exact word FORM in it (g.evidenceGiver, the UD_English-EWT
+// treebank) — a reading that only showed the former left the underlying
+// external, finite treebank sample invisible. g.form names the EXACT
+// lowercased surface this classification is for, never assumed shared with
+// any other inflected sibling of the same word.
 function grammarClause(g) {
   if (!g) return null;
   if (g.source === "wordclass") {
+    const forWhat = \`for the exact form "\${g.form}" — not shared with any other inflection\`;
     if (g.dominant) {
       const total = g.candidates.reduce((s, c) => s + c.count, 0);
-      return \`[grammar — giver: \${g.giver}: \${g.dominant.thraxClass} (\${(g.dominant.share * 100).toFixed(0)}% of \${total} attested tags)]\`;
+      return \`[grammar — evidence: \${g.evidenceGiver}, \${forWhat} (\${total} attested tags); category named by: \${g.giver}: \${g.dominant.thraxClass} (\${(g.dominant.share * 100).toFixed(0)}%)]\`;
     }
     const top2 = g.candidates.slice(0, 2).map(c => \`\${c.thraxClass ?? c.upos} \${(c.share * 100).toFixed(0)}%\`).join(" vs ");
-    return \`[grammar — giver: \${g.giver}: no dominant reading (\${top2}) — needs an occurrence-level check, not a type-level table]\`;
+    return \`[grammar — evidence: \${g.evidenceGiver}, \${forWhat}; category named by: \${g.giver}: no dominant reading (\${top2}) — needs an occurrence-level check, not a type-level table]\`;
   }
   return \`[grammar — giver: \${g.giver}: read as \${g.reading}, unverified]\`;
 }
@@ -229,9 +237,17 @@ function renderCards(containerId, members) {
       : '<div class="empty">no scored occurrences</div>';
     const openCls = openWords.has(m.word) ? " open" : "";
     const posAbbr = m.properName ? \`proper name · \${esc(m.properName.display)}\` : headwordTags(m.profile.grammar, toggles.traditions, toggles.bestFit);
+    // Provenance visible at first glance, not only after opening the card:
+    // this compact badge is a lookup result against an external, finite
+    // treebank sample, never this engine's own judgment or derived from
+    // this corpus's own text — the hover states which sample, for which
+    // exact form.
+    const posAbbrTitle = (!m.properName && m.profile.grammar?.source === "wordclass")
+      ? \` title="evidence: \${esc(m.profile.grammar.evidenceGiver)} — for the exact form &quot;\${esc(m.profile.grammar.form)}&quot;"\`
+      : "";
     return \`<div class="card\${openCls}\${m.properName ? " proper-name" : ""}" data-word="\${m.word}" onclick="toggleCard(this, '\${esc(m.word)}')">
       <div class="row1">
-        <span class="word">\${esc(displayWord(m))}\${posAbbr ? \` <span class="pos-abbr">\${posAbbr}</span>\` : ""}</span>
+        <span class="word">\${esc(displayWord(m))}\${posAbbr ? \` <span class="pos-abbr"\${posAbbrTitle}>\${posAbbr}</span>\` : ""}</span>
         <span class="stats">dist \${m.distance?.toFixed(2) ?? "—"} · headship \${m.headship?.toFixed(2) ?? "—"}</span>
       </div>
       <div class="company">
@@ -529,9 +545,15 @@ async function loadWiktionary(word, container, m, enabledTraditions) {
       // classifyWord's own candidates carry real counts if there's more.
       const candidate = (m.profile.grammar?.candidates ?? []).find((c) => udTags.includes(c.upos));
       const traditionTags = candidate ? allReadings(candidate, enabledTraditions) : [];
+      // A missing cross-tag is a MEASURED absence, not a gap left
+      // unexplained: Wiktionary can list a sense (e.g. "always" as a Noun)
+      // that this reading's own treebank classification has ZERO attested
+      // occurrences of for this exact form — nothing there to name in any
+      // tradition, so say that plainly rather than render an unexplained
+      // blank next to a section that DID get tags.
       const tagsHtml = traditionTags.length
         ? \`<div class="trad-tags">\${traditionTags.map((r) => \`<span class="trad-tag" title="\${esc(r.name)}">\${esc(r.key)}: \${esc(r.reading)}</span>\`).join("")}</div>\`
-        : "";
+        : \`<span class="wikt-hint">no \${esc(sec.partOfSpeech.toLowerCase())} evidence in this reading's own treebank classification of "\${esc(word)}" — not cross-tagged</span>\`;
       const match = udTags.length ? matchOccurrences(word, udTags, m) : null;
       const matchHtml = match
         ? \`<div class="record-match"><div class="record-match-label">seen in this reading <i>(\${esc(match.basis)})</i></div>\${match.quotes.map((u) => \`<div class="quote">"\${esc(u.quote)}"</div>\`).join("")}</div>\`
@@ -571,7 +593,7 @@ function contentWords(text) {
 // received knowledge with a named giver, never something derived from the
 // text itself ("THE PRIOR IS RECEIVED, NEVER INVENTED"). So the corpus's
 // own title is named here, not parsed out of a file path.
-const CORPUS_TITLE = "Frankenstein";
+const CORPUS_TITLE = DATA.corpusTitle || "Frankenstein";
 let corpusGenrePromise = null;
 // Fetched ONCE, cached, reused by every proper-name resolution — the
 // corpus's own genre identity from the SAME mechanism (a Wikipedia
@@ -736,5 +758,5 @@ function filterAll() {
 </body>
 </html>`;
 
-writeFileSync("./hyperlexicon-definitions.html", html);
+writeFileSync("scripts/hyperlexicon-definitions.html", html);
 console.log("wrote hyperlexicon-definitions.html,", html.length, "bytes");
