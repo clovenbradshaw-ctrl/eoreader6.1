@@ -904,12 +904,20 @@ const classifyIndividuation = (r, relations) => {
 const PRIORS_RELATIVE_PATH = ["..", "..", "bin", "priors", "lang", ""].join("/");
 const priorsRoot = new URL(PRIORS_RELATIVE_PATH, import.meta.url);
 
+// @2 (2026-08-19) added `attested`/`region` provenance blocks alongside the
+// existing `provenance`/`notes`/`abbreviations` keys this loader reads —
+// additive only, the shape this function actually consumes is unchanged, so
+// both versions are accepted rather than one being silently obsoleted.
+const ABBREVIATION_PRIOR_SCHEMAS = new Set(["AbbreviationPrior@1", "AbbreviationPrior@2"]);
+
 const loadAbbreviationPrior = (language) => {
   const path = new URL(`${language}.json`, priorsRoot);
   if (!fs.existsSync(path)) return null;
   const raw = JSON.parse(fs.readFileSync(path, "utf8"));
-  if (raw.schema !== "AbbreviationPrior@1")
-    throw new TypeError(`loadAbbreviationPrior: expected AbbreviationPrior@1, got ${raw.schema}`);
+  if (!ABBREVIATION_PRIOR_SCHEMAS.has(raw.schema))
+    throw new TypeError(
+      `loadAbbreviationPrior: expected one of [${[...ABBREVIATION_PRIOR_SCHEMAS].join(", ")}], got ${raw.schema}`,
+    );
   if (!raw.provenance?.source) throw new TypeError("loadAbbreviationPrior: a prior must name its giver");
   return { language: raw.language, giver: raw.provenance.source, abbreviations: raw.abbreviations };
 };

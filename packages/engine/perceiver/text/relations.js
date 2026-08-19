@@ -97,35 +97,54 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // measured on Frankenstein at minSurfaces=1: it followed a surface once and
 // nothing here knew to say no. Migrated to the prior register (priors.js).
 //
-// No word-count cap (`{0,2}` or any other value) gates this — MEASURED
-// against pg2600 (War and Peace), a cap has no principled value: {0,2}
-// silently missed hundreds of real same-clause negations ("I have never yet
-// asked you for...", "he did not like the conversation"), and every value
-// tried up to {0,6} still read as correct by hand, so the cap was measuring
-// nothing except how conservative the guess happened to be. What actually
-// distinguishes a connected negation from an unrelated one is not word
-// count — it's whether an INDEPENDENT clause with its own verb sits between
-// the trigger and this verb, which is exactly what the window this pattern
-// is tested against (built in extractRelations, see `windowStart` below) is
-// already bounded by. Once that's true, the check reduces to a plain
-// existence test: ANY trigger anywhere in an already-clause-bounded window
-// is a real one — this regex does not need to also anchor "and nothing but
-// words after it to the end", so it doesn't try to. That anchored shape
-// was tried first (`\s+(?:W\s+)*$`) and measured to be a real ReDoS: `W`
-// itself is a `+` nested inside the outer `*`, so on a non-match (the
-// common case — most windows are affirmative) the engine had to try every
-// way of partitioning the window into word+space runs before giving up.
-// MEASURED: switching {0,2} to that unbounded anchored form took full-book
-// extraction from 15s to 97-285s (non-deterministic — classic backtracking
-// blowup, worse on some runs than others), concentrated on short, unrelated
+// No word-count cap (`{0,2}` or any other value) gates the window this
+// class is tested against (built in extractRelations, see `windowStart`
+// below) — MEASURED against pg2600 (War and Peace), a cap has no principled
+// value: {0,2} silently missed hundreds of real same-clause negations ("I
+// have never yet asked you for...", "he did not like the conversation"),
+// and every value tried up to {0,6} still read as correct by hand, so the
+// cap was measuring nothing except how conservative the guess happened to
+// be. What actually distinguishes a connected negation from an unrelated
+// one is not word count — it's whether an INDEPENDENT clause with its own
+// verb sits between the trigger and this verb, which the window is already
+// bounded by. Once that's true, the check reduces to a plain existence
+// test: ANY trigger anywhere in an already-clause-bounded window is a real
+// one — the regex below does not need to also anchor "and nothing but words
+// after it to the end", so it doesn't try to. That anchored shape was tried
+// first (`\s+(?:W\s+)*$`) and measured to be a real ReDoS: `W` itself is a
+// `+` nested inside the outer `*`, so on a non-match (the common case —
+// most windows are affirmative) the engine had to try every way of
+// partitioning the window into word+space runs before giving up. MEASURED:
+// switching {0,2} to that unbounded anchored form took full-book extraction
+// from 15s to 97-285s (non-deterministic — classic backtracking blowup,
+// worse on some runs than others), concentrated on short, unrelated
 // sentences with no real cause to be slow. This plain existence form has no
 // repeated group to backtrack through at all.
-const NEGATION_BEFORE_VERB = new RegExp(`\\b(?:${[...NEGATION_WORDS].join("|")}|no longer)\\b`, "iu");
+//
+// `bin/priors/lang/en.json`'s own pattern (spans.js::splitSentences's
+// `{abbreviations}` seam) is applied here too: "a mechanism is
+// language-agnostic or it is not a mechanism," and a hardcoded English
+// closed class is a lie for every other language. `words` is a
+// caller-supplied Set (a vendored `NegationPrior@1`, e.g.
+// `bin/priors/lang/eu.json`'s `negation: ["ez", ...]` for Basque, which
+// fronts its own negation particle BEFORE the finite verb exactly as this
+// window already checks for — see that file's own provenance for the
+// citation). Reference equality against the module's own default
+// `NEGATION_WORDS` (never a value comparison, which an injected Set that
+// happens to contain the same English words would wrongly satisfy) is how
+// the English-only "no longer" idiom stays English-only: it is appended
+// ONLY when nothing was injected, never presumed to apply to a vendored
+// language's own closed class.
+const negationBeforeVerbFor = (words) => {
+  const alt = [...words].map(escapeRe).join("|");
+  const extra = words === NEGATION_WORDS ? "|no longer" : "";
+  return new RegExp(`\\b(?:${alt}${extra})\\b`, "iu");
+};
 
 // The exact complement of W: any run of characters that is not part of a
 // word — whitespace, commas, parens, quote marks, em-dashes, a Gutenberg
 // hard-wrap newline. Collapsing every such run to one space before testing
-// NEGATION_BEFORE_VERB lets it see past formatting exactly as it already
+// the negation-before-verb regex lets it see past formatting exactly as it already
 // sees past ordinary whitespace — it can only turn a non-match into a match
 // (it never deletes, splits, or reorders a word), so no sentence that
 // already resolved "-" changes.
@@ -169,6 +188,14 @@ const SENTENCE_END = /[.!?;]/g;
  *     the reading, not a constant this file gets to assume for every
  *     caller's material.
  *
+ * `negationWords` (bin/priors/lang/en.json's own pattern, the same seam
+ * spans.js::splitSentences's `{abbreviations}` already opened): defaults to
+ * this file's own English `NEGATION_WORDS` (priors.js, giver lang/en). A
+ * caller reading a different language's material injects that language's
+ * OWN vendored negation prior instead — e.g. Basque's "ez" (bin/priors/
+ * lang/eu.json) — never a second hardcoded English list standing in for a
+ * language it was never measured against.
+ *
  * Returns `{ verbs, candidates }`. `candidates` is every token that followed
  * at least one surface, ranked by how many distinct surfaces it followed,
  * kept so a caller can inspect what the gate let through and what it
@@ -178,7 +205,7 @@ const SENTENCE_END = /[.!?;]/g;
  * (LOSS-LESS-LADDER.md L3: a verb is admitted once it has ALREADY followed
  * minSurfaces distinct surfaces, never on the strength of the whole text).
  */
-export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces } = {}) => {
+export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS } = {}) => {
   if (!Number.isInteger(minSurfaces) || minSurfaces < 1)
     throw new TypeError("discoverRelationVocab: minSurfaces is declared — how much recurrence counts as a pattern is the caller's to say, never a default here");
 
@@ -208,7 +235,7 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
     if (/^\p{Nd}+$/u.test(cleaned)) continue;     // a bare number, not a verb
     const lower = cleaned.toLowerCase();
     if (functionWords && functionWords.has(lower)) continue; // this text's own closed class
-    if (NEGATION_WORDS.has(lower)) continue; // a negation marker modifies a verb; it is not one
+    if (negationWords.has(lower)) continue; // a negation marker modifies a verb; it is not one
 
     if (!surfacesByToken.has(lower)) surfacesByToken.set(lower, new Set());
     surfacesByToken.get(lower).add(diaNorm(m[0]));
@@ -239,6 +266,9 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
  * say" before a vocabulary exists to hear it with is nothing, not a fallback
  * dictionary.
  *
+ * `negationWords`: same param, same default, same seam as
+ * discoverRelationVocab's own — see negationBeforeVerbFor's header, above.
+ *
  * `functionWords` (this text's own Zipf-derived closed class,
  * material.js::functionWordSet — same discipline as discoverRelationVocab's
  * own `functionWords` param, same file, above): bounds the OBJECT capture at
@@ -258,7 +288,8 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
  * falls back to the original clause-final shape, same discipline as every
  * other optional filter in this file.
  */
-export const extractRelations = (text, { verbs, limit = Infinity, functionWords = null } = {}) => {
+export const extractRelations = (text, { verbs, limit = Infinity, functionWords = null, negationWords = NEGATION_WORDS } = {}) => {
+  const negationBeforeVerb = negationBeforeVerbFor(negationWords);
   const vocab = verbs instanceof Set ? verbs : new Set(verbs ?? []);
   if (vocab.size === 0) return [];
 
@@ -270,7 +301,7 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
   // or the one case this bound exists to help — a pronoun as the whole
   // object — would be the one case it broke). Only tokens AFTER that first
   // one stop at a function-word boundary. No trailing anchor after the
-  // object group (unlike NEGATION_BEFORE_VERB's earlier ReDoS, fixed above)
+  // object group (unlike negationBeforeVerbFor's earlier ReDoS, fixed above)
   // — the object simply matches as much as it structurally can and the
   // pattern ends there, so there is nothing for a failed later requirement
   // to backtrack the object choice against. MEASURED adversarially (a
@@ -350,8 +381,9 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
     // being function-word-shaped. Stripping only fires when there are TWO
     // tokens and the FIRST is the function word, so a lone pronoun subject
     // is never touched (nothing left to strip it down to). Also refused
-    // when the REMAINING token is itself a negation trigger (NEGATION_WORDS,
-    // already imported above) — a chorus finding (Dijkstra): "does not
+    // when the REMAINING token is itself a negation trigger (the effective
+    // `negationWords` — this file's own NEGATION_WORDS by default, or
+    // whatever the caller injected) — a chorus finding (Dijkstra): "does not
     // measure" captures subject "does not", and stripping "does" (a function
     // word) left "not" standing in as the reported subject, a fabricated
     // referent that is actually the negation marker for the verb, not an
@@ -374,7 +406,7 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
       if (
         subjTokens.length === 2 &&
         functionWords.has(subjTokens[0].toLowerCase()) &&
-        !NEGATION_WORDS.has(subjTokens[1].toLowerCase()) &&
+        !negationWords.has(subjTokens[1].toLowerCase()) &&
         !(subjTokens[0].toLowerCase() in THIRD_PERSON_SINGULAR)
       ) subject = subjTokens[1];
     }
@@ -406,7 +438,7 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
         subject,
         verb,
         object,
-        polarity: NEGATION_BEFORE_VERB.test(before) ? "-" : "+",
+        polarity: negationBeforeVerb.test(before) ? "-" : "+",
       });
       if (rels.length >= limit) { previousMatchEnd = clauseEndAfter(m.index + m[0].length); break; }
     }
