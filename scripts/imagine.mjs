@@ -16,6 +16,7 @@
 const ORDER = 4; // the reach of the context, in forms
 const ALPHA = 0.7; // the smoothing reserve, and the gift's audibility
 const GAMMA = 0.99995; // the reader's fading, per form met
+const RHO = 0.9995; // the forgetting rate of relevance — same declared value scripts/relevance.mjs already uses for this parameter, not a fresh pick
 const SEED = 20260731; // the draw
 const HORIZON = 24; // how many forms to imagine
 const PRIOR_CAP = 90000; // forms taken from each gift
@@ -82,7 +83,7 @@ for (const spec of priorSpecs) {
   console.log(`gift      ${spec.id.padEnd(12)} ${toks.length.toLocaleString()} forms — ${spec.giver}`);
 }
 console.log(
-  `\ndeclared  order=${ORDER} alpha=${ALPHA} gamma=${GAMMA} seed=${SEED} horizon=${HORIZON} conditioning=${CONDITIONING}\n`,
+  `\ndeclared  order=${ORDER} alpha=${ALPHA} gamma=${GAMMA} rho=${RHO} seed=${SEED} horizon=${HORIZON} conditioning=${CONDITIONING}\n`,
 );
 
 // Two readers over the same material, differing in exactly one respect: one
@@ -91,7 +92,7 @@ console.log(
 // their continuations is attributable to the gifts and to nothing else.
 const makeReader = (withGifts) => {
   const read = createLayer({ id: "read", tier: "read", order: ORDER, gamma: GAMMA, alpha: ALPHA });
-  return { read, belief: createBelief({ layers: withGifts ? [read, ...gifts] : [read] }) };
+  return { read, belief: createBelief({ layers: withGifts ? [read, ...gifts] : [read], rho: RHO }) };
 };
 const alone = makeReader(false);
 const widely = makeReader(true);
@@ -103,7 +104,21 @@ let cursor = 0;
 for (const cut of cutAt) {
   // Read forward to the cut. Causal by construction: neither reader has seen a
   // single form past this point.
+  //
+  // FIX (found running this against 38 priors, 2026-08-19): this loop used to
+  // only call .observe(), which trains the read layer's own counts but never
+  // scores a single gift against what actually came next. Every gift's
+  // logW then sits at its untouched initial value for the whole run, shares()
+  // softmaxes over N identical numbers, and the mixture is silently uniform
+  // regardless of any gift's real relevance — invisible with the default 3
+  // gifts (a uniform 33/33/33 still looks like it's doing something), and
+  // exactly what a 38-gift run measured: every gift at a flat ~1% share, at
+  // every checkpoint, with zero differentiation. scripts/relevance.mjs
+  // already has the correct causal pair — witnessForm on the PRECEDING
+  // context, then observe — mirrored here.
   for (let i = cursor; i < cut; i++) {
+    const ctx = readTokens.slice(Math.max(0, i - ORDER), i);
+    widely.belief.witnessForm(ctx, readTokens[i]);
     alone.read.observe(readTokens, i);
     widely.read.observe(readTokens, i);
   }
@@ -119,7 +134,7 @@ for (const cut of cutAt) {
 
   for (const [label, reader] of [
     ["read this book only", alone],
-    ["and three others", widely],
+    [`and ${gifts.length} others`, widely],
   ]) {
     const out = emitSequence({
       belief: reader.belief,
@@ -155,6 +170,14 @@ for (const cut of cutAt) {
 
   console.log(`  what actually came next:`);
   console.log(`    ${say(truth)}\n`);
+}
+
+if (gifts.length > 1) {
+  console.log("─".repeat(78));
+  console.log(`earned relevance after reading the whole book (${gifts.length} gifts, rho=${RHO}):\n`);
+  const report = widely.belief.relevanceReport();
+  const ranked = [...report.layers].sort((a, b) => b.share - a.share);
+  for (const l of ranked) console.log(`  ${(l.share * 100).toFixed(2)}%  ${l.id}`);
 }
 
 console.log("─".repeat(78));
