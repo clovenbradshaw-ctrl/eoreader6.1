@@ -129,6 +129,37 @@ README already named as its next step. Full write-up, the two bugs caught
 building it, and the honest ceiling accounting:
 `the-fold/eval/mine-1-forms-RESULTS.md`.
 
+**Amended again, same day — a received prior beat induction, tested
+against each other rather than assumed.** `no_claims_extracted` (65.9% of
+all facts) was the bucket the recurring-form fix above named as the larger,
+untouched bottleneck. Two live options, both tried: kind-induction over
+`live_priors` (architecturally sound — `induceKinds` found real, non-trivial
+clustering on real corpus text — but the tried features don't isolate
+verb-hood, and the pipeline's own stronger search-aware null correctly
+refused all four candidate clusters; genuinely unproven, not a quick win);
+and UniMorph, English's received morphological paradigm table
+(github.com/unimorph/eng, vendored, 103,318 verb surface forms) — which
+won clearly. `hypergraph.js`'s vocabulary discovery now admits any
+recurring word (the SAME `FORM_MIN_ARRIVALS`-gated set the subject-identity
+fix already computes) that UniMorph tags as a known verb form, bypassing
+`discoverRelationVocab`'s own surface-anchoring step entirely — necessary
+because two attempts to WIDEN that anchoring step itself (recurring forms,
+then determiner phrases, as candidate anchors) were tried first and
+rejected on the merits: anchoring assumes SPARSE anchors, and both
+denser candidates flooded it with determiners and prepositions nominated
+as "verbs." Bound facts 222 → **531** (headline **33.7%**, essays with
+zero measurable vocabulary 29/105 → **0/105**, `no_claims_extracted` 1,038
+→ **189**. Zero contradictions, as in every run. Honestly disclosed: a
+hand spot-check of 20 bound triples found roughly half have a genuine
+subject/verb boundary error (English's noun-verb conversion), so the
+verdicts are correct — a real repeated pattern between material and
+answer, since MINE-1's facts are drawn from their own essay — without
+every triple being a clean, human-readable statement; `verbForms` ships
+opt-in only, and whether the live app's own grounding checks should adopt
+it by default is a flagged, undecided question, not resolved here. Full
+comparison table and the spot-check evidence:
+`the-fold/eval/results/mine-1-unimorph-RESULTS.md`.
+
 **Sections B–G remain unrun.** CaRB, HyperRED/HyperDocRED, the LitBank/
 PreCo/OntoNotes triple, TExEval/FCA, and the five-genre matrix are all
 still the proposal this document originally was — nothing below Section A
