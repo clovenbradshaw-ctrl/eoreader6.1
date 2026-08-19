@@ -45,4 +45,4 @@ export { admitReading } from "./reading.js";
 
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 
-export { wordCompany, wordKind, defineWord, wordOccurrences, wordSenses } from "./dictionary.js";
+export { wordCompany, wordKind, defineWord, wordOccurrences, wordSenses } from "./hyperlexicon.js";

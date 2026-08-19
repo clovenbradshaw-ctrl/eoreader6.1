@@ -1,4 +1,4 @@
-// eoreader6 · packages/host/dictionary — a word's live definition: the
+// eoreader6 · packages/host/hyperlexicon — a word's live definition: the
 // company it currently keeps in this session's belief graph, and whichever
 // kind (a received prior, or one induced) that company places it in.
 //
@@ -27,6 +27,7 @@
 // expensive half only ever runs for a population nothing has certified yet.
 
 import { deriveBeingRecords, understand } from "../engine/emergence/jati.js";
+import { classifyWord, dominantClass, THRAX_META } from "../engine/perceiver/text/wordclass.js";
 import { sessionRelations } from "./corpus.js";
 import { referentLookup } from "./graph.js";
 
@@ -74,10 +75,50 @@ const verbOf = (key) => {
 // So every company entry below carries the earned fact — `position` (which
 // end/label slot this word occupies in ONE Link, plus the Link's other two
 // slots, plainly) — as what it actually is, and the grammatical gloss as a
-// clearly separate, named, unverified overlay a caller may ignore.
-const GRAMMAR_GIVER = "perceiver/text/relations.js SVO-positional heuristic — a slot-order guess, never grammatically verified";
-const grammarGloss = (position) =>
-  Object.freeze({ reading: position === "a" ? "subject" : position === "b" ? "object" : "verb", giver: GRAMMAR_GIVER });
+// clearly separate, named overlay a caller may ignore.
+//
+// RECEIVED FIRST, HEURISTIC ONLY AS FALLBACK — the same "prior, or invent"
+// discipline understand()/checkKindPrior already hold. perceiver/text/
+// wordclass.js (landed 2026-08-19, PR #4) answers CLASS from real evidence:
+// classifyWord() reads a POSPrior@1 built from Universal Dependencies'
+// UD_English-EWT treebank (scripts/build-pos-prior.mjs; real annotation,
+// ambiguity preserved, never collapsed to one tag) and THRAX_MAP translates
+// UD's tagset to Dionysius Thrax's own eight ancient categories, every
+// entry naming exactly where the two schemes do and do not agree. When a
+// caller supplies that prior, `at`'s classification is measured (98.6% ADP
+// -> "preposition" in this build) rather than guessed from which Link slot
+// it happened to occupy — and it cross-validates the position tally rather
+// than replacing it: `at` sitting at 0 end-A/0 end-B/90 label occupancies
+// (measured, this fixture) and 98.6% ADP (measured, the treebank) are two
+// independent measurements agreeing, not one overlay asserting the other.
+//
+// wordclass.js answers CLASS only, never SLOT — position above stays the
+// earned structural fact regardless of which grammar path fires below.
+// dominantClass's own minShare is declared, never defaulted (its own
+// contract): 0.5, a literal majority of attested tags, is the smallest bar
+// that means "more than everything else combined" rather than a curve fit
+// to any one word.
+const WORDCLASS_MIN_SHARE = 0.5;
+const POSITION_GIVER = "perceiver/text/relations.js SVO-positional heuristic — a slot-order guess, never grammatically verified (fallback: no posPrior supplied, or this form is not in it)";
+const positionGloss = (position) =>
+  Object.freeze({ source: "position-heuristic", reading: position === "a" ? "subject" : position === "b" ? "object" : "verb", giver: POSITION_GIVER });
+
+function grammarGloss(word, position, posPrior) {
+  if (!posPrior) return positionGloss(position);
+  const classification = classifyWord(word, { posPrior });
+  if (!classification.found) return positionGloss(position);
+  const top = dominantClass(classification, { minShare: WORDCLASS_MIN_SHARE });
+  return Object.freeze({
+    source: "wordclass",
+    giver: THRAX_META.giver,
+    candidates: classification.candidates.map((c) => Object.freeze({ upos: c.upos, count: c.count, share: c.share, thraxClass: c.thraxClass })),
+    dominant: top ? Object.freeze({ upos: top.upos, thraxClass: top.thraxClass, share: top.share }) : null,
+    // no candidate cleared minShare (e.g. "that": SCONJ 994 vs PRON 851 in
+    // this build) is disclosed as null, never forced to a guess — exactly
+    // the case wordclass.js's own header names as roles.js's, not this
+    // organ's, to resolve.
+  });
+}
 
 /**
  * The word's current direct incidence in the session graph — every Link it
@@ -96,8 +137,14 @@ const grammarGloss = (position) =>
  * fact about ONE Link, not about the word — the same word can occupy end A
  * on one edge and the label on another (rare, but the graph does not
  * forbid it), so `position` is per company-entry, never per word.
+ *
+ * `posPrior` is optional and injected, never loaded from disk here (the
+ * cast.js pattern wordclass.js itself follows) — a POSPrior@1-shaped object
+ * from scripts/build-pos-prior.mjs's own output. Omitted, every company
+ * entry's `grammar` falls back to the position-heuristic reading, exactly
+ * this function's pre-wordclass.js behaviour.
  */
-export function wordCompany(session, word) {
+export function wordCompany(session, word, { posPrior } = {}) {
   const graph = session?.graph;
   const id = String(word).toLowerCase();
   if (!graph) return { word: id, present: false, company: [] };
@@ -123,7 +170,7 @@ export function wordCompany(session, word) {
     const add = (position, other) => {
       const gk = `${position}|${other}`;
       const existing = groups.get(gk);
-      if (!existing) { groups.set(gk, { position, link, weight: w, structuralWeight: null, negated, grammar: grammarGloss(position) }); return; }
+      if (!existing) { groups.set(gk, { position, link, weight: w, structuralWeight: null, negated, grammar: grammarGloss(id, position, posPrior) }); return; }
       // Prefer the labeled key's link (more informative); fold the other
       // edge's weight in as corroboration rather than a second entry.
       if (link.label && !existing.link.label) { existing.link = link; existing.structuralWeight = existing.weight; existing.weight = w; }
@@ -187,7 +234,7 @@ export function wordKind(session, word, { priors = [], population, readerVersion
 
 /**
  * Both halves in one call: live company, plus whichever kind currently
- * places this word — a "dictionary entry." kindArgs is optional and left
+ * places this word — a HyperLexicon entry. kindArgs is optional and left
  * out of the default path on purpose: pass it only when the expensive half
  * is actually wanted for this lookup (see wordKind's header).
  */

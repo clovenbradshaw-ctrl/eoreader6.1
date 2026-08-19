@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createSession, admitChunked } from "../packages/host/corpus.js";
 import { admitGraph } from "../packages/host/graph.js";
-import { wordCompany, wordKind, defineWord, wordOccurrences, wordSenses } from "../packages/host/dictionary.js";
+import { wordCompany, wordKind, defineWord, wordOccurrences, wordSenses } from "../packages/host/hyperlexicon.js";
 
 const text = readFileSync("./adversarial/fixtures/pg84-frankenstein.txt", "utf8").replace(/\r\n/g, "\n");
 

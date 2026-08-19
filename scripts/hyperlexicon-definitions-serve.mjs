@@ -7,7 +7,7 @@ const PORT = Number(process.argv[2]) || 8830;
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 createServer((req, res) => {
-  const path = req.url === "/" ? "/dictionary-definitions.html" : req.url;
+  const path = req.url === "/" ? "/hyperlexicon-definitions.html" : req.url;
   const file = join(ROOT, decodeURIComponent(path.split("?")[0]));
   if (!file.startsWith(ROOT) || !existsSync(file)) {
     res.writeHead(404).end("not found");

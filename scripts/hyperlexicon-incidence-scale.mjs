@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { stripContainer } from "../packages/engine/perceiver/text/spans.js";
 import { createSession, admitChunked, sessionRelations } from "../packages/host/corpus.js";
 import { admitGraph } from "../packages/host/graph.js";
-import { wordOccurrences } from "../packages/host/dictionary.js";
+import { wordOccurrences } from "../packages/host/hyperlexicon.js";
 import { understand } from "../packages/engine/emergence/jati.js";
 
 const wrapped = readFileSync("./adversarial/fixtures/pg84-frankenstein.txt", "utf8").replace(/\r\n/g, "\n");
