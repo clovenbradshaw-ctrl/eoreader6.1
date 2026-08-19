@@ -61,3 +61,31 @@ test("a missing prior is a typed gap and degrades loudly, not silently", () => {
   const withFallback = createLemmatizer(null, { fallback: (a, b) => a.slice(0, 3) === b.slice(0, 3) });
   assert.ok(withFallback.sameAct("grasped", "grasping"), "an injected fallback is used when the prior is absent");
 });
+
+// AMENDED 2026-08-19 — the suffix rule is English, and a differently-
+// declared language must not get it silently applied underneath its own
+// table. This repo has no real non-English prior vendored yet, so the
+// table below stands in for one — what matters is only that IT alone
+// carries the match, not the ASCII suffix rule.
+const NON_ENGLISH_TABLE = { luo: ["luso"] }; // a made-up irregular pair, unrelated to the suffix rule
+
+test("language: omitted still runs the English suffix rule — the pinned default, unchanged by this amendment", () => {
+  const lem = createLemmatizer(TABLE);
+  assert.ok(lem.sameAct("grasped", "grasps"), "regular English inflection must still be recovered when language is unspecified");
+});
+
+test("language: 'eng' explicitly is the same as omitting it", () => {
+  const lem = createLemmatizer(TABLE, { language: "eng" });
+  assert.ok(lem.sameAct("grasped", "grasps"));
+});
+
+test("language: a declared NON-English prior gets its own table, never the English suffix rule", () => {
+  const lem = createLemmatizer(NON_ENGLISH_TABLE, { language: "grc" });
+  // the table's own irregular pair still resolves — a non-English prior's
+  // OWN received forms are never refused, only the ASCII English rule is.
+  assert.ok(lem.sameAct("luo", "luso"), "the declared prior's own table must still work");
+  // but a pair that would ONLY match through the English suffix rule
+  // (never through this tiny table) must NOT match once a non-English
+  // language is declared — the exact failure this amendment closes.
+  assert.ok(!lem.sameAct("grasped", "grasps"), "the English-only suffix rule must not fire under a declared non-English language");
+});
