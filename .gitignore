@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 scripts/corpus/
 .claude/
+scripts/dictionary-definitions-data.json
+scripts/dictionary-definitions.html

@@ -223,6 +223,30 @@ tag alone. Extending the builder to also tally FEATS is real, scoped,
 unattempted future work, named here so the next pass does not have to
 re-discover the gap.
 
+## A significance test cannot certify a split on the field its own population was built from
+
+**If a population was partitioned or filtered on field X before being handed to `induceKinds`/`understand`, X (or anything that trivially reconstructs X) must not be allowed to serve as a certified cluster's discriminating field. A "certified" split on the very field used to build the population is double-dipping — Kriegeskorte et al.'s 2009 term for selecting and testing on the same data — not discovered structure, whatever the Born gates say.**
+
+**The incident this rule is named for** (`packages/host/dictionary.js::wordOccurrences`, 2026-08-19): a one-hop competing-definitions test built one record per occurrence of a target word, each carrying a `position:a`/`position:b` presence field (which end of the Link the word occupies — mutually exclusive, 100%/0% prevalence by construction) alongside `partner:X`/`label:X`. `induceKinds` "certified" two independent `height: "above"` clusters for both "which" and "was" — an exciting result until the discriminating `core.field_id` on both was `position:a`/`position:b` itself. The test had re-discovered the field it was built from. Stripping `position:*` from the attribute set before induction and re-running against the same words dropped both to zero certified clusters; one word, "you", survived on a genuinely different field (`label:are` vs `label:will` — verb co-occurrence, not the construction field) and is the only non-circular confirmation this organ has produced to date.
+
+The check that catches this before trusting a result: name every field the population's own construction logic reads or filters on, and confirm none of them appears as `core.field_id` on a certified kind. If one does, exclude it and re-run — a real finding survives losing one field; a circular one does not.
+
+## `admitGraph`'s `structural: true` writes two edge keys per relation — a naive edge scan double-counts
+
+**`packages/host/graph.js::admitGraph` passes `structural: true` to `readTriples` unconditionally (graph.js's own A5: the label-free structural key runs alongside the verb-inclusive key so text-derived and binding-derived relations stay comparable). This means every single admitted SVO relation writes BOTH `a|label|b` and its label-free twin `a||b` into `graph.edges` — two Map entries for one relation, not two relations. A caller that iterates `graph.edges` looking for a word's incidence (`packages/host/dictionary.js::wordCompany`, before its 2026-08-19 fix) reports each such relation twice: once with the label, once without, as if they were independent company.**
+
+**The incident this rule is named for**: `wordCompany("frankenstein")` returned two entries for the same `frankenstein → modest` relation — `{label: "is", ...}` and `{label: null, ...}` — inflating the reported mention count and cluttering every Link-having word's company across the whole graph, not just this one case. The fix groups company entries by `(position, other end)` before returning: the labeled edge's data wins, the label-free twin's weight is kept as `structuralWeight` (corroboration — a second independent decay channel agreeing), never listed as a second fact.
+
+Any new consumer of `graph.edges` that scans for a specific word's incidence needs the same grouping — the duplication is structural to every relation `admitGraph` has ever written, not particular to one word or one session.
+
+## When a fix duplicates work already landed on another branch, reconcile before merging
+
+**Before pushing new engine-tier machinery, `git fetch` and check open branches/PRs for the same territory — this repo has multiple agents working it concurrently, and "grammar is an unearned overlay over the engine's own Entity/Link ontology" is exactly specific enough an insight to be independently arrived at twice.**
+
+**The incident this rule is named for** (2026-08-19): a session building `packages/host/dictionary.js` independently arrived at "subject/verb/object are Dionysius Thrax's ~100 BCE categories, laid over relations.js's unverified positional heuristic, and should be a named, giver-tagged overlay rather than the ground" — and hand-rolled a `grammarGloss()`/`GRAMMAR_GIVER_NOTE` doing exactly that, inline, with no real grammatical evidence behind it. A concurrent, unmerged branch (`claude/parts-of-speech-extraction-so7h6d`, PR #4) had already built `packages/engine/perceiver/text/wordclass.js` — the same resolution, properly: real Universal Dependencies treebank evidence (`POSPrior@1`), an explicit `THRAX_MAP` naming exactly where the ancient and modern tagsets do and do not line up, and `resolveSpanRole` named as its own correctly-deferred next step for close cases. `git fetch` surfaced the branch only when a push was about to happen — a search at the start of that work (`packages/engine/perceiver/text/` is explicitly one of the search-first directories above) would have found it, or at minimum the open PR, much earlier.
+
+`packages/host/dictionary.js`'s inline grammar overlay is left in place (documented, working, and this repo's own branch was pushed before #4 could be pulled in) with a note that it should defer to `wordclass.js::classifyWord`/`THRAX_MAP` once #4 merges — reconciliation, not silent duplication left standing.
+
 ## When a rewrite is still the right call
 
 Not everything is built. `goldens/network/read.mjs`'s chapter-boundary
