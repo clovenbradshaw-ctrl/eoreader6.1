@@ -1083,3 +1083,76 @@ session, names checked as referents — and a conformance debt: the
 cross-organ agreement fixture P7.1 names, which A21 stays open against.
 A21's one-line searchSpans fix remains unapplied; P7 is the reason it is no
 longer optional.
+
+### A23 · RDF comparison orientation — the subject was named before a number was made
+
+Read the checked-out engine policy and traced the host reading assembly,
+belief graph, relation extraction, binding, entity admission, and external
+network golden before attempting an RDF comparison. → “The hypergraph” split
+into five non-interchangeable candidates; the first comparison's subject is
+now explicitly the **engine belief graph at a declared reading cursor**, not
+the-fold's ephemeral verifier, a claim log, an unbuilt generation plan, or
+eoWebLLM's sibling implementation. No RDF was fetched and no quality number
+was produced. The broader constitutions, the-fold, and live_priors named by
+the brief were absent from this environment, so their described behavior is
+recorded as received rather than independently verified. → Added the
+append-only `RDF-COMPARISON.md` resumption log with standing, evidence flags,
+existing seams, and open work. Runtime code is unchanged.
+
+### Open, not yet attempted (RDF comparison)
+
+- Provide and read the missing governing/sibling trees, then run the-fold's
+  own baseline independently of this engine baseline.
+- Select one RDF-covered, toggle-enabled live_priors document from its real
+  publisher frontmatter; build a giver- and snapshot-named local RDF prior.
+- Calibrate entity correspondence on human-labelled nominations before
+  reporting automatic agreement, and report entity and relation differences
+  separately.
+- Build a cursor-stamped eval snapshot and commensurable perturbed-input null;
+  only a measured discrepancy may nominate a grammar, logic, or prior-pipeline
+  correction.
+
+### A24 · The first RDF-programme assessment ran; RDF acquisition was refused
+
+Ran the host belief graph over the checked-in Project Gutenberg Frankenstein
+fixture, then reran the same pipeline on a sentence-reversal null. → The
+observed row contains 5,991 nodes and 9,803 edges (4,935 verb keys, 4,868
+structural keys, 356 negative); the null contains 5,993 and 9,808
+respectively. The leading nodes are pronouns/function words and none has an
+external identifier, a measured alignment obstacle. Because each whole
+document entered at tick 1, the near-equal null does not exercise temporal
+decay and is recorded as a staged-admission gap, not robustness. Wikidata
+SPARQL/API/entity-data and DBpedia JSON acquisition attempts all met the
+environment's HTTP 403 CONNECT refusal; zero RDF rows means RDF agreement is
+explicitly refused, not scored. → Added the rerunnable
+`goldens/rdf/rdf-belief-assessment.mjs` and its disclosed result artifact; no engine
+threshold or organ changed.
+
+### A25 — Work backwards from 100% coverage without tuning the golden (2026-08-20)
+
+**What was tried.** The network reading was instrumented after the fact with a
+monotone coverage funnel: discovery → Born admission → co-arrival nomination →
+displacement-null acceptance. The frozen reference is supplied only after the
+reading ends. No parameter, null, gate, or engine organ was changed.
+
+**What happened.** A synthetic assay proves that one missing reference endpoint
+is charged to discovery and one nominated-but-refused edge is charged to the
+null, without double-counting either at a later seam. The real corpus could not
+be rerun in this environment: its gitignored texts were absent and the
+reproducible fetch ended in `network_fetch failed`. Existing result artifacts
+were therefore left untouched rather than populated with inferred counts.
+
+**What it changed.** `goldens/network/coverage-funnel.mjs` and its conformance
+case make the next question mechanical: find the first seam carrying most of
+the measured loss. A Born loss does not license lowering a floor. It licenses
+checking the candidate's recorded refusal against the shared ground and the
+ambient re-zero history; candidate-local re-zero remains refused by the
+constitution claim already cited in `entity.js`. Standing: **shown** for the
+instrument and **gap** for real-corpus funnel counts. Evidence flags:
+`instrument_run=true`, `ground_present=false`, `human_calibrated=false`,
+`external_reference_used_only_after_reading=true`.
+
+**Open, not yet attempted.** Rebuild the corpus locally, materialize all forty
+funnels, choose the first loss seam by those counts, inspect its row-level Born
+or null records, and test any resulting mechanism on held-out material before
+re-scoring these networks.

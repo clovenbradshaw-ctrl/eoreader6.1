@@ -184,3 +184,33 @@ on 20-30 scenes' worth of material, before a pair is even offered to
   `CLAUDE.md`'s "reconcile, don't just dedupe" for what that found (a real,
   previously-unfixed matcher bug in `cast/read.mjs`, measured: `hu-69689`
   recall 5/19 → 7/19 on the identical register once fixed).
+
+## Working backwards from complete coverage (2026-08-20)
+
+“Get closer to 100%” is not licensed as “turn a threshold until the golden
+moves.” A reference edge can survive only if both endpoint beings pass four
+monotone seams: its names must be nominated by perception, both nominated
+referents must be born, their arrival series must nominate a co-arriving pair,
+and that pair must clear its displacement null. A miss at an earlier seam is
+unreachable by every later improvement.
+
+`coverage-funnel.mjs` now counts those ceilings after a reading has completely
+ended. The reference is not passed to `readBook`; it first enters in this
+audit. The result therefore diagnoses where coverage was lost without tuning
+the instrument on its own answer key. In particular, `lostAtBorn` is not an
+invitation to lower `minArrivals`: the audit also preserves the existing Born
+refusal reasons. The licensed question is whether the shared ground failed to
+re-zero when the material changed, or whether the Born comparison did exactly
+what its declared null says. A candidate-local re-zero remains prohibited.
+
+The funnel records reference nodes nominated before birth and admitted by the
+Born rule, then reference edges whose endpoints were discoverable, whose
+endpoints were born, whose pair was nominated by co-arrival, and whose
+nomination cleared the displacement null.
+
+The checked-in corpus texts are gitignored and were unavailable in the
+2026-08-20 implementation environment, so the existing result files were not
+rewritten with invented funnel counts. Re-run `node goldens/network/read.mjs`
+after `fetch.mjs` succeeds to materialize them. The next engine change, if any,
+must be selected from the first measured loss seam and tested against new or
+held-out material—not selected for raising these frozen scores.
