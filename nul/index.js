@@ -191,6 +191,31 @@ const dft = (inRe, inIm, inverse = false) => {
  * Perturbations of what is present. No parametric family, no global mean and sd:
  * an unconditional null is a units change and preserves everything it was meant
  * to test.
+ *
+ * A NOTE FOR A CALLER WHOSE material IS A SPARSE BINARY INDICATOR (a 0/1
+ * array with M ones out of N, M << N — a "does event X co-occur with
+ * category Y more than chance" question, not a numeric series). `shuffle`
+ * below is correct for that material but pays O(N) per draw to learn the
+ * arrangement of M relevant values, touching N-M positions that carry no
+ * information for the question being asked. The SAME uniform distribution
+ * over which M positions land where is available in O(M) per draw via
+ * partial Fisher-Yates / selection sampling: run the identical shuffle
+ * algorithm but only for the LAST M elements of an identity index array,
+ * then undo those M swaps (in reverse order — each swap is its own
+ * inverse) to restore the array to identity before the next draw, so one
+ * persistent index array serves every draw without an O(N) reset. Not
+ * added as a fourth PERTURBATIONS entry here — it answers a different
+ * shape of question (categorical co-occurrence, not a time series
+ * statistic) and `ground`/`difference` are used directly against a
+ * hand-built samples array in the worked example rather than through this
+ * registry. MEASURED: scripts/build-pos-context-prior.mjs, 17 tags x 200
+ * draws x ~34 context values over 204,578 real tokens — 232s with a full
+ * shuffle per draw, 1.6s with partial selection sampling (147x), same
+ * certified findings both ways (154 vs 156 of 612 pairs — the small
+ * difference is sampling variance across two different valid RNG streams,
+ * not a correctness change). See that script's own `contextEnrichment`
+ * for the full worked implementation, and CLAUDE.md's "Sparse binary
+ * material..." entry for the policy this measurement earned.
  */
 export const PERTURBATIONS = Object.freeze({
   shuffle: (material, seed) => {

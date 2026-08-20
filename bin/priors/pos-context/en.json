@@ -1,0 +1,1349 @@
+{
+  "$comment": "A POSITIONAL grammar prior, INDUCED not cited. Data only, no code. Staged here for transfer to eoPriors; nothing in packages/ may hardcode any of it.",
+  "schema": "POSContextPrior@1",
+  "language": "eng",
+  "provenance": {
+    "source": "Universal Dependencies UD_English-EWT",
+    "url": "https://github.com/UniversalDependencies/UD_English-EWT",
+    "license": "CC BY-SA 4.0",
+    "built_by": "measurement, not a cited linguistic authority — permutation significance over the treebank's own real sentences (nul/index.js ground/difference, shuffle perturbation, draws=200). A (context, tag) pair is kept only when the real co-occurrence rate exceeds every one of 200 shuffled re-pairings of the SAME material (exceeds_witness, direction: above) — never a hand-picked threshold.",
+    "input": "scripts/corpus/en_ewt-ud-train.conllu",
+    "tokensRead": 204578,
+    "sentences": 12544,
+    "pairsTested": 612,
+    "pairsCertified": 156
+  },
+  "notes": [
+    "SCOPED TO prevUpos/nextUpos ONLY, deliberately, not DEPREL. DEPREL (dependency relation to head) is real, likely stronger signal in the same CoNLL-U columns, but applying a classifier FORWARD to arbitrary text needs the same features computable on THAT text, and this repo has no dependency parser for its own material. prevUpos/nextUpos need only the neighbor words' own resolved tags, which compose for free with POSPrior@1's exact-form lookup (neighbors skew function-word-heavy, exactly what that prior covers best).",
+    "COVERAGE IS 156/612 (context, tag) pairs BY DESIGN, NOT AN OVERSIGHT: a context value with few real tokens (e.g. rare UPOS categories like SYM, X) cannot clear a 200-draw permutation floor no matter how real the association is — absence from this file means 'not yet certified at this draws count,' never 'no association exists.'",
+    "THIRD TIER, UNDER real per-form evidence. perceiver/text/posContext.js's classifyByContext consumes this file only when POSPrior@1's own exact-form lookup (classifyWord) finds nothing for the target word — real, attested evidence for the word's own form always leads when it exists.",
+    "BOOTSTRAP, MEANT TO GROW: built once from the treebank alone. Any future reading's own newly-resolved (word, prevUpos, nextUpos) triples are real additional evidence for the SAME certification question and belong folded back through the identical permutation test, not a separate or weaker one — re-run scripts/build-pos-context-prior.mjs against combined treebank + accumulated session evidence rather than hand-editing this file's own counts."
+  ],
+  "giver": "induced from Universal Dependencies UD_English-EWT (12,544 sentences, 204,578 tokens): 156 (context, tag) pair(s) with a permutation-significant (exceeds 200/200 shuffled draws) positional association, over 612 tested",
+  "context": {
+    "prevUpos": {
+      "ADP": [
+        {
+          "tag": "DET",
+          "observedRate": 0.3598486986958731,
+          "baselineRate": 0.07967132340720899,
+          "count": 6374,
+          "contextCount": 17713,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.14215547902670356,
+          "baselineRate": 0.06168796253751625,
+          "count": 2518,
+          "contextCount": 17713,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PRON",
+          "observedRate": 0.13430813526788235,
+          "baselineRate": 0.09130013979997849,
+          "count": 2379,
+          "contextCount": 17713,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.039406085925591375,
+          "baselineRate": 0.020168346547527104,
+          "count": 698,
+          "contextCount": 17713,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.07147292948681759,
+          "baselineRate": 0.06421022788374116,
+          "count": 1266,
+          "contextCount": 17713,
+          "censoredAt": 0.005
+        }
+      ],
+      "ADV": [
+        {
+          "tag": "VERB",
+          "observedRate": 0.19502811482687185,
+          "baselineRate": 0.11035399700847598,
+          "count": 1977,
+          "contextCount": 10137,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.14067278287461774,
+          "baselineRate": 0.06421022788374116,
+          "count": 1426,
+          "contextCount": 10137,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.17214165926802802,
+          "baselineRate": 0.11533987036729267,
+          "count": 1745,
+          "contextCount": 10137,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.08878366380585972,
+          "baselineRate": 0.04972186647635621,
+          "count": 900,
+          "contextCount": 10137,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.03561211403768373,
+          "baselineRate": 0.018667696428746005,
+          "count": 361,
+          "contextCount": 10137,
+          "censoredAt": 0.005
+        }
+      ],
+      "AUX": [
+        {
+          "tag": "VERB",
+          "observedRate": 0.3385888229784577,
+          "baselineRate": 0.11035399700847598,
+          "count": 4338,
+          "contextCount": 12812,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.1404932875429285,
+          "baselineRate": 0.04972186647635621,
+          "count": 1800,
+          "contextCount": 12812,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PART",
+          "observedRate": 0.11879487980018733,
+          "baselineRate": 0.028096862810272856,
+          "count": 1522,
+          "contextCount": 12812,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.10700905401186388,
+          "baselineRate": 0.06421022788374116,
+          "count": 1371,
+          "contextCount": 12812,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.07906650015610366,
+          "baselineRate": 0.06264114420905474,
+          "count": 1013,
+          "contextCount": 12812,
+          "censoredAt": 0.005
+        }
+      ],
+      "CCONJ": [
+        {
+          "tag": "PRON",
+          "observedRate": 0.1838719329742669,
+          "baselineRate": 0.09130013979997849,
+          "count": 1229,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.17235188509874327,
+          "baselineRate": 0.11035399700847598,
+          "count": 1152,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.08213644524236983,
+          "baselineRate": 0.04972186647635621,
+          "count": 549,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.08782166367444644,
+          "baselineRate": 0.06421022788374116,
+          "count": 587,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "DET",
+          "observedRate": 0.09784560143626571,
+          "baselineRate": 0.07967132340720899,
+          "count": 654,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.07824655894673847,
+          "baselineRate": 0.06168796253751625,
+          "count": 523,
+          "contextCount": 6684,
+          "censoredAt": 0.005
+        }
+      ],
+      "DET": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.5940241732621633,
+          "baselineRate": 0.16986675009043006,
+          "count": 9682,
+          "contextCount": 16299,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.2340020860175471,
+          "baselineRate": 0.06421022788374116,
+          "count": 3814,
+          "contextCount": 16299,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.07724400269955212,
+          "baselineRate": 0.06168796253751625,
+          "count": 1259,
+          "contextCount": 16299,
+          "censoredAt": 0.005
+        }
+      ],
+      "NOUN": [
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.29409356725146196,
+          "baselineRate": 0.11533987036729267,
+          "count": 10058,
+          "contextCount": 34200,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.2092982456140351,
+          "baselineRate": 0.08658800066478312,
+          "count": 7158,
+          "contextCount": 34200,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.07216374269005849,
+          "baselineRate": 0.032686799167065864,
+          "count": 2468,
+          "contextCount": 34200,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.07532163742690058,
+          "baselineRate": 0.06264114420905474,
+          "count": 2576,
+          "contextCount": 34200,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.023976608187134502,
+          "baselineRate": 0.018667696428746005,
+          "count": 820,
+          "contextCount": 34200,
+          "censoredAt": 0.005
+        }
+      ],
+      "VERB": [
+        {
+          "tag": "DET",
+          "observedRate": 0.18493211465081197,
+          "baselineRate": 0.07967132340720899,
+          "count": 4168,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.18488774514153875,
+          "baselineRate": 0.08658800066478312,
+          "count": 4167,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PRON",
+          "observedRate": 0.17299671665631378,
+          "baselineRate": 0.09130013979997849,
+          "count": 3899,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PART",
+          "observedRate": 0.06544502617801047,
+          "baselineRate": 0.028096862810272856,
+          "count": 1475,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.0396219717809921,
+          "baselineRate": 0.018667696428746005,
+          "count": 893,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.0695270210311474,
+          "baselineRate": 0.04972186647635621,
+          "count": 1567,
+          "contextCount": 22538,
+          "censoredAt": 0.005
+        }
+      ],
+      "PRON": [
+        {
+          "tag": "AUX",
+          "observedRate": 0.32483257433699436,
+          "baselineRate": 0.06264114420905474,
+          "count": 6063,
+          "contextCount": 18665,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.2647200642914546,
+          "baselineRate": 0.11035399700847598,
+          "count": 4941,
+          "contextCount": 18665,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.05379051701044736,
+          "baselineRate": 0.04972186647635621,
+          "count": 1004,
+          "contextCount": 18665,
+          "censoredAt": 0.005
+        }
+      ],
+      "PUNCT": [
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.10941038656774697,
+          "baselineRate": 0.032686799167065864,
+          "count": 1401,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.10800468566966029,
+          "baselineRate": 0.06168796253751625,
+          "count": 1383,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PRON",
+          "observedRate": 0.13697774306911362,
+          "baselineRate": 0.09130013979997849,
+          "count": 1754,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.0325654041390082,
+          "baselineRate": 0.020168346547527104,
+          "count": 417,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.030925419757907066,
+          "baselineRate": 0.018667696428746005,
+          "count": 396,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.06192893401015229,
+          "baselineRate": 0.04972186647635621,
+          "count": 793,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.011557985162046076,
+          "baselineRate": 0.0033972372395858793,
+          "count": 148,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "X",
+          "observedRate": 0.004295197188598204,
+          "baselineRate": 0.001955244454437916,
+          "count": 55,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.005700898086684889,
+          "baselineRate": 0.0036465309075267133,
+          "count": 73,
+          "contextCount": 12805,
+          "censoredAt": 0.005
+        }
+      ],
+      "SENT_START": [
+        {
+          "tag": "PRON",
+          "observedRate": 0.28212691326530615,
+          "baselineRate": 0.09130013979997849,
+          "count": 3539,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.12771045918367346,
+          "baselineRate": 0.06168796253751625,
+          "count": 1602,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.03228635204081633,
+          "baselineRate": 0.0033972372395858793,
+          "count": 405,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.07653061224489796,
+          "baselineRate": 0.04972186647635621,
+          "count": 960,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "DET",
+          "observedRate": 0.10044642857142858,
+          "baselineRate": 0.07967132340720899,
+          "count": 1260,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.039142219387755105,
+          "baselineRate": 0.020168346547527104,
+          "count": 491,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.035634566326530615,
+          "baselineRate": 0.018667696428746005,
+          "count": 447,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.0074936224489795915,
+          "baselineRate": 0.0036465309075267133,
+          "count": 94,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        }
+      ],
+      "PART": [
+        {
+          "tag": "VERB",
+          "observedRate": 0.6914375217542639,
+          "baselineRate": 0.11035399700847598,
+          "count": 3973,
+          "contextCount": 5746,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.06996171249564914,
+          "baselineRate": 0.06264114420905474,
+          "count": 402,
+          "contextCount": 5746,
+          "censoredAt": 0.005
+        }
+      ],
+      "ADJ": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.519905249484221,
+          "baselineRate": 0.16986675009043006,
+          "count": 6804,
+          "contextCount": 13087,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.1283716665393138,
+          "baselineRate": 0.11533987036729267,
+          "count": 1680,
+          "contextCount": 13087,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.04294337892565141,
+          "baselineRate": 0.032686799167065864,
+          "count": 562,
+          "contextCount": 13087,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.023305570413387332,
+          "baselineRate": 0.018667696428746005,
+          "count": 305,
+          "contextCount": 13087,
+          "censoredAt": 0.005
+        }
+      ],
+      "PROPN": [
+        {
+          "tag": "PROPN",
+          "observedRate": 0.23527918781725887,
+          "baselineRate": 0.06168796253751625,
+          "count": 2781,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.2686125211505922,
+          "baselineRate": 0.11533987036729267,
+          "count": 3175,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.06565143824027073,
+          "baselineRate": 0.032686799167065864,
+          "count": 776,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PART",
+          "observedRate": 0.045769881556683586,
+          "baselineRate": 0.028096862810272856,
+          "count": 541,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.03570219966159052,
+          "baselineRate": 0.020168346547527104,
+          "count": 422,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "X",
+          "observedRate": 0.0040609137055837565,
+          "baselineRate": 0.001955244454437916,
+          "count": 48,
+          "contextCount": 11820,
+          "censoredAt": 0.005
+        }
+      ],
+      "SCONJ": [
+        {
+          "tag": "PRON",
+          "observedRate": 0.47656454569258966,
+          "baselineRate": 0.09130013979997849,
+          "count": 1820,
+          "contextCount": 3819,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "DET",
+          "observedRate": 0.13432835820895522,
+          "baselineRate": 0.07967132340720899,
+          "count": 513,
+          "contextCount": 3819,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.15841843414506415,
+          "baselineRate": 0.11035399700847598,
+          "count": 605,
+          "contextCount": 3819,
+          "censoredAt": 0.005
+        }
+      ],
+      "INTJ": [
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.38438880706921946,
+          "baselineRate": 0.11533987036729267,
+          "count": 261,
+          "contextCount": 679,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.35346097201767307,
+          "baselineRate": 0.11035399700847598,
+          "count": 240,
+          "contextCount": 679,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.023564064801178203,
+          "baselineRate": 0.0033972372395858793,
+          "count": 16,
+          "contextCount": 679,
+          "censoredAt": 0.005
+        }
+      ],
+      "NUM": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.3574087862993299,
+          "baselineRate": 0.16986675009043006,
+          "count": 1440,
+          "contextCount": 4029,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.2819558203028047,
+          "baselineRate": 0.11533987036729267,
+          "count": 1136,
+          "contextCount": 4029,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.08612558947629685,
+          "baselineRate": 0.020168346547527104,
+          "count": 347,
+          "contextCount": 4029,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.0379746835443038,
+          "baselineRate": 0.0036465309075267133,
+          "count": 153,
+          "contextCount": 4029,
+          "censoredAt": 0.005
+        }
+      ],
+      "SYM": [
+        {
+          "tag": "NUM",
+          "observedRate": 0.6185410334346505,
+          "baselineRate": 0.020168346547527104,
+          "count": 407,
+          "contextCount": 658,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.016717325227963525,
+          "baselineRate": 0.0036465309075267133,
+          "count": 11,
+          "contextCount": 658,
+          "censoredAt": 0.005
+        }
+      ],
+      "X": [
+        {
+          "tag": "X",
+          "observedRate": 0.6034985422740525,
+          "baselineRate": 0.001955244454437916,
+          "count": 207,
+          "contextCount": 343,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.1924198250728863,
+          "baselineRate": 0.11533987036729267,
+          "count": 66,
+          "contextCount": 343,
+          "censoredAt": 0.005
+        }
+      ]
+    },
+    "nextUpos": {
+      "CCONJ": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.38580584649054245,
+          "baselineRate": 0.16986675009043006,
+          "count": 2468,
+          "contextCount": 6397,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.21900891042676254,
+          "baselineRate": 0.11533987036729267,
+          "count": 1401,
+          "contextCount": 6397,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.12130686259183993,
+          "baselineRate": 0.06168796253751625,
+          "count": 776,
+          "contextCount": 6397,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.08785368141316242,
+          "baselineRate": 0.06421022788374116,
+          "count": 562,
+          "contextCount": 6397,
+          "censoredAt": 0.005
+        }
+      ],
+      "NOUN": [
+        {
+          "tag": "DET",
+          "observedRate": 0.284982633778772,
+          "baselineRate": 0.07967132340720899,
+          "count": 9682,
+          "contextCount": 33974,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.2002707953140637,
+          "baselineRate": 0.06421022788374116,
+          "count": 6804,
+          "contextCount": 33974,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.04238535350562195,
+          "baselineRate": 0.020168346547527104,
+          "count": 1440,
+          "contextCount": 33974,
+          "censoredAt": 0.005
+        }
+      ],
+      "PROPN": [
+        {
+          "tag": "PROPN",
+          "observedRate": 0.2524051552005809,
+          "baselineRate": 0.06168796253751625,
+          "count": 2781,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.22853512434198583,
+          "baselineRate": 0.08658800066478312,
+          "count": 2518,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "DET",
+          "observedRate": 0.11426756217099292,
+          "baselineRate": 0.07967132340720899,
+          "count": 1259,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.04746777999636958,
+          "baselineRate": 0.032686799167065864,
+          "count": 523,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.07850789616990379,
+          "baselineRate": 0.06421022788374116,
+          "count": 865,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.12552187329823924,
+          "baselineRate": 0.11533987036729267,
+          "count": 1383,
+          "contextCount": 11018,
+          "censoredAt": 0.005
+        }
+      ],
+      "PUNCT": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.4343957847456163,
+          "baselineRate": 0.16986675009043006,
+          "count": 10058,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.13712533471538396,
+          "baselineRate": 0.06168796253751625,
+          "count": 3175,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.049062796924937375,
+          "baselineRate": 0.020168346547527104,
+          "count": 1136,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.07536494774121102,
+          "baselineRate": 0.04972186647635621,
+          "count": 1745,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.07255765742420316,
+          "baselineRate": 0.06421022788374116,
+          "count": 1680,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.011272350349831562,
+          "baselineRate": 0.0033972372395858793,
+          "count": 261,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "X",
+          "observedRate": 0.0028504793988079814,
+          "baselineRate": 0.001955244454437916,
+          "count": 66,
+          "contextCount": 23154,
+          "censoredAt": 0.005
+        }
+      ],
+      "SCONJ": [
+        {
+          "tag": "VERB",
+          "observedRate": 0.2648279952550415,
+          "baselineRate": 0.11035399700847598,
+          "count": 893,
+          "contextCount": 3372,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NOUN",
+          "observedRate": 0.2431791221826809,
+          "baselineRate": 0.16986675009043006,
+          "count": 820,
+          "contextCount": 3372,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.10705812574139977,
+          "baselineRate": 0.04972186647635621,
+          "count": 361,
+          "contextCount": 3372,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADJ",
+          "observedRate": 0.09045077105575326,
+          "baselineRate": 0.06421022788374116,
+          "count": 305,
+          "contextCount": 3372,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.0263938315539739,
+          "baselineRate": 0.018667696428746005,
+          "count": 89,
+          "contextCount": 3372,
+          "censoredAt": 0.005
+        }
+      ],
+      "ADJ": [
+        {
+          "tag": "DET",
+          "observedRate": 0.3021708128664237,
+          "baselineRate": 0.07967132340720899,
+          "count": 3814,
+          "contextCount": 12622,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.11297734115037236,
+          "baselineRate": 0.04972186647635621,
+          "count": 1426,
+          "contextCount": 12622,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.108619870068135,
+          "baselineRate": 0.06264114420905474,
+          "count": 1371,
+          "contextCount": 12622,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.04650610045951513,
+          "baselineRate": 0.032686799167065864,
+          "count": 587,
+          "contextCount": 12622,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.10030106163840913,
+          "baselineRate": 0.08658800066478312,
+          "count": 1266,
+          "contextCount": 12622,
+          "censoredAt": 0.005
+        }
+      ],
+      "DET": [
+        {
+          "tag": "ADP",
+          "observedRate": 0.4238313717667398,
+          "baselineRate": 0.08658800066478312,
+          "count": 6374,
+          "contextCount": 15039,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.2771460868408804,
+          "baselineRate": 0.11035399700847598,
+          "count": 4168,
+          "contextCount": 15039,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.03411131059245961,
+          "baselineRate": 0.018667696428746005,
+          "count": 513,
+          "contextCount": 15039,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.04348693397167365,
+          "baselineRate": 0.032686799167065864,
+          "count": 654,
+          "contextCount": 15039,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.06842210253341313,
+          "baselineRate": 0.06264114420905474,
+          "count": 1029,
+          "contextCount": 15039,
+          "censoredAt": 0.005
+        }
+      ],
+      "NUM": [
+        {
+          "tag": "SYM",
+          "observedRate": 0.11196698762035763,
+          "baselineRate": 0.0036465309075267133,
+          "count": 407,
+          "contextCount": 3635,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.1920220082530949,
+          "baselineRate": 0.08658800066478312,
+          "count": 698,
+          "contextCount": 3635,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NUM",
+          "observedRate": 0.09546079779917468,
+          "baselineRate": 0.020168346547527104,
+          "count": 347,
+          "contextCount": 3635,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.11609353507565337,
+          "baselineRate": 0.06168796253751625,
+          "count": 422,
+          "contextCount": 3635,
+          "censoredAt": 0.005
+        }
+      ],
+      "PRON": [
+        {
+          "tag": "VERB",
+          "observedRate": 0.25754673360195524,
+          "baselineRate": 0.11035399700847598,
+          "count": 3899,
+          "contextCount": 15139,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.1202193011427439,
+          "baselineRate": 0.018667696428746005,
+          "count": 1820,
+          "contextCount": 15139,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADP",
+          "observedRate": 0.15714380077944382,
+          "baselineRate": 0.08658800066478312,
+          "count": 2379,
+          "contextCount": 15139,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.08118105555188586,
+          "baselineRate": 0.032686799167065864,
+          "count": 1229,
+          "contextCount": 15139,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.0609683598652487,
+          "baselineRate": 0.04972186647635621,
+          "count": 923,
+          "contextCount": 15139,
+          "censoredAt": 0.005
+        }
+      ],
+      "ADV": [
+        {
+          "tag": "AUX",
+          "observedRate": 0.19539730785931395,
+          "baselineRate": 0.06264114420905474,
+          "count": 1800,
+          "contextCount": 9212,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.17010421189752498,
+          "baselineRate": 0.11035399700847598,
+          "count": 1567,
+          "contextCount": 9212,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.09769865392965697,
+          "baselineRate": 0.04972186647635621,
+          "count": 900,
+          "contextCount": 9212,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.05959617889709075,
+          "baselineRate": 0.032686799167065864,
+          "count": 549,
+          "contextCount": 9212,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PRON",
+          "observedRate": 0.10898827616152844,
+          "baselineRate": 0.09130013979997849,
+          "count": 1004,
+          "contextCount": 9212,
+          "censoredAt": 0.005
+        }
+      ],
+      "VERB": [
+        {
+          "tag": "PART",
+          "observedRate": 0.18210569739194207,
+          "baselineRate": 0.028096862810272856,
+          "count": 3973,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.19883577027088967,
+          "baselineRate": 0.06264114420905474,
+          "count": 4338,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PRON",
+          "observedRate": 0.22647476738323327,
+          "baselineRate": 0.09130013979997849,
+          "count": 4941,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "ADV",
+          "observedRate": 0.09061740844295732,
+          "baselineRate": 0.04972186647635621,
+          "count": 1977,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.05280286015492506,
+          "baselineRate": 0.032686799167065864,
+          "count": 1152,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SCONJ",
+          "observedRate": 0.027730668744556996,
+          "baselineRate": 0.018667696428746005,
+          "count": 605,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.011000595865609386,
+          "baselineRate": 0.0033972372395858793,
+          "count": 240,
+          "contextCount": 21817,
+          "censoredAt": 0.005
+        }
+      ],
+      "AUX": [
+        {
+          "tag": "PRON",
+          "observedRate": 0.48687063358226934,
+          "baselineRate": 0.09130013979997849,
+          "count": 6063,
+          "contextCount": 12453,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "NOUN",
+          "observedRate": 0.20685778527262508,
+          "baselineRate": 0.16986675009043006,
+          "count": 2576,
+          "contextCount": 12453,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "AUX",
+          "observedRate": 0.08134586043523649,
+          "baselineRate": 0.06264114420905474,
+          "count": 1013,
+          "contextCount": 12453,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PART",
+          "observedRate": 0.03228137798120935,
+          "baselineRate": 0.028096862810272856,
+          "count": 402,
+          "contextCount": 12453,
+          "censoredAt": 0.005
+        }
+      ],
+      "PART": [
+        {
+          "tag": "AUX",
+          "observedRate": 0.2675338372297416,
+          "baselineRate": 0.06264114420905474,
+          "count": 1522,
+          "contextCount": 5689,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.25927227983828444,
+          "baselineRate": 0.11035399700847598,
+          "count": 1475,
+          "contextCount": 5689,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.09509579891017754,
+          "baselineRate": 0.06168796253751625,
+          "count": 541,
+          "contextCount": 5689,
+          "censoredAt": 0.005
+        }
+      ],
+      "INTJ": [
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.5103448275862069,
+          "baselineRate": 0.11533987036729267,
+          "count": 148,
+          "contextCount": 290,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "INTJ",
+          "observedRate": 0.05517241379310345,
+          "baselineRate": 0.0033972372395858793,
+          "count": 16,
+          "contextCount": 290,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "CCONJ",
+          "observedRate": 0.06896551724137931,
+          "baselineRate": 0.032686799167065864,
+          "count": 20,
+          "contextCount": 290,
+          "censoredAt": 0.005
+        }
+      ],
+      "ADP": [
+        {
+          "tag": "NOUN",
+          "observedRate": 0.4168413696715583,
+          "baselineRate": 0.16986675009043006,
+          "count": 7158,
+          "contextCount": 17172,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "VERB",
+          "observedRate": 0.24266247379454928,
+          "baselineRate": 0.11035399700847598,
+          "count": 4167,
+          "contextCount": 17172,
+          "censoredAt": 0.005
+        }
+      ],
+      "SYM": [
+        {
+          "tag": "NUM",
+          "observedRate": 0.23466257668711657,
+          "baselineRate": 0.020168346547527104,
+          "count": 153,
+          "contextCount": 652,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.01687116564417178,
+          "baselineRate": 0.0036465309075267133,
+          "count": 11,
+          "contextCount": 652,
+          "censoredAt": 0.005
+        }
+      ],
+      "X": [
+        {
+          "tag": "X",
+          "observedRate": 0.518796992481203,
+          "baselineRate": 0.001955244454437916,
+          "count": 207,
+          "contextCount": 399,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "PROPN",
+          "observedRate": 0.12030075187969924,
+          "baselineRate": 0.06168796253751625,
+          "count": 48,
+          "contextCount": 399,
+          "censoredAt": 0.005
+        }
+      ],
+      "SENT_END": [
+        {
+          "tag": "PUNCT",
+          "observedRate": 0.8602519132653061,
+          "baselineRate": 0.11533987036729267,
+          "count": 10791,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "SYM",
+          "observedRate": 0.00701530612244898,
+          "baselineRate": 0.0036465309075267133,
+          "count": 88,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        },
+        {
+          "tag": "X",
+          "observedRate": 0.004544005102040816,
+          "baselineRate": 0.001955244454437916,
+          "count": 57,
+          "contextCount": 12544,
+          "censoredAt": 0.005
+        }
+      ]
+    }
+  }
+}

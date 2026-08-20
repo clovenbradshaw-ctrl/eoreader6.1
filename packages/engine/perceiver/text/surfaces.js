@@ -181,7 +181,29 @@ export const extractSurfaces = (sentences, { functionWords = null, abbreviations
   const abbrev = abbreviations ? new Set(abbreviations) : null;
 
   for (const sent of sentences) {
-    const toks = sent.text.split(/\s+/).map((t) => t.replace(/^[^\p{L}]+|[^\p{L}'’]+$/gu, "")).filter(Boolean);
+    // Two facts must survive stripping, not just the letters: which token
+    // each raw chunk stripped down to, AND whether a run-breaking mark
+    // (comma/semicolon/colon) sat between it and the token before it. Both
+    // are read off the SAME raw split, in one pass, so they can never drift
+    // out of alignment with each other.
+    const rawToks = sent.text.split(/\s+/);
+    const toks = [];
+    const brokenBefore = [];
+    let pendingBreak = false;
+    for (const raw of rawToks) {
+      const stripped = raw.replace(/^[^\p{L}]+|[^\p{L}'’]+$/gu, "");
+      if (!stripped) {
+        // A whitespace-delimited chunk that is punctuation alone (a bare
+        // "," between two words that themselves had no adjoining space)
+        // still carries the break forward — it contributes no token, but
+        // must not let the break it marks go unnoticed.
+        if (/[,;:]/.test(raw)) pendingBreak = true;
+        continue;
+      }
+      toks.push(stripped);
+      brokenBefore.push(pendingBreak);
+      pendingBreak = /[,;:]\s*$/.test(raw);
+    }
     // A unit set entirely in capitals is a heading or a running head, and every
     // token in it is capitalised by typography. Reading capitalisation as
     // evidence here is the sentence-initial mistake at unit scale — on Process
@@ -199,8 +221,17 @@ export const extractSurfaces = (sentences, { functionWords = null, abbreviations
     let i = 1;
     while (i < toks.length) {
       if (!CAP_TOKEN.test(toks[i])) { i++; continue; }
-      let j = i;
-      while (j < toks.length && CAP_TOKEN.test(toks[j])) j++;
+      // A run may always START at a capitalised token regardless of what
+      // preceded it (a name following a comma — "the general, Kutúzov,
+      // said" — must still begin its own run) but may only EXTEND across a
+      // token with no break immediately before it. Without this, two
+      // different people's names separated only by a comma ("Bilíbin,
+      // Prince Andrew's host") read as one continuous run and manufacture
+      // a name neither of them has — measured on War and Peace: the token
+      // sequence for "Bilíbin, Prince Andrew" recurred as its own spurious
+      // candidate 52 times, entangling two distinct referents' coreference.
+      let j = i + 1;
+      while (j < toks.length && CAP_TOKEN.test(toks[j]) && !brokenBefore[j]) j++;
       const run = toks.slice(i, j);
       // An all-caps run inside an otherwise mixed-case unit is the same
       // typography as an all-caps unit — a part title quoted mid-paragraph.
@@ -413,7 +444,6 @@ const deriveMinSentences = (surfaces) => {
  */
 export const discoverReferents = (surfaces, { minSentences, minPartners, groups } = {}) => {
   const events = [];
-  const assigned = new Map(); // surface -> referent_id
   const generic = groups
     ? groups.reduce((out, g) => {
         for (const t of genericTokens(g, { minPartners })) out.add(t);
@@ -456,23 +486,68 @@ export const discoverReferents = (surfaces, { minSentences, minPartners, groups 
     return diaNorm(a) === diaNorm(b);
   };
 
+  // UNION-FIND, NOT GREEDY FIRST-MATCH. corefersIndividuated is not
+  // transitive: "Henry" ⊂ "Henry Clerval" and "Clerval" ⊂ "Henry Clerval"
+  // both hold, but "Henry" and "Clerval" do not directly corefer with each
+  // other (no containment, no shared final token). The first cut of this
+  // loop joined a surface to the FIRST already-admitted surface it matched
+  // and stopped there — correct only when the connecting surface ("Henry
+  // Clerval") happens to be admitted before BOTH of the surfaces it
+  // connects, and silently order-dependent otherwise: whichever of "Henry"
+  // /"Clerval" is admitted first claims "Henry Clerval" when it arrives,
+  // and the other is left in its own, separate, un-merged referent — with
+  // no error, no gap, just a quietly worse cast. `admitted` is processed in
+  // `surfaces`' own mentions-descending order, so this depended on relative
+  // mention counts that any change elsewhere in the pool can perturb.
+  // Union-find closes this properly: every corefering pair still comes from
+  // exactly the same `corefersIndividuated` judgment, unchanged, but the
+  // GROUPING is now the transitive closure of that relation regardless of
+  // admission order — the same fix `scripts/hyperlexicon-definitions-data.mjs
+  // ::mergeReferents` already proved out for the analogous hub-fusion
+  // problem, applied here to the relation this file itself computes.
+  const parent = new Map();
+  const find = (s) => {
+    let root = s;
+    while (parent.get(root) !== root) root = parent.get(root);
+    let cur = s;
+    while (parent.get(cur) !== root) {
+      const next = parent.get(cur);
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  const union = (a, b) => {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  const admitted = [];
   for (const entry of surfaces) {
     const { surface, sentences } = entry;
     if (sentences <= sentencesFloorOf(entry)) continue;
-
-    let referentId = null;
-    for (const [existing, id] of assigned) {
-      if (corefersIndividuated(surface, existing)) { referentId = id; break; }
+    parent.set(surface, surface);
+    for (const existing of admitted) {
+      if (corefersIndividuated(surface, existing)) union(surface, existing);
     }
-    if (!referentId) referentId = `ref:auto:${diaNorm(surface).replace(/\s+/g, "_")}`;
+    admitted.push(surface);
+  }
 
+  // Referent ids are named from the FIRST-ADMITTED surface of each group
+  // (mentions-descending order, same as before) so a run against the same
+  // corpus always yields the same ids — deterministic, not dependent on
+  // Map/Set iteration order.
+  const idForRoot = new Map();
+  for (const surface of admitted) {
+    const root = find(surface);
+    if (!idForRoot.has(root)) idForRoot.set(root, `ref:auto:${diaNorm(surface).replace(/\s+/g, "_")}`);
+    const referentId = idForRoot.get(root);
     events.push({
       type: "DEF.admit",
       referent_id: referentId,
       surface,
       provenance: { giver: "surfaces/discoverReferents", tier: "engine", basis: "name-variant coreference" },
     });
-    assigned.set(surface, referentId);
   }
 
   const referentIds = new Set(events.map((e) => e.referent_id));

@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 scripts/corpus/
 .claude/
+scripts/hyperlexicon-definitions-data.json
+scripts/hyperlexicon-definitions.html
