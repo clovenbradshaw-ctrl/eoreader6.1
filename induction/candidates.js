@@ -43,6 +43,7 @@
 // Pure: no clock, no randomness, no I/O.
 
 import { gap, isGap } from "../nul/index.js";
+import { EXCHANGEABILITY_ALPHA, binomialUpperTail } from "../modifier-order/ud-bridge.js";
 
 // Same tokenizer perceiver/text/spans.js already uses (`TOKEN_RE`) — one
 // regex, reused rather than re-derived, so tokenization stays consistent
@@ -131,29 +132,15 @@ export const extractOccurrences = (sentences, { minAnchorFrequency, maxAnchorFre
   return Object.freeze({ occurrences: Object.freeze(occurrences), bandOf: bands.band, counts: bands.counts });
 };
 
-// Exact one-sided binomial upper-tail probability — the same statistic
-// modifier-order/ud-bridge.js already uses for "is this pattern more
-// common than chance," reused here rather than re-derived (II.7). Exported
-// so induction/stacks.js's pairwise significance test reuses this exact
-// statistic too, rather than a third copy of the same math (II.7 again).
-export const binomialUpperTail = (k, n) => {
-  const logChoose = (n, r) => {
-    let lg = 0;
-    for (let i = 0; i < r; i++) lg += Math.log(n - i) - Math.log(i + 1);
-    return lg;
-  };
-  let p = 0;
-  for (let s = k; s <= n; s++) p += Math.exp(logChoose(n, s) - n * Math.LN2);
-  return Math.min(1, p);
-};
-
 /**
  * Whether this corpus's occurrences favor one side of the anchor over the
  * other, measured (not assumed): "pre" if modifier occurrences fall
  * predominantly before their anchor, "post" if predominantly after,
- * "exchangeable" if the split is not distinguishable from 50/50 at p<0.05
- * — a real, typed outcome, not a forced choice between two sides for a
- * corpus that genuinely does not have one (free-order languages included).
+ * "exchangeable" if the split is not distinguishable from 50/50 at
+ * p<EXCHANGEABILITY_ALPHA (modifier-order/ud-bridge.js, the earliest/cited
+ * copy of this threshold) — a real, typed outcome, not a forced choice
+ * between two sides for a corpus that genuinely does not have one
+ * (free-order languages included).
  */
 export const measureDirection = (occurrences) => {
   if (!Array.isArray(occurrences) || occurrences.length === 0)
@@ -163,6 +150,6 @@ export const measureDirection = (occurrences) => {
   const n = occurrences.length;
   const majority = Math.max(before, after);
   const pValue = binomialUpperTail(majority, n);
-  if (pValue >= 0.05) return Object.freeze({ direction: "exchangeable", before, after, n, pValue });
+  if (pValue >= EXCHANGEABILITY_ALPHA) return Object.freeze({ direction: "exchangeable", before, after, n, pValue });
   return Object.freeze({ direction: before > after ? "pre" : "post", before, after, n, pValue });
 };

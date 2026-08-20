@@ -67,11 +67,27 @@ export const judgeSentences = (sentences, typology) => {
   return Object.freeze(judged);
 };
 
+// The conventional significance threshold (Fisher's own convention, not
+// derived from anything about this repo's own material) below which a
+// binomial split is treated as distinguishable from 50/50. Undocumented
+// and not measured against this repo's own false-positive rate — the same
+// standing packages/host/corpus.js's PRONOUN_MIN_ACTIVATION/
+// PRONOUN_MIN_MARGIN hold: an engineering starting point, not yet
+// validated against a golden. This is the earliest/cited copy —
+// induction/candidates.js and induction/stacks.js import it from here
+// rather than each carrying their own bare 0.05.
+export const EXCHANGEABILITY_ALPHA = 0.05;
+
 // Exact one-sided binomial upper-tail probability, P(at least `k`
 // successes in `n` flips | p=0.5) — computed directly (log-space to avoid
 // overflow), never approximated. n here is a corpus's sentence count for
 // one head, not a whole treebank, so the direct sum is cheap.
-const binomialUpperTail = (k, n) => {
+//
+// Exported for the same reason EXCHANGEABILITY_ALPHA above is: this is the
+// earliest/cited copy of this exact statistic — induction/candidates.js
+// and induction/stacks.js import it from here rather than each re-deriving
+// the same log-space sum.
+export const binomialUpperTail = (k, n) => {
   const logChoose = (n, r) => {
     let lg = 0;
     for (let i = 0; i < r; i++) lg += Math.log(n - i) - Math.log(i + 1);
@@ -102,7 +118,11 @@ export const crossCheck = (sentences, typology) => {
     inverted: n - nested,
     fractionNested: nested / n,
     pValue,
-    agrees: pValue < 0.05 ? true : n < 5 ? null : false,
+    // `n < 5` is a separate, independent judgment call — a minimum-sample-
+    // size floor below which "not significant" and "not enough evidence"
+    // are not the same claim — not derived from EXCHANGEABILITY_ALPHA and
+    // not itself validated against this repo's own false-positive rate.
+    agrees: pValue < EXCHANGEABILITY_ALPHA ? true : n < 5 ? null : false,
     typology: { direction: typology.direction, giver: typology.giver },
   });
 };
