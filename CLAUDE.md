@@ -80,6 +80,18 @@ with a measured limitation: the mechanism needs same-role vocabulary to
 actually recur within the material, which book-length text has and a
 single short passage often does not.
 
+## Before trusting an extraction organ for a new use, check it against THAT use's scale and consumption — not just its own fixture
+
+**`extractSurfaces`, `discoverReferents`, `relations.js::extractRelations`, and every other organ that reads positional/regex structure out of real prose are validated against their own conformance fixtures — a few hundred sentences, one specific downstream consumer. That validation does not transfer automatically to a new scale or a new caller. Three checks, cheap, worth running every time before reusing one of these organs somewhere new:**
+
+1. **Scale.** A heuristic that looks fine on a fixture has not been checked at book scale. Rare per-sentence failure modes occur often enough in absolute terms, at tens of thousands of sentences, to visibly corrupt output — even when they are statistically negligible on the fixture that validated the organ in the first place. `extractSurfaces`'s capitalized-run scanner never checked what punctuation separated two adjacent capitalized tokens; at Frankenstein's scale this basically never mattered, at War and Peace's it manufactured spurious candidates dozens of times over (see below). Run the organ once against the real scale a new use needs before trusting its output, not just its existing conformance tests.
+
+2. **Consumption.** The same imprecision can be invisible to one caller and fatal to another. `relations.js`'s SVO connector-slot heuristic never checks the connector is grammatically a verb, and that is nearly harmless to VERIFICATION (a bad triple among thousands gets silently outvoted) and immediately fatal to SYNTHESIS (every flaw prints straight into generated prose — the-fold's `experiments/mechanical-prose*.mjs`: stitching new sentences from these triples reads as garbage, quoting the material's own real sentences via the SAME triples reads perfectly). Before pointing an existing organ at a new downstream purpose, ask whether that purpose can tolerate the error rate its EXISTING callers already tolerate — never assume it transfers.
+
+3. **Read the raw structure before calling something broken, not a formatted summary of it, and check the source material before assuming a refusal is a defect.** Two near-misses this session: `discoverReferents`'s events are type-level (one per distinct surface string assigned to a referent), not occurrence-level, and a quick diagnostic's own comma-joined, character-truncated display made several legitimate distinct surfaces look like one garbled run — the bug was in the diagnostic's OWN formatting, not the organ. And bare "Andrew" refusing to merge with "Prince Andrew" looked like a failure for most of an investigation, until checking the actual text confirmed the book genuinely has three different Andrews — the refusal was correct, disclosed ambiguity (the same posture `beyond-reach`/`unheard` verdicts hold elsewhere in this codebase), not a defect to fix.
+
+**Where this is grounded** (2026-08-19, this repo): the referent-merge chain of incidents further down this file — `extractSurfaces`'s punctuation-boundary bug, the transitive-closure fix it then required in `discoverReferents`, and the correctly-refused "Andrew" merge underneath both — is the worked example for all three checks, found in exactly this order.
+
 ## Never tune a parameter by checking what it does to a golden's own score
 
 **If a number feeds a reading (a threshold, a window, a `minX`), its value
