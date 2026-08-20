@@ -71,6 +71,7 @@ import { parseLesMisJson, parseNodeEdgeCsv, parsePajekNet } from "./parsers.mjs"
 import { stripPgBoilerplate } from "../shared/gutenberg.mjs";
 import { bestMatch } from "../shared/fuzzy-match.mjs";
 import { monteCarloChance } from "../shared/chance.mjs";
+import { coverageFunnel } from "./coverage-funnel.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -335,6 +336,14 @@ export const readBook = (text, book, spec = SPEC) => {
     })
     .filter((e) => e.pValue < LINK_ALPHA);
 
+  const discovered = new Map();
+  for (const event of events) discovered.set(event.referent_id, {
+    id: event.referent_id,
+    surface: displaySurfaceOf.get(event.referent_id)?.surface ?? event.surface,
+    arrivals: state.arrivals.get(event.referent_id) ?? [],
+    refusal: state.refused.get(event.referent_id) ?? null,
+  });
+
   return {
     segments: segments.length,
     units: state.unit,
@@ -343,6 +352,11 @@ export const readBook = (text, book, spec = SPEC) => {
     register,
     edges,
     displaySurfaceOf,
+    // Frozen pre-verdict material for a post-reading coverage audit. Nothing
+    // here has seen the reference network; the golden may inspect it only
+    // after the reading has ended.
+    discovered: [...discovered.values()],
+    pairs,
   };
 };
 
@@ -477,13 +491,17 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
 
     const ref = loadGroundTruth(b.groundTruth);
     const s = score(r.register, r.edges, ref, r.displaySurfaceOf);
+    const funnel = coverageFunnel({
+      discovered: r.discovered, register: r.register, pairs: r.pairs, edges: r.edges, ref,
+      displayOf: (entity) => displayOf(entity, r.displaySurfaceOf),
+    });
 
     writeFileSync(
       join(HERE, "read", `${b.tag}.read.json`),
       JSON.stringify({
         tag: b.tag, kind: b.kind, spec: SPEC, segments: r.segments, units: r.units,
         candidateSurfaces: r.candidateSurfaces, referents: r.referents,
-        score: s, edges: r.edges,
+        score: s, coverageFunnel: funnel, edges: r.edges,
         register: r.register.map((e) => ({
           id: e.id, referentIds: e.surfaces, surface: displayOf(e, r.displaySurfaceOf),
           mergedFrom: e.mergedFrom, bornAt: e.bornAt,
