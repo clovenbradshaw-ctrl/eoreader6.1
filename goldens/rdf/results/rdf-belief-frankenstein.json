@@ -4,7 +4,7 @@
     "graph_shape": "measured",
     "rdf_quality": "refused"
   },
-  "measured_at": "2026-08-21T00:23:12.256Z",
+  "measured_at": "2026-08-21T04:32:57.868Z",
   "subject": "host-assembled engine belief graph at the admission cursor",
   "material": {
     "path": "scripts/adversarial/fixtures/pg84-frankenstein.txt",
@@ -1149,154 +1149,179 @@
     "graph": {
       "nodes": [
         {
-          "id": "ref:auto:felix",
-          "mentions": 10,
-          "firstSeen": 25,
-          "lastSeen": 37
-        },
-        {
-          "id": "in",
-          "mentions": 5,
-          "firstSeen": 3,
-          "lastSeen": 49
-        },
-        {
-          "id": "ref:auto:clerval",
-          "mentions": 5,
-          "firstSeen": 6,
-          "lastSeen": 55
-        },
-        {
-          "id": "i",
-          "mentions": 5,
-          "firstSeen": 9,
-          "lastSeen": 41
-        },
-        {
-          "id": "to",
-          "mentions": 4,
-          "firstSeen": 24,
-          "lastSeen": 48
-        },
-        {
           "id": "ref:auto:frankenstein",
           "mentions": 4,
           "firstSeen": 53,
-          "lastSeen": 56
-        },
-        {
-          "id": "clerval",
-          "mentions": 3,
-          "firstSeen": 9,
-          "lastSeen": 41
-        },
-        {
-          "id": "ref:auto:henry",
-          "mentions": 3,
-          "firstSeen": 10,
-          "lastSeen": 45
-        },
-        {
-          "id": "henry",
-          "mentions": 3,
-          "firstSeen": 14,
-          "lastSeen": 41
-        },
-        {
-          "id": "ref:auto:elizabeth",
-          "mentions": 3,
-          "firstSeen": 15,
-          "lastSeen": 50
-        },
-        {
-          "id": "that",
-          "mentions": 3,
-          "firstSeen": 15,
-          "lastSeen": 53
-        },
-        {
-          "id": "ref:auto:safie",
-          "mentions": 3,
-          "firstSeen": 28,
-          "lastSeen": 33
-        },
-        {
-          "id": "ref:auto:turk",
-          "mentions": 3,
-          "firstSeen": 30,
-          "lastSeen": 31
-        },
-        {
-          "id": "me",
-          "mentions": 3,
-          "firstSeen": 39,
-          "lastSeen": 46
-        },
-        {
-          "id": "said",
-          "mentions": 2,
-          "firstSeen": 5,
-          "lastSeen": 56
-        },
-        {
-          "id": "on",
-          "mentions": 2,
-          "firstSeen": 7,
-          "lastSeen": 34
-        },
-        {
-          "id": "ref:auto:geneva",
-          "mentions": 2,
-          "firstSeen": 12,
-          "lastSeen": 20
-        },
-        {
-          "id": "ref:auto:william",
-          "mentions": 2,
-          "firstSeen": 15,
-          "lastSeen": 16
-        },
-        {
-          "id": "before",
-          "mentions": 2,
-          "firstSeen": 26,
-          "lastSeen": 45
-        },
-        {
-          "id": "ref:auto:arabian",
-          "mentions": 2,
-          "firstSeen": 27,
-          "lastSeen": 28
-        },
-        {
-          "id": "ref:auto:agatha",
-          "mentions": 2,
-          "firstSeen": 28,
-          "lastSeen": 33
-        },
-        {
-          "id": "violently",
-          "mentions": 2,
-          "firstSeen": 37,
-          "lastSeen": 37
-        },
-        {
-          "id": "ref:auto:london",
-          "mentions": 2,
-          "firstSeen": 43,
-          "lastSeen": 43
-        },
-        {
-          "id": "ref:auto:kirwin",
-          "mentions": 2,
-          "firstSeen": 47,
-          "lastSeen": 47
+          "lastSeen": 56,
+          "weight": 6.37325
         },
         {
           "id": "ref:auto:what",
           "mentions": 2,
           "firstSeen": 54,
-          "lastSeen": 54
+          "lastSeen": 54,
+          "weight": 2.8899999999999997
+        },
+        {
+          "id": "said",
+          "mentions": 2,
+          "firstSeen": 5,
+          "lastSeen": 56,
+          "weight": 2
+        },
+        {
+          "id": "man",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
+        },
+        {
+          "id": "friends",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
+        },
+        {
+          "id": "ref:auto:clerval",
+          "mentions": 5,
+          "firstSeen": 6,
+          "lastSeen": 55,
+          "weight": 1.9055393390617685
+        },
+        {
+          "id": "yet have lived",
+          "mentions": 1,
+          "firstSeen": 55,
+          "lastSeen": 55,
+          "weight": 1.7
+        },
+        {
+          "id": "music",
+          "mentions": 1,
+          "firstSeen": 55,
+          "lastSeen": 55,
+          "weight": 1.7
+        },
+        {
+          "id": "scene",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "just passed",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "daily declined",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "you mean",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "you demand",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "that",
+          "mentions": 3,
+          "firstSeen": 15,
+          "lastSeen": 53,
+          "weight": 1.2282499999999998
+        },
+        {
+          "id": "in",
+          "mentions": 5,
+          "firstSeen": 3,
+          "lastSeen": 49,
+          "weight": 1.1043880691289059
+        },
+        {
+          "id": "ref:auto:greeks",
+          "mentions": 1,
+          "firstSeen": 52,
+          "lastSeen": 52,
+          "weight": 1.0440124999999998
+        },
+        {
+          "id": "for joy when\nthey beheld",
+          "mentions": 1,
+          "firstSeen": 52,
+          "lastSeen": 52,
+          "weight": 1.0440124999999998
+        },
+        {
+          "id": "ref:auto:kirwin",
+          "mentions": 2,
+          "firstSeen": 47,
+          "lastSeen": 47,
+          "weight": 0.9264677851328121
+        },
+        {
+          "id": "beheld clerval",
+          "mentions": 1,
+          "firstSeen": 51,
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
+        },
+        {
+          "id": "health",
+          "mentions": 1,
+          "firstSeen": 51,
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
+        },
+        {
+          "id": "to",
+          "mentions": 4,
+          "firstSeen": 24,
+          "lastSeen": 48,
+          "weight": 0.879667537457353
+        },
+        {
+          "id": "ref:auto:elizabeth",
+          "mentions": 3,
+          "firstSeen": 15,
+          "lastSeen": 50,
+          "weight": 0.7542990312499998
+        },
+        {
+          "id": "my agitation for",
+          "mentions": 1,
+          "firstSeen": 50,
+          "lastSeen": 50,
+          "weight": 0.7542990312499998
+        },
+        {
+          "id": "me",
+          "mentions": 3,
+          "firstSeen": 39,
+          "lastSeen": 46,
+          "weight": 0.7255149943445224
+        },
+        {
+          "id": "mighty jura",
+          "mentions": 1,
+          "firstSeen": 49,
+          "lastSeen": 49,
+          "weight": 0.6411541765624997
         }
       ],
       "edges": [
@@ -1404,7 +1429,57 @@
       "tick": 57,
       "edgeTotal": 24.65616852905985,
       "nodeCount": 174,
-      "edgeCount": 80
+      "edgeCount": 80,
+      "standings": [
+        {
+          "node": "ref:auto:felix",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:observed:cursor-68:material-68",
+                "referent": "ref:auto:felix",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 29
+            }
+          ]
+        },
+        {
+          "node": "ref:auto:safie",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:observed:cursor-68:material-68",
+                "referent": "ref:auto:safie",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 29
+            }
+          ]
+        },
+        {
+          "node": "ref:auto:turk",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:observed:cursor-71:material-71",
+                "referent": "ref:auto:turk",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 31
+            }
+          ]
+        }
+      ]
     },
     "edge_shape": {
       "verb_typed": 40,
@@ -2541,154 +2616,179 @@
     "graph": {
       "nodes": [
         {
-          "id": "ref:auto:felix",
-          "mentions": 10,
-          "firstSeen": 19,
-          "lastSeen": 31
+          "id": "ref:auto:here",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
         },
         {
-          "id": "ref:auto:clerval",
-          "mentions": 5,
-          "firstSeen": 1,
-          "lastSeen": 50
+          "id": "our captain",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
+        },
+        {
+          "id": "whole countenance",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
+        },
+        {
+          "id": "lighted up",
+          "mentions": 1,
+          "firstSeen": 56,
+          "lastSeen": 56,
+          "weight": 2
         },
         {
           "id": "in",
           "mentions": 5,
           "firstSeen": 7,
-          "lastSeen": 53
+          "lastSeen": 53,
+          "weight": 1.8970232316281748
         },
         {
-          "id": "i",
+          "id": "ref:auto:caroline",
+          "mentions": 1,
+          "firstSeen": 55,
+          "lastSeen": 55,
+          "weight": 1.7
+        },
+        {
+          "id": "a mind",
+          "mentions": 1,
+          "firstSeen": 55,
+          "lastSeen": 55,
+          "weight": 1.7
+        },
+        {
+          "id": "event caroline",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "his wife",
+          "mentions": 1,
+          "firstSeen": 54,
+          "lastSeen": 54,
+          "weight": 1.4449999999999998
+        },
+        {
+          "id": "ref:auto:clerval",
           "mentions": 5,
-          "firstSeen": 15,
-          "lastSeen": 47
+          "firstSeen": 1,
+          "lastSeen": 50,
+          "weight": 1.2945248576909967
         },
         {
-          "id": "ref:auto:frankenstein",
-          "mentions": 4,
-          "firstSeen": 0,
-          "lastSeen": 3
+          "id": "those italians",
+          "mentions": 1,
+          "firstSeen": 53,
+          "lastSeen": 53,
+          "weight": 1.2282499999999998
         },
         {
-          "id": "to",
-          "mentions": 4,
-          "firstSeen": 8,
-          "lastSeen": 32
+          "id": "providence",
+          "mentions": 1,
+          "firstSeen": 53,
+          "lastSeen": 53,
+          "weight": 1.2282499999999998
         },
         {
-          "id": "that",
-          "mentions": 3,
-          "firstSeen": 3,
-          "lastSeen": 41
+          "id": "her such powerful protection",
+          "mentions": 1,
+          "firstSeen": 53,
+          "lastSeen": 53,
+          "weight": 1.2282499999999998
         },
         {
-          "id": "ref:auto:elizabeth",
-          "mentions": 3,
-          "firstSeen": 6,
-          "lastSeen": 41
+          "id": "elizabeth",
+          "mentions": 1,
+          "firstSeen": 52,
+          "lastSeen": 52,
+          "weight": 1.0440124999999998
         },
         {
-          "id": "me",
-          "mentions": 3,
-          "firstSeen": 10,
-          "lastSeen": 17
-        },
-        {
-          "id": "ref:auto:henry",
-          "mentions": 3,
-          "firstSeen": 11,
-          "lastSeen": 46
-        },
-        {
-          "id": "clerval",
-          "mentions": 3,
-          "firstSeen": 15,
-          "lastSeen": 47
-        },
-        {
-          "id": "henry",
-          "mentions": 3,
-          "firstSeen": 15,
-          "lastSeen": 42
-        },
-        {
-          "id": "ref:auto:safie",
-          "mentions": 3,
-          "firstSeen": 23,
-          "lastSeen": 28
-        },
-        {
-          "id": "ref:auto:turk",
-          "mentions": 3,
-          "firstSeen": 25,
-          "lastSeen": 26
+          "id": "like",
+          "mentions": 1,
+          "firstSeen": 52,
+          "lastSeen": 52,
+          "weight": 1.0440124999999998
         },
         {
           "id": "said",
           "mentions": 2,
           "firstSeen": 0,
-          "lastSeen": 51
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
         },
         {
-          "id": "ref:auto:what",
-          "mentions": 2,
-          "firstSeen": 2,
-          "lastSeen": 2
+          "id": "it",
+          "mentions": 1,
+          "firstSeen": 51,
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
         },
         {
-          "id": "ref:auto:kirwin",
-          "mentions": 2,
-          "firstSeen": 9,
-          "lastSeen": 9
+          "id": "even possible",
+          "mentions": 1,
+          "firstSeen": 51,
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
         },
         {
-          "id": "before",
-          "mentions": 2,
-          "firstSeen": 11,
-          "lastSeen": 30
+          "id": "ref:auto:isaac",
+          "mentions": 1,
+          "firstSeen": 51,
+          "lastSeen": 51,
+          "weight": 0.8874106249999998
         },
         {
-          "id": "ref:auto:london",
-          "mentions": 2,
-          "firstSeen": 13,
-          "lastSeen": 13
+          "id": "smiles and",
+          "mentions": 1,
+          "firstSeen": 50,
+          "lastSeen": 50,
+          "weight": 0.7542990312499998
         },
         {
-          "id": "violently",
-          "mentions": 2,
-          "firstSeen": 19,
-          "lastSeen": 19
+          "id": "them upon us",
+          "mentions": 1,
+          "firstSeen": 50,
+          "lastSeen": 50,
+          "weight": 0.7542990312499998
+        },
+        {
+          "id": "the last\nevening with us",
+          "mentions": 1,
+          "firstSeen": 50,
+          "lastSeen": 50,
+          "weight": 0.7542990312499998
         },
         {
           "id": "on",
           "mentions": 2,
           "firstSeen": 22,
-          "lastSeen": 49
+          "lastSeen": 49,
+          "weight": 0.6411541765624997
         },
         {
-          "id": "ref:auto:agatha",
-          "mentions": 2,
-          "firstSeen": 23,
-          "lastSeen": 28
+          "id": "cornelius agrippa",
+          "mentions": 1,
+          "firstSeen": 49,
+          "lastSeen": 49,
+          "weight": 0.6411541765624997
         },
         {
-          "id": "ref:auto:arabian",
-          "mentions": 2,
-          "firstSeen": 28,
-          "lastSeen": 29
-        },
-        {
-          "id": "ref:auto:geneva",
-          "mentions": 2,
-          "firstSeen": 36,
-          "lastSeen": 44
-        },
-        {
-          "id": "ref:auto:william",
-          "mentions": 2,
-          "firstSeen": 40,
-          "lastSeen": 41
+          "id": "i",
+          "mentions": 5,
+          "firstSeen": 15,
+          "lastSeen": 47,
+          "weight": 0.5705267121775184
         }
       ],
       "edges": [
@@ -2796,7 +2896,57 @@
       "tick": 57,
       "edgeTotal": 21.727637316723676,
       "nodeCount": 174,
-      "edgeCount": 72
+      "edgeCount": 72,
+      "standings": [
+        {
+          "node": "ref:auto:felix",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:stage-reversal-null:cursor-69:material-68",
+                "referent": "ref:auto:felix",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 29
+            }
+          ]
+        },
+        {
+          "node": "ref:auto:safie",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:stage-reversal-null:cursor-69:material-68",
+                "referent": "ref:auto:safie",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 29
+            }
+          ]
+        },
+        {
+          "node": "ref:auto:turk",
+          "standing": "apparatus",
+          "history": [
+            {
+              "standing": "apparatus",
+              "giver": "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
+              "because": {
+                "sourceId": "project-gutenberg:pg84:stage-reversal-null:cursor-66:material-71",
+                "referent": "ref:auto:turk",
+                "namingSentenceShare": 0.16
+              },
+              "atTick": 27
+            }
+          ]
+        }
+      ]
     },
     "edge_shape": {
       "verb_typed": 36,

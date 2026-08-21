@@ -64,8 +64,18 @@ export const openReading = ({ window, draws, reseeds, minArrivals }) => {
     lexicon: new Map(),   // causal frequency table — only what has been read
     atoms: 0,
     arrivals: new Map(),  // surface -> [unit, …] the units it has been seen in
-    entities: new Map(),  // surface -> admitted Entity record
+    entities: new Map(),  // surface -> admitted Entity record, CURRENTLY believed
     refused: new Map(),   // surface -> why this candidate was refused (a gap is a result)
+    lapsed: new Map(),    // surface -> [lapse record, …] — every being once admitted, then withdrawn on review
+    // Monotonic, and separate from `entities.size` on purpose: a lapsed
+    // being is DELETED from `entities` (reviewEntities, below) so its
+    // surface can be re-offered if the pattern returns, which means
+    // `entities.size` can fall. An id built from `.size` would then be
+    // handed out again to a genuinely different later being — the exact
+    // "two beings, one address" collision this file's own header warns a
+    // reader never to create by comparing names; comparing SIZES instead
+    // of counting births is the same mistake at the id layer.
+    bornCount: 0,
     // A ground over a PREFIX of the reading is a pure function of (prefix
     // length, draws, window, seed) — it does not depend on which being is
     // being asked about. Thousands of candidates share a few hundred distinct
@@ -304,9 +314,10 @@ export const admitEntity = (state, surface) => {
   if (!result.admitted) return result;
   const entity = Object.freeze({
     // The surface is EVIDENCE, scoped to this reading — not the identity. The
-    // id is positional so that nothing downstream can be tempted to compare
-    // beings by comparing their names.
-    id: `e${state.entities.size}`,
+    // id is positional (birth order, `bornCount`) so that nothing downstream
+    // can be tempted to compare beings by comparing their names — and never
+    // `entities.size`, which can fall once a being can lapse (below).
+    id: `e${state.bornCount++}`,
     surfaces: [surface],
     ...result.birth,
   });
@@ -338,6 +349,76 @@ export const carryEntities = (state) =>
 
 /** Every candidate the reader refused, and why. A gap is a result. */
 export const refusals = (state) => [...state.refused.entries()].map(([surface, why]) => ({ surface, why: why.gap ?? why }));
+
+// ── review — the door `offerCandidates` has no mirror of ────────────────────
+//
+// `offerCandidates` sweeps forward only: a surface not yet admitted is
+// offered to the birth condition; a surface ALREADY admitted is skipped
+// forever (`if (state.entities.has(surface)) continue`). Read enough more of
+// the SAME material and an early admission can stop being warranted — the
+// half-and-half split `admitFromArrivals` tests was built from whatever had
+// been read so far, and "so far" keeps growing. This repo's own flagship
+// case for why that matters: a name repeated at the top of nearly every
+// paragraph reads, on a first pass, exactly like a recurring character — and
+// only clearly resolves into a wire-service byline once the reading has
+// grown enough for the SAME test, re-run, to say so. The engine should not
+// have to wait for a whole SEPARATE, disclosed, corpus-level heuristic
+// (host/corpus.js's own naming-sentence-share apparatus demotion) to catch
+// what its own Born gate — asked again — can catch on its own ground.
+//
+// STAY CONSERVATIVE, NOT GREEDY, exactly the way admission already is: a
+// being that STILL clears the gate against the grown reading is left alone,
+// silently — re-confirmation is not a revision (the same rule
+// `emergence/graph.js::restandNode` now holds one tier over, and P36's own
+// "re-confirming the same verdict lands no REC — agreement is not a
+// contradiction"). Only a being that NO LONGER clears is touched, and it is
+// never overwritten in place: it LAPSES — removed from `entities` (so its
+// surface is honestly re-offerable, should the pattern genuinely return
+// later, the same way a relation graph forgets and can be moved again by a
+// motif's return) and appended to `lapsed`, append-only, never edited or
+// dropped, carrying the SAME typed refusal shape `admitFromArrivals` already
+// returns for a candidate that never got in. A being that lapses and is
+// later re-admitted gets a NEW id (`admitEntity`'s own `bornCount`) — the
+// SAME reason a lapsed being is removed rather than merely flagged: the
+// birth-order register has no notion of "the same being, interrupted," and
+// manufacturing that continuity would be exactly the unearned identity
+// claim `carryEntities`'s own header already refuses ("nothing downstream
+// can be tempted to compare beings by comparing their names").
+//
+// COST, DISCLOSED RATHER THAN HIDDEN: this re-runs the full birth condition
+// (a fresh permutation-null ground, a fresh witnessed pattern test) for
+// EVERY currently-admitted being, every call — the same cost `offerCandidates`
+// already pays per CANDIDATE, paid here per BEING. A driver with a large
+// cast calls this at its own tempo (the same "signal-from-noise local to
+// this holon" discipline `offerCandidates`'s own header already states),
+// not on every single `arrive`.
+export const reviewEntities = (state) => {
+  let lapsedCount = 0;
+  for (const [surface, entity] of [...state.entities]) {
+    const result = admitFromArrivals(state, state.arrivals.get(surface));
+    if (result.admitted) continue; // still clears the gate against the grown reading — agreement, not a revision
+    if (!state.lapsed) state.lapsed = new Map();
+    if (!state.lapsed.has(surface)) state.lapsed.set(surface, []);
+    state.lapsed.get(surface).push({ at: state.unit, was: entity, why: result.why });
+    state.entities.delete(surface);
+    lapsedCount++;
+  }
+  return lapsedCount;
+};
+
+/**
+ * Every being the reader once believed and has since withdrawn, in the order
+ * it lapsed. `why` is kept whole (the full gap object `admitFromArrivals`
+ * returned — e.g. `made_no_difference` with its own `displacement`/
+ * `reseedNull` numbers), never reduced to its bare type tag: a lapse is a
+ * revision, and a revision that dropped its own evidence would be a demoted
+ * verdict wearing testimony's clothes. `refusals`'s own `why.gap ?? why`
+ * (above) intentionally collapses to the tag for its callers; a lapse keeps
+ * the whole thing.
+ */
+export const lapsedEntities = (state) =>
+  [...(state.lapsed ?? new Map()).entries()]
+    .flatMap(([surface, records]) => records.map((r) => ({ surface, ...r })));
 
 /**
  * Sweep: offer every candidate that has arrived often enough to the birth
