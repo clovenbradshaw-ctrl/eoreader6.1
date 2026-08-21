@@ -6,6 +6,7 @@
 import { resolveRelations } from "./graph.js";
 import { reasonOverEot, renderEotReasoning } from "../engine/reasoning/eot.js";
 import { falsificationEnvelopes } from "../engine/reasoning/falsification.js";
+import { deriveEotInsights, renderDerivedInsights } from "../engine/reasoning/derivation.js";
 
 export const CELL = Object.freeze({ op: "CON", grain: "Figure" });
 
@@ -46,18 +47,21 @@ export function sessionEot(session, { sourceId, priors = [] } = {}) {
 export function reasonSession(session, { sourceId, priors = [], query = {} } = {}) {
   const live = sessionEot(session, { sourceId, priors });
   const reasoning = reasonOverEot(live.tuples, query);
-  const envelopes = falsificationEnvelopes(reasoning.tuples);
+  const derived = deriveEotInsights(reasoning.tuples, query);
+  const envelopes = falsificationEnvelopes([...reasoning.tuples, ...derived]);
   return Object.freeze({
     sourceId: sourceId ?? null,
     eot: live.tuples,
     extractionGaps: live.gaps,
     reasoning,
+    derived,
     falsification: envelopes,
   });
 }
 
 export function renderSessionReasoning(result) {
   const lines = [renderEotReasoning(result.reasoning)];
+  if (result.derived?.length) lines.push("", renderDerivedInsights(result.derived));
   if (result.falsification?.length) {
     lines.push("", "FALSIFICATION ENVELOPES");
     for (const envelope of result.falsification) {
