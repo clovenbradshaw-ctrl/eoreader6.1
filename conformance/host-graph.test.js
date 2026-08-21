@@ -13,12 +13,13 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSession, admitChunked, sessionReferents } from "../packages/host/corpus.js";
-import { attachGraph, admitGraph, sessionGraphSnapshot, CELL } from "../packages/host/graph.js";
+import { attachGraph, admitGraph, sessionGraphSnapshot, castStandings, reconcileGraphStandings, referentFace, CELL } from "../packages/host/graph.js";
 import { ORGANS } from "../packages/engine/operators.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIX = join(ROOT, "scripts/adversarial/fixtures");
 const frankenstein = readFileSync(join(FIX, "pg84-frankenstein.txt"), "utf8").replace(/\r\n/g, "\n");
+const wireQuietSubject = readFileSync(join(FIX, "wire-quiet-subject.txt"), "utf8");
 
 const sessionOf = (text) => {
   const session = createSession();
@@ -106,5 +107,77 @@ test("sessionGraphSnapshot is plain, serialisable data — never the live Maps",
 test("sessionGraphSnapshot on a session with no graph yet is an honest empty report, not a throw", () => {
   const session = createSession();
   const snap = sessionGraphSnapshot(session);
-  assert.deepEqual(snap, { nodes: [], edges: [], tick: 0, edgeTotal: 0, nodeCount: 0, edgeCount: 0 });
+  assert.deepEqual(snap, { nodes: [], edges: [], tick: 0, edgeTotal: 0, nodeCount: 0, edgeCount: 0, standings: [] });
+});
+
+test("sessionGraphSnapshot ranks by CURRENT weight, not the lifetime mentions tally — a node's weight can fall while mentions never does", () => {
+  const session = sessionOf(frankenstein);
+  admitGraph(session, { sourceId: "s" });
+  const snap = sessionGraphSnapshot(session, { limit: 40 });
+  assert.ok(snap.nodes.length > 1);
+  for (const n of snap.nodes) assert.ok(typeof n.weight === "number" && Number.isFinite(n.weight), `${n.id} must carry a numeric current weight`);
+  for (let i = 1; i < snap.nodes.length; i++) {
+    assert.ok(snap.nodes[i - 1].weight >= snap.nodes[i].weight, "the served list is ordered by current weight, strongest belief first");
+  }
+});
+
+// ── standing (2026-08-21) — measured live on this repo's own
+// wire-quiet-subject.txt: a wire-service byline discovered and typed
+// `apparatus` at the cast tier, carrying real, high mention counts — the
+// flagship case CLAUDE.md names for this whole mechanism.
+test("castStandings keys the cast's positive individuation verdicts by referentFace, and OMITS a null (undecided) verdict — absence never manufactures a standing", () => {
+  const session = sessionOf(wireQuietSubject);
+  const { referents } = sessionReferents(session, { sourceId: "s" });
+  const newswire = referents.find((r) => r.display === "Continental Newswire");
+  const voss = referents.find((r) => r.display === "Voss");
+  assert.ok(newswire, "precondition: the byline is discovered as a referent");
+  assert.equal(newswire.individuation, "apparatus", "precondition: the naming-sentence-share demotion fires on this fixture");
+
+  const standings = castStandings(session, "s");
+  assert.equal(standings.get(referentFace(newswire))?.standing, "apparatus");
+  if (voss) assert.equal(standings.has(referentFace(voss)), voss.individuation != null, "a referent with no decided individuation contributes no standing entry");
+});
+
+test("reconcileGraphStandings discloses, rather than silently drops, a referent whose stated-relations subject span never canonicalised to its own registered surfaces", () => {
+  // Measured, not assumed: extractRelations's own subject span for this
+  // fixture's stated relations is the shorter fragment "Newswire", which is
+  // not among the referent's registered surfaces, so admitGraph's own
+  // canon() falls through uncanonicalised and the triple lands belief on a
+  // DIFFERENT node than the referent's own face — a real, disclosed upstream
+  // limitation (the relation extractor's own coverage), not a hypothetical.
+  const session = sessionOf(wireQuietSubject);
+  const { restood, unresolved } = admitGraph(session, { sourceId: "s" });
+  assert.ok(Array.isArray(restood) && Array.isArray(unresolved));
+  const missed = unresolved.find((u) => u.standing === "apparatus");
+  assert.ok(missed, "the apparatus verdict is named on `unresolved`, never silently absorbed into an empty restood list");
+  assert.equal(missed.reason, "unknown_node");
+  assert.equal(session.graph.nodes.has(missed.node), false, "confirms the graph genuinely holds no node at the referent's own face");
+});
+
+test("restandNode lands, and re-renders stay silent, when a referent's face DOES match a real graph node", () => {
+  // A direct, engine-tier demonstration once the referent's own face is fed
+  // straight to a graph that actually holds it — the host-tier canonical-
+  // isation gap above is a real, separate, disclosed limitation of the
+  // relation extractor, not a limit of restandNode/reconcileGraphStandings
+  // themselves.
+  const session = sessionOf(wireQuietSubject);
+  admitGraph(session, { sourceId: "s" });
+  const { referents } = sessionReferents(session, { sourceId: "s" });
+  const newswire = referents.find((r) => r.display === "Continental Newswire");
+  const face = referentFace(newswire);
+  session.graph.nodes.set(face, { id: face, mentions: newswire.mentions, firstSeen: 0 });
+  session.graph.edges.set(`${face}|learned|the finding`, 1);
+  session.graph.edgeTotal += 1;
+
+  const first = reconcileGraphStandings(session, { sourceId: "s" });
+  assert.equal(first.restood.length, 1);
+  assert.equal(first.restood[0].node, face);
+  assert.equal(first.restood[0].standing, "apparatus");
+  assert.equal(session.graph.nodes.get(face).standing, "apparatus");
+
+  // A second reconciliation with nothing new to say is silent — the cast
+  // did not change its mind, so nothing is appended.
+  const second = reconcileGraphStandings(session, { sourceId: "s" });
+  assert.equal(second.restood.length, 0);
+  assert.equal(session.graph.nodes.get(face).standingHistory.length, 1);
 });

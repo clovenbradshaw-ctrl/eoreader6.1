@@ -145,6 +145,61 @@ test("the network is admitted in ordered stages — a scrubbably real reading cu
   // Binding always reports — entities, pairs tested, witnessed — even when zero.
   const binding = terrains.Network.binding;
   assert.ok(binding && Number.isInteger(binding.entities) && Number.isInteger(binding.witnessed));
+  // Every staged node carries a current, decayed weight — the cursor scrubs
+  // re-weighted belief, not a lifetime tally (2026-08-21).
+  for (const stage of stages) {
+    for (const n of stage.nodes) assert.ok(typeof n.weight === "number" && Number.isFinite(n.weight), `${n.id} at stage "${stage.label}" must carry a numeric weight`);
+  }
+});
+
+// ── standing and withholding (2026-08-21) — measured on this repo's own
+// wire-quiet-subject.txt: a narrating apparatus, discovered and typed by
+// the cast tier, must not enter the co-arrival binding register as if it
+// were a character, and the withholding must be a typed, visible fact.
+test("sessionTerrains withholds a cast-typed apparatus from co-arrival binding, and the withholding is a NAMED Void entry — never silently absent", () => {
+  const wire = readFileSync(join(FIX, "wire-quiet-subject.txt"), "utf8");
+  const session = sessionOf(wire);
+  const { terrains } = sessionTerrains(session, { sourceId: "s" });
+
+  const newswire = terrains.Entity.referents.find((r) => r.display === "Continental Newswire");
+  assert.ok(newswire, "precondition: the byline is discovered");
+  assert.equal(newswire.individuation, "apparatus", "precondition: the naming-sentence-share demotion fires on this fixture");
+
+  assert.equal(terrains.Network.binding.apparatusWithheld, 1);
+  const withheldGap = terrains.Void.ledger.find((g) => g.reason === "apparatus_withheld_from_binding");
+  assert.ok(withheldGap, "the withholding must be on the record, not merely true in code");
+  assert.ok(withheldGap.detail.includes("Continental Newswire"));
+  assert.equal(withheldGap.withheld[0].referent, newswire.id);
+});
+
+test("sessionTerrains reconciles the cast's standing onto the graph on every call, and discloses what it could not resolve — never silent, never invented", () => {
+  const wire = readFileSync(join(FIX, "wire-quiet-subject.txt"), "utf8");
+  const session = sessionOf(wire);
+  const { terrains } = sessionTerrains(session, { sourceId: "s" });
+  // Measured (host-graph.test.js pins the root cause): this fixture's
+  // stated-relations subject span does not canonicalise to the referent's
+  // own face, so the standing that DOES exist at the cast tier cannot land
+  // on a graph node — and that gap must be visible, not swallowed.
+  const unresolvedGap = terrains.Void.ledger.find((g) => g.reason === "standing_unresolved");
+  assert.ok(unresolvedGap, "an un-landable standing must be named on the record");
+  assert.ok(unresolvedGap.unresolved.some((u) => u.standing === "apparatus"));
+});
+
+test("REGRESSION: a bound referent's SVO belief and its co-arrival binding land on the SAME node — never fragmented across the referent's opaque id and its display face", () => {
+  // Measured live on this exact fixture before the fix: every referent
+  // binding witnessed a pair for had r.id ("ref:auto:elizabeth") differing
+  // from its referentFace ("elizabeth", the SAME face admitGraph's own
+  // canon() already lands SVO triples on) — the binding register used to be
+  // keyed by r.id, so a witnessed pair's triples (bindingTriples -> l.a.id/
+  // l.b.id) landed belief on a SECOND, disconnected node for a being the
+  // SVO ladder already had a node for. Fixed by keying binding's register
+  // with referentFace, the same face admitGraph's canon() already uses.
+  const session = sessionOf(frankHead);
+  const { terrains } = sessionTerrains(session, { sourceId: "s" });
+  assert.ok(terrains.Network.binding.witnessed > 0, "precondition: this fixture's cast clears at least one real co-arrival");
+  for (const id of session.graph.nodes.keys()) {
+    assert.ok(!id.startsWith("ref:auto:"), `node "${id}" is keyed by a referent's opaque id, not its face — the fragmentation bug regressed`);
+  }
 });
 
 test("sessionKinds refuses undeclared statistical options by name", () => {
