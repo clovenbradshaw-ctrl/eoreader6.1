@@ -13,12 +13,13 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSession, admitChunked, sessionReferents } from "../packages/host/corpus.js";
-import { attachGraph, admitGraph, sessionGraphSnapshot, CELL } from "../packages/host/graph.js";
+import { attachGraph, admitGraph, sessionGraphSnapshot, referentLookup, CELL } from "../packages/host/graph.js";
 import { ORGANS } from "../packages/engine/operators.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIX = join(ROOT, "scripts/adversarial/fixtures");
 const frankenstein = readFileSync(join(FIX, "pg84-frankenstein.txt"), "utf8").replace(/\r\n/g, "\n");
+const frankensteinCoref = JSON.parse(readFileSync(join(FIX, "pg84-frankenstein.coref.json"), "utf8"));
 
 const sessionOf = (text) => {
   const session = createSession();
@@ -59,7 +60,18 @@ test("admitGraph reads a document's relations into the session graph, canonicali
   // them, which is exactly the failure emergence/graph.js's own header
   // warns a caller into by feeding it raw surfaces instead of resolved ids.
   assert.ok(!graph.nodes.has("henry"), "'henry' alone must not appear as a separate node");
-  assert.ok(graph.nodes.has("henry clerval"), "the referent's canonical display, lowercased, is the one node");
+  assert.ok(graph.nodes.has(henry.id), "the referent id, not a preferred surface spelling, is the graph node");
+});
+
+test("referent resolution reads beings inside relation phrases and composes received descriptor/narrator priors", () => {
+  const session = sessionOf(frankenstein);
+  const lookup = referentLookup(session, "s", { priors: frankensteinCoref.referents });
+  const elizabeth = sessionReferents(session, { sourceId: "s", limit: 500 }).referents.find((r) => r.surfaces.includes("Elizabeth"));
+  assert.ok(elizabeth);
+  assert.equal(lookup.resolve("to Elizabeth", 0), elizabeth.id, "a being inside an object phrase resolves to identity");
+  assert.equal(lookup.resolve("the dæmon", 0), "creature", "received descriptor surfaces resolve to their referent");
+  const victorOffset = frankenstein.indexOf("I am by birth a Genevese") + 1;
+  assert.equal(lookup.resolve("I", victorOffset), "victor", "first person resolves by the received narrator span at this offset");
 });
 
 test("admitGraph(session) with no sourceId reads every admitted document", () => {

@@ -316,8 +316,12 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     session._terrainsGraphAdmitted.add(sourceId);
     const graph = attachGraph(session);
     const lookup = referentLookup(session, sourceId);
-    const canon = (side) => lookup.get(String(side).toLowerCase()) ?? side;
-    const triples = rel.relations.map((t) => ({ subject: canon(t.subject), verb: t.verb, object: canon(t.object), polarity: t.polarity }));
+    const triples = rel.relations.map((t) => ({
+      subject: lookup.resolve(t.subject, t.subjectOffset ?? t.offset),
+      verb: t.verb,
+      object: lookup.resolve(t.object, t.objectOffset ?? t.offset),
+      polarity: t.polarity,
+    }));
     stages = [];
     const snap = (label, upTo, of) =>
       stages.push({

@@ -28,6 +28,7 @@ export { createSinger, singPass, singRun, apertureSeries, sing } from "./sing.js
 export {
   attachGraph,
   admitGraph,
+  resolveRelations,
   sessionGraphSnapshot,
   createGraph,
   readTriples,
