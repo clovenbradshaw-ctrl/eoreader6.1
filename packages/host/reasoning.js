@@ -1,12 +1,11 @@
 // Host wiring: take the reader's already-discovered, referent-canonicalised
 // relations and expose them as EOT tuples for the reasoning kernel.
-// No semantic classifier lives here: the source organ already declares
-// CON · Figure; terrain/stance are derived downstream by the cube algebra.
 
 import { resolveRelations } from "./graph.js";
 import { reasonOverEot, renderEotReasoning } from "../engine/reasoning/eot.js";
 import { falsificationEnvelopes } from "../engine/reasoning/falsification.js";
 import { deriveEotInsights, renderDerivedInsights } from "../engine/reasoning/derivation.js";
+import { normalizeHyperlexicon, admitHyperlexiconCandidates } from "../engine/reasoning/hyperlexicon.js";
 
 export const CELL = Object.freeze({ op: "CON", grain: "Figure" });
 
@@ -15,7 +14,6 @@ export function sessionEot(session, { sourceId, priors = [] } = {}) {
   const targets = sourceId ? [sourceId] : Array.from(session.documents?.keys?.() ?? []);
   const tuples = [];
   const gaps = [];
-
   for (const id of targets) {
     const resolved = resolveRelations(session, { sourceId: id, priors });
     gaps.push(...(resolved.gaps ?? []).map((gap) => ({ sourceId: id, ...gap })));
@@ -23,55 +21,42 @@ export function sessionEot(session, { sourceId, priors = [] } = {}) {
       const relation = resolved.relations[i];
       tuples.push(Object.freeze({
         id: `eot:${id}:${relation.offset ?? i}`,
-        op: "CON",
-        grain: "Figure",
-        subject: relation.subject,
-        predicate: relation.verb,
-        object: relation.object,
-        polarity: relation.polarity,
-        source: id,
-        witness: Object.freeze({
-          sourceId: id,
-          offset: relation.offset ?? null,
-          subjectOffset: relation.subjectOffset ?? null,
-          objectOffset: relation.objectOffset ?? null,
-        }),
+        op: "CON", grain: "Figure",
+        subject: relation.subject, predicate: relation.verb, object: relation.object,
+        polarity: relation.polarity, source: id,
+        witness: Object.freeze({ sourceId: id, offset: relation.offset ?? null, subjectOffset: relation.subjectOffset ?? null, objectOffset: relation.objectOffset ?? null }),
         meta: Object.freeze({ origin: "packages/host/graph.js::resolveRelations" }),
       }));
     }
   }
-
   return Object.freeze({ tuples: Object.freeze(tuples), gaps: Object.freeze(gaps) });
 }
 
 export function reasonSession(session, { sourceId, priors = [], query = {}, hyperlexicon = null } = {}) {
   const live = sessionEot(session, { sourceId, priors });
+  const hlBefore = normalizeHyperlexicon(hyperlexicon ?? session.hyperlexicon);
   const reasoning = reasonOverEot(live.tuples, query);
-  const derived = deriveEotInsights(reasoning.tuples, query, { hyperlexicon });
-  const withheld = derived.withheld ?? [];
-  const compositionCandidates = derived.candidates ?? [];
+  const derived = deriveEotInsights(reasoning.tuples, query, { hyperlexicon: hlBefore });
+  const hlAfter = admitHyperlexiconCandidates(hlBefore, derived.candidates ?? []);
+  session.hyperlexicon = hlAfter;
   const envelopes = falsificationEnvelopes([...reasoning.tuples, ...derived]);
   return Object.freeze({
     sourceId: sourceId ?? null,
     eot: live.tuples,
     extractionGaps: live.gaps,
     reasoning,
+    hyperlexicon: hlAfter,
+    hyperlexiconCandidates: derived.candidates ?? Object.freeze([]),
+    withheldCompositions: derived.withheld ?? Object.freeze([]),
     derived,
-    withheld,
-    compositionCandidates,
     falsification: envelopes,
   });
 }
 
 export function renderSessionReasoning(result) {
   const lines = [renderEotReasoning(result.reasoning)];
-  if (result.derived?.length || result.withheld?.length) lines.push("", renderDerivedInsights(result.derived));
-  if (result.compositionCandidates?.length) {
-    lines.push("", "HYPERLEXICON CANDIDATES");
-    for (const candidate of result.compositionCandidates) {
-      lines.push(`  ${candidate.left} -> ${candidate.right}: ${candidate.standing} (${candidate.witnesses.length} witnessed adjacencies)`);
-    }
-  }
+  lines.push("", `HYPERLEXICON · ${result.hyperlexicon?.schema ?? "missing"} · candidates ${result.hyperlexiconCandidates?.length ?? 0} · withheld ${result.withheldCompositions?.length ?? 0}`);
+  if (result.derived?.length) lines.push("", renderDerivedInsights(result.derived));
   if (result.falsification?.length) {
     lines.push("", "FALSIFICATION ENVELOPES");
     for (const envelope of result.falsification) {
