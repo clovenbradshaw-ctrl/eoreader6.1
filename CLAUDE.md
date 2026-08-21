@@ -234,3 +234,129 @@ which is the right general policy, just wrong for this one corpus's
 convention). The rule above is "search first," not "never write new code" —
 it just means the search has to actually happen, and the reason for writing
 new code instead of reusing what's found has to be stated, not assumed.
+
+## Checking REC's recourse locality against the online-algorithms literature (added 2026-08-21) — what was measured, so it is not re-derived
+
+A review of the bounded-recourse online-algorithms literature (Gupta et
+al., arXiv:2308.01406, and the adjacent OGP-barrier work on input
+stability) asked four questions of `loops/atmosphere.js`'s REC (re-zero)
+firing — the one place in this engine where "REC fires" is already a
+literal, numeric event with a `tolerance` trigger and `regions` (spans
+between re-zero events) on the record. Two of the four were cheap to check
+directly against real material; they were checked, on user direction to
+**only implement if it improves something** rather than build all four
+reflexively. The answer is a real, disclosed problem, not a clean bill of
+health, and it stops there deliberately — see below for why the other two
+(a smarter trigger; deciding recourse vs. stability on purpose) were not
+attempted this pass.
+
+**What was already on the record, found before anything was added.**
+`ground()` (nul/index.js) already returns `extent: material.length` on
+every ground it builds — the touch-set size this question is about was
+already being computed, just never summed or divided by turns.
+`readAtmosphere`'s own `regions` already carry `start`/`end` per region —
+`end - start` at a REC-closed region IS the touch-set at that firing, with
+zero engine changes needed to read it. Only the CUMULATIVE figure (total
+recompute work across every step, not just the state at firing, divided by
+turns) needed a new accumulator. Added as the smallest change that answers
+the question: `groundFrom`'s existing threshold gate (in both
+`readAtmosphere` and `createRegimeTracker` — two separate closures, kept
+separate on purpose, same as their pre-existing `groundFrom`s) now
+accumulates `end - start` into one running `recomputeWork` counter on every
+ATTEMPTED rebuild, counted whether or not the rebuild survives as a real
+ground (a `degenerate_ground` gap still spent the draws×extent compute
+inside `ground()` before being discarded — "touched" means work spent, not
+work that survived). `readAtmosphere` now returns
+`stepsRead`/`recomputeWork`/`recomputeWorkPerStep`; `createRegimeTracker`
+gained two getters, `recomputeWork` and `amortizedRecourse` (=
+recomputeWork / pushes so far), mirroring its existing
+`rezeroCount`/`aperture` getter pattern. No existing caller's return shape
+changed — all 8 pre-existing `conformance/atmosphere.test.js` cases pass
+unchanged, plus 4 new ones pinning the new fields' own arithmetic (internal
+consistency only, never the substantive finding below — pinning a specific
+growth rate would be exactly the golden-blind-parameter mistake this
+file's own top section warns against).
+
+**Measured** (`scripts/rec-recourse-locality.mjs`, run against the real
+shipped Atmosphere configuration — `packages/host/terrains.js`'s
+`ATMOSPHERE_REGIME` {window:5, draws:256, tolerance:3, hop:5} and
+CHUNK_WORDS=40, gamma left at its own default of 1, the exact pipeline
+`host/terrains.js` wires for real, not a swept parameter set — on two
+real, unrelated books, pg84-frankenstein.txt and heart-of-darkness.txt):
+
+- Heart of Darkness (977 chunks) never re-zeroed ONCE across the whole
+  book — one region, start to end, 0 REC events.
+- Frankenstein (1963 chunks) re-zeroed twice. The SECOND region alone
+  spanned 1820 of the 1900 steps read at that point — 95.8% of everything
+  read so far, touched by that one ground's own rebuilds.
+- Amortized recompute work per turn (the streaming tracker, sampled across
+  each full read) grows near-linearly with turns on BOTH books: r=0.987
+  (Frankenstein, 44→560 per turn from early to late in the read) and
+  r=0.998 (Heart of Darkness, 20→409). This is not an artifact of the two
+  large regions above; it is the ordinary, pervasive behavior within every
+  region, confirmed by an independent arithmetic check: a simulation that
+  sums `(position - regionStart)` at every tending hop using only
+  Frankenstein's own region boundaries (nothing else) predicts 330,480 of
+  total recompute work across the whole read; the actual instrumented
+  total was 326,425 — within about 1.2%.
+
+**The verdict the review's own framing asked for, stated plainly:** on
+real material, at the real shipped parameters, REC does NOT exhibit the
+bounded locality the recourse literature's guarantees depend on. A region
+routinely grows to cover almost the entire read before conceding (or never
+concedes at all), and because `groundFrom` fully rebuilds the ground from
+`regionStart` on EVERY tending step — not only at firing — the per-turn
+cost grows with elapsed region length whether or not a re-zero ever
+happens. Two DISTINCT causes are both live here and were NOT disentangled
+by this pass:
+
+1. **Trigger insensitivity** — `tolerance` consecutive censored-above
+   placements is a blunt threshold, and Heart of Darkness never re-zeroing
+   at all is consistent with a trigger too strict for some material: slow
+   drift that never strings together `tolerance` consecutive violations.
+2. **The recompute itself is not incremental** — `groundFrom` reruns
+   `ground()`'s full draws-many-shuffles-of-the-whole-region computation on
+   every tending step, which the near-perfect linear amortized-cost trend
+   (r=0.987/0.998, present from early in the read, not only inside the one
+   long-lived region) implicates at least as much as the trigger does. This
+   may not even be a fixable "bug" in the naive sense: `ground()`'s own
+   header notes the null's `extent` must track the region's current length
+   because a max-over-windows statistic's resolution changes with it — an
+   incrementally-amortizable update may need a genuinely different
+   statistical formulation, not just a cache.
+
+**Disclosed, not fixed — on purpose, not by default.** Neither cause was
+acted on. A smarter trigger (a CUSUM-style potential function was the
+literature's own suggestion) would address cause 1 alone and would not
+touch cause 2, which the evidence above implicates at least as much — and
+per this file's own standing rule, any new trigger threshold would need its
+own real-and-null calibration exactly as rigorous as `slackRunNull`'s
+(measured false-alarm rate, a real seam still found, checked on more than
+one corpus) before it could responsibly replace a mechanism whose current
+`tolerance`/`MIN_GROUND` numbers already cost multiple dated calibration
+passes (see this function's own header) to earn. Doing that properly is
+real, scoped, future work — not attempted blind in the same pass as the
+measurement that motivated it, and not clearly the higher-leverage fix
+given cause 2's own likely weight.
+
+**The fourth question — recourse or stability, decide on purpose — is left
+genuinely open, not decided here.** This pass measured recourse locality
+and found it wanting; it did not measure input stability (would a small
+change to the material produce a small change in where regions fall) at
+all, so there is no evidence here to weigh one against the other. Which
+guarantee Atmosphere should actually optimize for is a design choice for
+whoever owns this organ's next pass, not something a measurement script
+gets to decide unilaterally on the codebase's behalf.
+
+**Files.** `packages/engine/loops/atmosphere.js` (`recomputeWork`
+accumulator in both `groundFrom` closures; `stepsRead` counter in
+`readAtmosphere`; `recomputeWork`/`amortizedRecourse` getters on
+`createRegimeTracker`). `conformance/atmosphere.test.js` (4 new cases, all
+on the new fields' own arithmetic). `scripts/rec-recourse-locality.mjs`
+(new, re-runnable, not a committed regression test — matching this repo's
+own `scripts/causal-surprisal-gamma-calibration.mjs` posture). Full suite:
+1121/1125 passing, 3 skipped, the same 1 pre-existing failure this
+worktree already carries (`conformance/host-terrains.test.js`'s belief-
+graph-standing referent-fragmentation case, unrelated to this change and
+confirmed via `git stash` to fail identically without it), zero
+regressions.
