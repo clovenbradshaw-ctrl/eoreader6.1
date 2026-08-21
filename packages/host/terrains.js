@@ -47,8 +47,8 @@ import {
   sessionRelations,
   CORPUS_API_VERSION,
 } from "./corpus.js";
-import { attachGraph, sessionGraphSnapshot, referentLookup } from "./graph.js";
-import { readTriples, strongestEdges } from "../engine/emergence/graph.js";
+import { attachGraph, sessionGraphSnapshot, referentLookup, referentFace, reconcileGraphStandings } from "./graph.js";
+import { readTriples, strongestEdges, nodeWeights } from "../engine/emergence/graph.js";
 import { readLinks, bindingTriples } from "../engine/emergence/binding.js";
 import { splitSentences } from "../engine/perceiver/text/spans.js";
 import { diaNorm } from "../engine/perceiver/text/surfaces.js";
@@ -310,6 +310,33 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
   // canonicalisation (graph.js's own referentLookup), same organ; the only
   // difference from one-call admission is that decay applies per stage,
   // which is the organ's own reading semantics, declared above.
+  //
+  // CONSERVATIVE, NOT GREEDY, on the cast side of the graph (2026-08-21): a
+  // referent the cast has already typed `apparatus` (a narrating byline
+  // re-stapled to most sentences — corpus.js's own measured demotion) is
+  // WITHHELD from the co-arrival binding register, and the withholding is a
+  // typed Void entry naming who was withheld. An apparatus co-arrives with
+  // everyone by construction, so binding it as cast reads the container's
+  // own voice as the story's structure. Its STATED relations still enter —
+  // "X has learned…" is genuinely stated by the material — but the node
+  // carries its standing (reconciled below), so a reader can tell belief
+  // about the story from belief about the wire that carried it. The gap is
+  // recomputed and pushed on EVERY call, not only the admitting one, so the
+  // Void ledger stays whole on a re-render.
+  const apparatusReferents = entity.referents.filter((r) => r.individuation === "apparatus");
+  const bindableReferents = entity.referents.filter((r) => r.individuation !== "apparatus");
+  if (apparatusReferents.length) {
+    voidLedger.push(
+      gapEntry("Network", "binding", {
+        reason: "apparatus_withheld_from_binding",
+        detail:
+          `${apparatusReferents.length} referent(s) the cast types apparatus withheld from co-arrival binding: ` +
+          `${apparatusReferents.map((r) => r.display || r.id).join(", ")} — a narrating apparatus co-arrives with ` +
+          "everything, so binding it as cast would read the container's own voice as the story's structure",
+        withheld: apparatusReferents.map((r) => ({ referent: r.id, display: r.display || r.id })),
+      }),
+    );
+  }
   if (!session._terrainsGraphAdmitted) session._terrainsGraphAdmitted = new Set();
   let stages = session._terrainsGraphStages?.get?.(sourceId) ?? null;
   if (!session._terrainsGraphAdmitted.has(sourceId)) {
@@ -319,17 +346,28 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     const canon = (side) => lookup.get(String(side).toLowerCase()) ?? side;
     const triples = rel.relations.map((t) => ({ subject: canon(t.subject), verb: t.verb, object: canon(t.object), polarity: t.polarity }));
     stages = [];
-    const snap = (label, upTo, of) =>
+    // Each stage's nodes carry `weight` — the summed CURRENT (decayed)
+    // incident edge weight at that stage (engine graph.js::nodeWeights) —
+    // and are ranked by it: the cursor scrubs the graph's own re-weighted
+    // belief as-of-that-point, not a lifetime mentions tally that can only
+    // grow ("frequency is not significance" — referents/entity.js's own
+    // register discipline, applied to this ranking 2026-08-21).
+    const snap = (label, upTo, of) => {
+      const weights = nodeWeights(graph);
       stages.push({
         label,
         upTo,
         of,
         tick: graph.tick,
-        nodes: [...graph.nodes.values()].sort((a, b) => b.mentions - a.mentions).slice(0, GRAPH_LIMIT).map((n) => ({ ...n })),
+        nodes: [...graph.nodes.values()]
+          .map((n) => ({ ...n, weight: weights.get(n.id) ?? 0 }))
+          .sort((a, b) => b.weight - a.weight || b.mentions - a.mentions)
+          .slice(0, GRAPH_LIMIT),
         edges: strongestEdges(graph, GRAPH_LIMIT),
         nodeCount: graph.nodes.size,
         edgeCount: graph.edges.size,
       });
+    };
     const per = Math.max(1, Math.ceil(triples.length / GRAPH_STAGES));
     for (let s = 0; s < triples.length; s += per) {
       const batch = triples.slice(s, s + per);
@@ -338,15 +376,23 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     }
 
     // ── binding: the co-arrival Link over the cast, its own final stage ──
-    let binding = { entities: 0, pairsTested: 0, witnessed: 0, params: BINDING };
+    // The register is keyed by `referentFace` — the SAME canonical face the
+    // SVO canonicalisation above lands triples on — so one referent is ONE
+    // node whichever organ speaks about it. It was keyed by `r.id`
+    // ("ref:auto:…") until 2026-08-21 while SVO used the display, which
+    // split every bound referent into two disconnected graph nodes: the
+    // surface-span mistake at node scale, fixed at the face, not patched in
+    // a renderer. Apparatus referents are withheld (bindableReferents; the
+    // typed Void entry above says who and why).
+    let binding = { entities: 0, pairsTested: 0, witnessed: 0, apparatusWithheld: apparatusReferents.length, params: BINDING };
     const sentences = splitSentences(text);
     const surfacePatterns = [];
-    for (const r of entity.referents) {
+    for (const r of bindableReferents) {
       for (const s of r.surfaces ?? []) {
         const surfaceText = typeof s === "string" ? s : s?.surface;
         const n = diaNorm(surfaceText ?? "");
         if (n.length < 2) continue;
-        surfacePatterns.push([r.id ?? r.display, new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "u")]);
+        surfacePatterns.push([referentFace(r), new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "u")]);
       }
     }
     if (sentences.length * surfacePatterns.length > BINDING_SCAN_CAP) {
@@ -425,6 +471,13 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     if (!session._terrainsGraphStages) session._terrainsGraphStages = new Map();
     session._terrainsGraphStages.set(sourceId, stages);
   }
+  // Reconciled on EVERY call, not only the admitting one: the cast is
+  // re-derived as a document grows (discoveredCast recomputes on chunk-count
+  // change), so a re-render after more material has landed is exactly when a
+  // standing is most likely to have moved — the moment this whole mechanism
+  // exists for. A call with nothing new to say is a no-op by construction
+  // (restandNode refuses to repeat an unchanged verdict).
+  const { restood, unresolved } = reconcileGraphStandings(session, { sourceId });
   const network = {
     ...sessionGraphSnapshot(session, { limit: GRAPH_LIMIT }),
     stages: stages ?? [],
@@ -433,6 +486,27 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     stageNote: "belief admitted in ordered stages; decay applies per stage — the organ's own reading semantics",
     limit: GRAPH_LIMIT,
   };
+  if (restood.length) {
+    voidLedger.push(
+      gapEntry("Network", "reconcileGraphStandings", {
+        reason: "standing_revised",
+        detail: restood.map((r) => `${r.node}: ${r.was ?? "(none)"} → ${r.standing}`).join("; "),
+        restood,
+      }),
+    );
+  }
+  if (unresolved.length) {
+    voidLedger.push(
+      gapEntry("Network", "reconcileGraphStandings", {
+        reason: "standing_unresolved",
+        detail:
+          `${unresolved.length} referent(s) the cast has typed carry no matching graph node — ` +
+          `${unresolved.map((u) => `${u.referent} (${u.standing})`).join(", ")}; the relation extractor's own ` +
+          "subject span for this referent did not canonicalise to one of its registered surfaces",
+        unresolved,
+      }),
+    );
+  }
   if (network.nodeCount === 0) {
     voidLedger.push(gapEntry("Network", "sessionGraphSnapshot", { silence: "computed-and-empty", detail: "no triples survived into the belief graph" }));
   }

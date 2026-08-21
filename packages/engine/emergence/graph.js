@@ -187,3 +187,115 @@ export const injectPrior = (graph, triples, { giver, weight = 1 }) => {
 export const strongestEdges = (graph, n = 10) =>
   [...graph.edges.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
     .map(([k, w]) => ({ edge: k, weight: w }));
+
+// ── node weight, standing, and re-weighting ─────────────────────────────────
+//
+// `node.mentions` is a permanent tally — it only ever grows, the same as a
+// reading's raw word count. It answers "how much has this being been named,
+// ever," which is a different question from what the graph actually BELIEVES
+// right now: a being whose every edge decayed past pruneBelow and vanished
+// three hundred pages ago still carries its full historical mentions count,
+// forever, exactly as prominent on paper as one mentioned just as often but
+// far more recently. That is the node/edge asymmetry this section closes —
+// edges decay, so the node's OWN currently-believed weight should be read off
+// its currently-believed edges, not off a counter that never forgets.
+//
+// `parseEdgeKey` is the exact inverse of `edgeKey`/`structuralKey`'s shared
+// `subject|[!]verb|object` format (verb empty for a structural key) — a
+// second, small, self-contained parser rather than reaching into
+// `revision.js`'s own private `parseEdge` (unexported on purpose, and
+// `search/index.js` already imports it from there for a different reason:
+// walking a revision's operator decomposition, not a live graph's current
+// weight). Two tiny parsers of one documented format is not the class of
+// duplication CLAUDE.md's reconciliation rule warns about — there is no
+// behaviour here that could drift, because the format is fixed and stated
+// once, in `edgeKey`'s own construction, above.
+export const parseEdgeKey = (key) => {
+  const i = key.indexOf("|");
+  const j = key.lastIndexOf("|");
+  const mid = key.slice(i + 1, j);
+  const negated = mid.startsWith("!");
+  return { subject: key.slice(0, i), verb: negated ? mid.slice(1) : mid, object: key.slice(j + 1), negated };
+};
+
+/**
+ * Every node's CURRENTLY BELIEVED weight, in one O(edges) pass: the sum of
+ * each node's incident edges' current (already-decayed) weight — never the
+ * permanent `mentions` tally. A self-loop counts once. Reads `graph.edges`
+ * as it stands; a caller who wants the weight as of an earlier stage reads
+ * it from a snapshot taken at that stage (host/terrains.js already stages
+ * admission for exactly this reason).
+ */
+export const nodeWeights = (graph) => {
+  const weights = new Map();
+  for (const id of graph.nodes.keys()) weights.set(id, 0);
+  for (const [k, w] of graph.edges) {
+    const { subject, object } = parseEdgeKey(k);
+    if (weights.has(subject)) weights.set(subject, weights.get(subject) + w);
+    if (object !== subject && weights.has(object)) weights.set(object, weights.get(object) + w);
+  }
+  return weights;
+};
+
+/**
+ * Revise what a node IS, not what it is connected to — a witnessed judgment
+ * about the being itself (this repo's own flagship case: what surfaced as a
+ * recurring name turns out, on further reading, to be a wire-service byline
+ * rather than a character). Modelled directly on `injectPrior`, right above:
+ * received, never derived, and a standing with no giver is indistinguishable
+ * from a fabrication, so `giver` is required on every call, exactly as it is
+ * there.
+ *
+ * DELIBERATELY VOCABULARY-AGNOSTIC. This file's own header states the rule
+ * this function must not break: "IDENTITY IS WHATEVER IT IS GIVEN... The
+ * graph does not resolve identity and must not." The same discipline applies
+ * to KIND, one column over — `standing` is accepted as whatever string (or
+ * explicit `null`, a genuine retraction) the caller hands in, never checked
+ * against a vocabulary. A caller with a specific typed vocabulary of being-
+ * kinds (referents/index.js's own INDIVIDUATION_TYPES, at host tier) is the
+ * one who knows what those words mean and is the one who must validate them
+ * — importing that vocabulary in here would be the first-ever coupling from
+ * `emergence/` to `referents/`, for a five-word list this file has no
+ * business knowing the meaning of.
+ *
+ * APPEND-ONLY, AND CONSERVATIVE ON AGREEMENT. Every call that changes the
+ * standing lands a new entry at the end of `standingHistory` (oldest first);
+ * nothing already on that list is ever edited or dropped. The history is
+ * replaced copy-on-write rather than pushed in place, deliberately: a
+ * snapshot that shallow-copied the node (`{...node}` — what revision.js's
+ * `snapshot` and host/terrains.js's staged cursor both do) must keep showing
+ * the history AS OF the copy, not silently grow a later revision — belief
+ * as-of-a-point is the staged cursor's whole contract. A call that
+ * RESTATES the current standing is a no-op — no new entry, `changed: false`
+ * — the same rule P36 already states for EVA/REC on this project's claim
+ * ledger ("Re-confirming the same verdict lands no REC — agreement is not a
+ * contradiction"). Only a genuine change of mind — including the very first
+ * standing a node is ever given — is a witnessed revision.
+ *
+ * A node the graph has never heard of (no incident edges, never registered
+ * by `readTriples`/`injectPrior`) is refused rather than manufactured: a
+ * standing describes something the graph already believes exists, and
+ * conjuring a bare, edgeless node just to hang a judgement on it would be
+ * exactly the "manufacturing conviction from absence" this repo's own
+ * grounding-ladder section already refuses elsewhere. Returned as a typed
+ * report, never a throw — an unknown node is an honest runtime state (the
+ * caller's own referent discovery ran ahead of, or independently of, what
+ * this graph has actually read), not a programmer error.
+ */
+export const restandNode = (graph, nodeId, { standing, giver, because } = {}) => {
+  if (standing === undefined) throw new TypeError("restandNode: standing is declared, never defaulted — pass a value or explicit null to retract one");
+  if (!giver) throw new TypeError("restandNode: a standing must name its giver — indistinguishable from a fabrication otherwise");
+
+  const id = String(nodeId).toLowerCase();
+  const node = graph.nodes.get(id);
+  if (!node) return { changed: false, reason: "unknown_node", nodeId: id, standing: null, history: [] };
+
+  const history = node.standingHistory ?? [];
+  const current = history.length ? history[history.length - 1].standing : undefined;
+  if (current === standing) return { changed: false, reason: "unchanged", nodeId: id, standing: current, history };
+
+  const entry = Object.freeze({ standing, giver, because: because ?? null, atTick: graph.tick });
+  node.standingHistory = Object.freeze([...history, entry]);
+  node.standing = standing;
+  return { changed: true, reason: current === undefined ? "first_standing" : "revised", nodeId: id, standing, history: node.standingHistory };
+};
