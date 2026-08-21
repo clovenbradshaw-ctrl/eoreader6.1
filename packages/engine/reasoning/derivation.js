@@ -21,10 +21,55 @@ const disjoint = (a, b) => {
   return Math.min(a1, b1) < Math.max(a0, b0);
 };
 
+const deriveBridgePositions = (tuples) => {
+  const positive = tuples.filter((t) => t.polarity > 0);
+  const derived = [];
+  const seen = new Set();
+
+  for (const incoming of positive) {
+    for (const outgoing of positive) {
+      if (incoming.id === outgoing.id) continue;
+      if (stable(incoming.object) !== stable(outgoing.subject)) continue;
+
+      const left = incoming.subject;
+      const bridge = incoming.object;
+      const right = outgoing.object;
+      if (stable(left) === stable(bridge) || stable(bridge) === stable(right) || stable(left) === stable(right)) continue;
+
+      const id = `derived:${stable(bridge)}:bridge:${stable(left)}:${stable(right)}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      derived.push(freeze({
+        id,
+        op: "EVA",
+        grain: "Pattern",
+        subject: bridge,
+        predicate: "occupies_bridge_between",
+        object: freeze({ from: left, to: right }),
+        polarity: 1,
+        dependsOn: freeze([incoming.id, outgoing.id]),
+        meta: freeze({
+          derived: true,
+          structural: true,
+          rule: "one positive observed relation terminates at a referent from which another positive observed relation departs",
+          path: freeze([
+            freeze({ tupleId: incoming.id, subject: incoming.subject, predicate: incoming.predicate, object: incoming.object }),
+            freeze({ tupleId: outgoing.id, subject: outgoing.subject, predicate: outgoing.predicate, object: outgoing.object }),
+          ]),
+        }),
+        cell: cellOf("EVA", "Pattern"),
+      }));
+    }
+  }
+
+  return derived;
+};
+
 /**
  * Derive only propositions licensed by tuple structure itself, never by lexical
  * world knowledge. These are meta-propositions about the reading: plurality,
- * scope dependence, and query underspecification.
+ * scope dependence, query underspecification, and observed graph structure.
  */
 export function deriveEotInsights(input = [], query = {}) {
   const tuples = input.map((t, i) => t?.cell ? t : normalizeEotTuple(t, i)).filter((t) => !t?.gap);
@@ -35,7 +80,7 @@ export function deriveEotInsights(input = [], query = {}) {
     groups.get(key).push(t);
   }
 
-  const derived = [];
+  const derived = [...deriveBridgePositions(tuples)];
   for (const group of groups.values()) {
     const objects = new Set(group.map((t) => stable(t.object)));
     if (objects.size < 2) continue;
