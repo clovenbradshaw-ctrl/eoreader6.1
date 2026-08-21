@@ -7,3 +7,6 @@ export {
 export {
   normalizeEotTuple, buildEotGraph, reasonOverEot, renderEotReasoning,
 } from "./reasoning/eot.js";
+export {
+  falsificationEnvelope, falsificationEnvelopes, renderFalsificationEnvelope,
+} from "./reasoning/falsification.js";
