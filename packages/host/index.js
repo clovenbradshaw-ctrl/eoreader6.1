@@ -47,3 +47,4 @@ export { admitReading } from "./reading.js";
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
+export { retrievalTask, iterateReasonSession, renderAdversarialRun } from "./adversarial-reasoning.js";
