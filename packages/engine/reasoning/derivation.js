@@ -4,6 +4,7 @@ import { cellOf } from "../operators.js";
 const freeze = (x) => Object.freeze(x);
 const stable = (x) => typeof x === "string" ? x : JSON.stringify(x);
 const keyOf = (t) => `${stable(t.subject)}\u0000${stable(t.predicate)}`;
+const pairKey = (a, b) => `${stable(a)}\u0000${stable(b)}`;
 
 const scalar = (value) => {
   if (value === null || value === undefined) return null;
@@ -21,7 +22,41 @@ const disjoint = (a, b) => {
   return Math.min(a1, b1) < Math.max(a0, b0);
 };
 
-const deriveBridgePositions = (tuples) => {
+const compositionStanding = (hyperlexicon, leftPredicate, rightPredicate) => {
+  const key = pairKey(leftPredicate, rightPredicate);
+  const value = hyperlexicon?.composition?.[key] ?? hyperlexicon?.composition?.find?.((x) =>
+    stable(x.left) === stable(leftPredicate) && stable(x.right) === stable(rightPredicate)
+  );
+  if (!value) return freeze({ standing: "unknown", giver: null });
+  if (typeof value === "string") return freeze({ standing: value, giver: null });
+  return freeze({ standing: value.standing ?? "unknown", giver: value.giver ?? null, witnesses: value.witnesses ?? [] });
+};
+
+/**
+ * Candidate composition affordances are observations about repeated relation
+ * adjacency. They are deliberately NOT proof rules: corpus recurrence may
+ * nominate a pair for checking, but only a named GIVEN affordance may license
+ * a composed bridge proposition. This mirrors HL's candidate/given wall.
+ */
+export function acquireCompositionCandidates(input = [], { minWitnesses = 2 } = {}) {
+  const tuples = input.map((t, i) => t?.cell ? t : normalizeEotTuple(t, i)).filter((t) => !t?.gap && t.polarity > 0);
+  const counts = new Map();
+  for (const incoming of tuples) for (const outgoing of tuples) {
+    if (incoming.id === outgoing.id) continue;
+    if (stable(incoming.object) !== stable(outgoing.subject)) continue;
+    const key = pairKey(incoming.predicate, outgoing.predicate);
+    if (!counts.has(key)) counts.set(key, { left: incoming.predicate, right: outgoing.predicate, witnesses: [] });
+    counts.get(key).witnesses.push(freeze([incoming.id, outgoing.id]));
+  }
+  return freeze([...counts.values()].filter((x) => x.witnesses.length >= minWitnesses).map((x) => freeze({
+    left: x.left,
+    right: x.right,
+    standing: "candidate",
+    witnesses: freeze(x.witnesses),
+  })));
+}
+
+const deriveBridgePositions = (tuples, hyperlexicon, withheld) => {
   const positive = tuples.filter((t) => t.polarity > 0);
   const derived = [];
   const seen = new Set();
@@ -35,6 +70,22 @@ const deriveBridgePositions = (tuples) => {
       const bridge = incoming.object;
       const right = outgoing.object;
       if (stable(left) === stable(bridge) || stable(bridge) === stable(right) || stable(left) === stable(right)) continue;
+
+      const affordance = compositionStanding(hyperlexicon, incoming.predicate, outgoing.predicate);
+      if (affordance.standing !== "given") {
+        withheld.push(freeze({
+          type: "composition_underdetermined",
+          bridge,
+          from: left,
+          to: right,
+          leftPredicate: incoming.predicate,
+          rightPredicate: outgoing.predicate,
+          standing: affordance.standing,
+          tupleIds: freeze([incoming.id, outgoing.id]),
+          reason: "shared-node adjacency does not license composition without a GIVEN Hyperlexicon affordance",
+        }));
+        continue;
+      }
 
       const id = `derived:${stable(bridge)}:bridge:${stable(left)}:${stable(right)}`;
       if (seen.has(id)) continue;
@@ -52,7 +103,9 @@ const deriveBridgePositions = (tuples) => {
         meta: freeze({
           derived: true,
           structural: true,
-          rule: "one positive observed relation terminates at a referent from which another positive observed relation departs",
+          giver: affordance.giver,
+          composition: freeze({ left: incoming.predicate, right: outgoing.predicate, standing: affordance.standing }),
+          rule: "shared-node adjacency plus a GIVEN Hyperlexicon composition affordance licenses an observed bridge",
           path: freeze([
             freeze({ tupleId: incoming.id, subject: incoming.subject, predicate: incoming.predicate, object: incoming.object }),
             freeze({ tupleId: outgoing.id, subject: outgoing.subject, predicate: outgoing.predicate, object: outgoing.object }),
@@ -67,11 +120,12 @@ const deriveBridgePositions = (tuples) => {
 };
 
 /**
- * Derive only propositions licensed by tuple structure itself, never by lexical
- * world knowledge. These are meta-propositions about the reading: plurality,
- * scope dependence, query underspecification, and observed graph structure.
+ * Derive only propositions licensed by tuple structure itself. Composition is
+ * additionally gated by a Hyperlexicon affordance; vocabulary alone never
+ * licenses a proof rule. Returns an Array for backward compatibility, with
+ * non-enumerable `withheld` and `candidates` diagnostics attached.
  */
-export function deriveEotInsights(input = [], query = {}) {
+export function deriveEotInsights(input = [], query = {}, { hyperlexicon = null } = {}) {
   const tuples = input.map((t, i) => t?.cell ? t : normalizeEotTuple(t, i)).filter((t) => !t?.gap);
   const groups = new Map();
   for (const t of tuples.filter((t) => t.polarity > 0)) {
@@ -80,7 +134,8 @@ export function deriveEotInsights(input = [], query = {}) {
     groups.get(key).push(t);
   }
 
-  const derived = [...deriveBridgePositions(tuples)];
+  const withheld = [];
+  const derived = [...deriveBridgePositions(tuples, hyperlexicon, withheld)];
   for (const group of groups.values()) {
     const objects = new Set(group.map((t) => stable(t.object)));
     if (objects.size < 2) continue;
@@ -139,12 +194,19 @@ export function deriveEotInsights(input = [], query = {}) {
     }
   }
 
+  Object.defineProperties(derived, {
+    withheld: { value: freeze(withheld), enumerable: false },
+    candidates: { value: acquireCompositionCandidates(tuples), enumerable: false },
+  });
   return freeze(derived);
 }
 
 export function renderDerivedInsights(insights = []) {
-  if (!insights.length) return "DERIVED INSIGHTS — none";
-  return ["DERIVED INSIGHTS", ...insights.map((x) =>
-    `  ${x.op} · ${x.cell.terrain} · ${x.cell.stance}  ${stable(x.subject)} —${x.predicate}→ ${stable(x.object)}\n    because ${x.meta.rule}`
-  )].join("\n");
+  const lines = [insights.length ? "DERIVED INSIGHTS" : "DERIVED INSIGHTS — none"];
+  for (const x of insights) lines.push(`  ${x.op} · ${x.cell.terrain} · ${x.cell.stance}  ${stable(x.subject)} —${x.predicate}→ ${stable(x.object)}\n    because ${x.meta.rule}`);
+  if (insights.withheld?.length) {
+    lines.push("", "WITHHELD COMPOSITIONS");
+    for (const x of insights.withheld) lines.push(`  ${stable(x.from)} —${x.leftPredicate}→ ${stable(x.bridge)} —${x.rightPredicate}→ ${stable(x.to)}: ${x.standing}`);
+  }
+  return lines.join("\n");
 }
