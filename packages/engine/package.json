@@ -24,6 +24,7 @@
     "./loops/atmosphere": "./loops/atmosphere.js",
     "./operators": "./operators.js",
     "./emergence/kinds": "./emergence/kinds.js",
-    "./holon/task-log": "./holon/task-log.js"
+    "./holon/task-log": "./holon/task-log.js",
+    "./tracking/arrival": "./tracking/arrival.js"
   }
 }
