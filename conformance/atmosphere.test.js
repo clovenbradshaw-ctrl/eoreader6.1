@@ -154,3 +154,56 @@ test("readAtmosphere reports apertureOpen/apertureClose/opened with the same pro
     assert.ok(region.opened === true || region.opened === false || region.opened === null, "null is a third outcome, never folded into either");
   }
 });
+
+// ── recourse locality (2023arXiv230801406K checked against this organ,
+// scripts/rec-recourse-locality.mjs) — the new fields' own arithmetic, not
+// the substantive finding. Whether amortized recompute work actually grows
+// with turns is a fact about real material, measured by that script and
+// recorded in CLAUDE.md, not a threshold to pin here — pinning a specific
+// growth rate would be exactly the golden-blind-parameter mistake this
+// repo's own CLAUDE.md names. These tests only owe correctness of the count.
+
+test("readAtmosphere: recomputeWork is the sum of every ground-rebuild attempt's own extent, stepsRead counts hops taken", () => {
+  const next = rng(3);
+  const series = Array.from({ length: 400 }, () => 10 + next());
+  const r = readAtmosphere({ material: series, window: W, draws: DRAWS, tolerance: TOLERANCE, hop: 1, seed: 1 });
+  assert.ok(!isGap(r));
+  assert.ok(r.stepsRead > 0, "iid noise over 400 elements at window 5 must take at least one step");
+  assert.ok(r.recomputeWork > 0, "a ground was built at least once over this much material");
+  assert.equal(r.recomputeWorkPerStep, r.recomputeWork / r.stepsRead, "the per-step figure is exactly the ratio of the two raw counts, not a separately-tracked value that could drift from them");
+});
+
+test("readAtmosphere: no material reaches MIN_GROUND means zero recompute work, not a null field", () => {
+  // Below GROUND_FLOOR_DIFFERENCE(window) = 10*window, groundFrom's own gate
+  // never calls ground() at all — the accumulator must reflect that, never
+  // silently omit the field or report a stale positive number.
+  const r = readAtmosphere({ material: Array(5).fill(1), window: 5, draws: DRAWS, tolerance: TOLERANCE, seed: 1 });
+  if (!isGap(r)) {
+    assert.equal(r.recomputeWork, 0);
+    assert.equal(r.recomputeWorkPerStep, r.stepsRead ? 0 : null);
+  }
+});
+
+test("createRegimeTracker: recomputeWork only grows, amortizedRecourse is always recomputeWork over pushes made so far", () => {
+  const next = rng(7);
+  const t = createRegimeTracker({ window: W, draws: DRAWS, tolerance: TOLERANCE, seed: 1 });
+  let last = 0;
+  let pushes = 0;
+  for (let i = 0; i < 300; i++) {
+    t.push(10 + next());
+    pushes++;
+    assert.ok(t.recomputeWork >= last, "attempted work is accumulated, never reduced or reset outside a real re-zero");
+    last = t.recomputeWork;
+    // Gated on whether a push has happened at all, not on whether work has
+    // accumulated yet: zero recompute work over N real turns is a genuine
+    // "0", distinct from "no turns yet" (null) — see the fresh-tracker case.
+    assert.equal(t.amortizedRecourse, t.recomputeWork / pushes);
+  }
+  assert.ok(t.recomputeWork > 0, "300 pushes at window 5 must have built a ground at least once");
+});
+
+test("createRegimeTracker: a fresh tracker with nothing pushed reports null amortizedRecourse, not a divide-by-zero", () => {
+  const t = createRegimeTracker({ window: W, draws: DRAWS, tolerance: TOLERANCE, seed: 1 });
+  assert.equal(t.recomputeWork, 0);
+  assert.equal(t.amortizedRecourse, null);
+});

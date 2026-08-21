@@ -265,13 +265,26 @@ export const readAtmosphere = ({ material, window, draws, tolerance, hop = 1, se
   // here.
   const MIN_GROUND = GROUND_FLOOR_DIFFERENCE;
 
+  // recourse locality (2023arXiv230801406K's vocabulary, checked against
+  // this organ rather than assumed of it): how much material a ground
+  // rebuild actually touches. `groundFrom` is the ONE gate every rebuild
+  // passes through — accumulating here, rather than re-deriving MIN_GROUND's
+  // threshold at each of this function's three call sites, is what keeps
+  // "attempted" one fact instead of a second copy that can drift from it.
+  // Counted on ATTEMPT, not success: a degenerate_ground gap still spent the
+  // draws x extent compute inside ground() before being discarded, and
+  // "touched" means work spent, not work that survived.
+  let recomputeWork = 0;
+  let stepsRead = 0;
   const groundFrom = (start, end) => {
     if (end - start < MIN_GROUND(window)) return null;
+    recomputeWork += end - start;
     const built = ground({ material: material.slice(start, end), draws, window, statistic, seed: seed + start });
     return isGap(built) ? null : built;
   };
 
   for (let i = window; i + window <= material.length; i += hop) {
+    stepsRead++;
     if (!g) {
       g = groundFrom(regionStart, i);
       if (!g) continue;
@@ -337,7 +350,21 @@ export const readAtmosphere = ({ material, window, draws, tolerance, hop = 1, se
     opened: apertureAtOpen != null && lastAperture != null ? lastAperture > apertureAtOpen : null,
   });
 
-  return { regions, events, clearingCount: events.filter((e) => e.op === "DEF").length, rezeroCount: events.filter((e) => e.op === "REC").length };
+  return {
+    regions,
+    events,
+    clearingCount: events.filter((e) => e.op === "DEF").length,
+    rezeroCount: events.filter((e) => e.op === "REC").length,
+    // Amortized recompute work per step read so far — the same quantity
+    // recourse-bounded online algorithms bound as O(polylog T): total
+    // ground-rebuild touch-set summed over the whole read, divided by steps
+    // taken. A caller checking recourse locality wants this as a SERIES
+    // (sampled across several reads of growing length), not a single number
+    // — this field is the one read's own contribution to that series.
+    stepsRead,
+    recomputeWork,
+    recomputeWorkPerStep: stepsRead ? recomputeWork / stepsRead : null,
+  };
 };
 
 /**
@@ -432,8 +459,13 @@ export const createRegimeTracker = ({ window, draws, tolerance, seed = 0, statis
   // cross-closure coupling that was the actual objection, so the VALUE is no
   // longer a second hand-copied literal — see engine/ground-floor.js's
   // GROUND_FLOOR_DIFFERENCE.
+  // Same accumulation, same reason, as readAtmosphere's own groundFrom above
+  // — recourse locality per push, counted on attempt rather than success.
+  let recomputeWork = 0;
+  let pushCount = 0;
   const groundFrom = (start, end) => {
     if (end - start < GROUND_FLOOR_DIFFERENCE(window)) return null;
+    recomputeWork += end - start;
     const built = ground({ material: seen.slice(start, end), draws, window, statistic, seed: seed + start });
     return isGap(built) ? null : built;
   };
@@ -442,6 +474,7 @@ export const createRegimeTracker = ({ window, draws, tolerance, seed = 0, statis
     if (typeof x !== "number" || !Number.isFinite(x))
       throw new TypeError("atmosphere: a regime tracker consumes finite numbers only");
     seen.push(x);
+    pushCount++;
     const t = seen.length;
     // Both the ground and the observed window must end at or before t. No
     // ground yet is a typed gap, NOT "the ground held" — see the header.
@@ -551,6 +584,19 @@ export const createRegimeTracker = ({ window, draws, tolerance, seed = 0, statis
     },
     get aperture() {
       return g ? volume(g) : null;
+    },
+    get recomputeWork() {
+      return recomputeWork;
+    },
+    // The health metric borrowed from the online-recourse literature: total
+    // ground-rebuild touch-set divided by turns pushed so far. Sample this
+    // across a long push sequence to see whether it is flat (bounded
+    // amortized recourse) or growing (this tracker is not giving what that
+    // literature's bounds promise, whatever REC's own firing rate looks
+    // like) — see scripts/rec-recourse-locality.mjs and CLAUDE.md for what
+    // was actually measured on real material (it grows).
+    get amortizedRecourse() {
+      return pushCount ? recomputeWork / pushCount : null;
     },
   };
 };
