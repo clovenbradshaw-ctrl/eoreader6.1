@@ -64,8 +64,8 @@ export const createArrivalTracker = ({ graph, tiers, log, draws, seed, alpha = 1
  * into a charismatic but unjustified score.  Unstable arrivals are surfaced
  * as unresolved evidence, but cannot add weight to the believed cast.
  */
-export const castBelief = (log) => {
-  if (!log || !Array.isArray(log.events)) throw new TypeError("castBelief: event log is required");
+export const beliefConstellation = (log) => {
+  if (!log || !Array.isArray(log.events)) throw new TypeError("beliefConstellation: event log is required");
   const cast = new Map();
   const get = (referent) => {
     if (!cast.has(referent)) cast.set(referent, {
@@ -95,6 +95,59 @@ export const castBelief = (log) => {
     // "Important" here means worth attention, not ontologically settled.
     needsAttention: record.unresolvedArrivals > 0 || record.standingRevisions.length > 0,
   })));
+};
+
+// Narrative clients may continue to call this view a cast.  The engine does
+// not: the same record can describe a sound, gesture, visual region, absence,
+// or any other independently developed referent.
+export const castBelief = beliefConstellation;
+
+const TERRAIN_NAMES = Object.freeze([
+  "Void", "Entity", "Kind", "Field", "Link", "Network", "Atmosphere", "Lens", "Paradigm",
+]);
+
+/**
+ * Wrap the immutable arrival trail into one terrain-first navigation surface.
+ * This is a lossless index, not a summary score: committed and unstable
+ * events, witnesses, absences, phaseposts, and referent histories all retain
+ * pointers to their complete source events.
+ */
+export const arrivalReading = (log) => {
+  if (!log || !Array.isArray(log.events)) throw new TypeError("arrivalReading: event log is required");
+  const arrivals = log.events.filter((event) => event.type === "EVA.arrival");
+  const byTerrain = Object.fromEntries(TERRAIN_NAMES.map((terrain) => [terrain, []]));
+  const byOperator = {};
+  const byReferent = {};
+  const unresolved = [];
+  const gaps = [];
+
+  for (const event of arrivals) {
+    const pointer = freeze({
+      eventId: event.event_id,
+      source: event.source,
+      status: event.status,
+      phasepost: event.phasepost,
+      witnesses: event.arrival?.witnesses ?? [],
+    });
+    (byTerrain[event.phasepost.terrain] ??= []).push(pointer);
+    (byOperator[event.phasepost.op] ??= []).push(pointer);
+    for (const referent of new Set(event.scope?.referents ?? []))
+      (byReferent[referent] ??= []).push(pointer);
+    for (const absence of event.arrival?.absences ?? [])
+      gaps.push(freeze({ eventId: event.event_id, source: event.source, absence }));
+    if (event.status !== "committed") unresolved.push(pointer);
+  }
+
+  return freeze({
+    schema: "TerrainReading@1",
+    events: [...arrivals],
+    terrains: byTerrain,
+    operators: byOperator,
+    referents: byReferent,
+    constellation: beliefConstellation(log),
+    unresolved,
+    gaps,
+  });
 };
 
 /**

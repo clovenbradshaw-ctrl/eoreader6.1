@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { createGraph } from "../packages/engine/emergence/graph.js";
 import { createTier } from "../packages/engine/emergence/tiers.js";
 import { createLog } from "../event_log/index.js";
-import { createArrivalTracker, trackArrival, castBelief } from "../packages/engine/tracking/arrival.js";
+import {
+  createArrivalTracker, trackArrival, beliefConstellation, castBelief, arrivalReading,
+} from "../packages/engine/tracking/arrival.js";
 
 const make = () => createArrivalTracker({
   graph: createGraph({ gamma: 0.9, pruneBelow: 1e-4 }),
@@ -103,4 +105,26 @@ test("castBelief keeps importance plural and marks revised or unresolved beings 
   assert.equal(uncertain.unresolvedArrivals, 1);
   assert.equal(uncertain.needsAttention, true);
   assert.equal("importanceScore" in victor, false, "different grounds are not collapsed into one rank");
+});
+
+test("arrivalReading wraps the trail without flattening terrain, uncertainty, or gaps", () => {
+  const tracker = make();
+  const committed = trackArrival(tracker, { ...arrival, absences: [{ gap: "unknown_speaker" }] });
+  const unstable = trackArrival(tracker, {
+    ...arrival,
+    source: { ...arrival.source, cursor: 1 },
+    scope: { ...arrival.scope, referents: ["uncertain-speaker"] },
+    ambiguities: [{ kind: "speaker", candidates: ["victor", "walton"] }],
+  });
+
+  const reading = arrivalReading(tracker.log);
+  assert.equal(reading.events.length, 2);
+  assert.deepEqual(reading.terrains.Link.map((entry) => entry.eventId), [committed.event_id, unstable.event_id]);
+  assert.equal(reading.terrains.Void.length, 0, "an absence is retained as evidence, not reclassified as a Void act");
+  assert.equal(reading.gaps[0].absence.gap, "unknown_speaker");
+  assert.equal(reading.unresolved[0].eventId, unstable.event_id);
+  assert.equal(reading.referents["uncertain-speaker"][0].status, "unstable");
+  assert.equal(reading.operators.CON.length, 2);
+  assert.strictEqual(castBelief, beliefConstellation, "cast is only a narrative compatibility name");
+  assert.ok(Object.isFrozen(reading) && Object.isFrozen(reading.terrains.Link[0]));
 });
