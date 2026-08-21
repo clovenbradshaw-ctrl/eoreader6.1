@@ -377,7 +377,11 @@ provably slower than genuine sparse-but-real drift yet still provably
 bounds the false-alarm rate as read length grows, checked at more than
 one length the way `falseAlarmRate` above was starting to (900 and 3000
 steps) before this pass stopped. Not built this session — disclosed as
-real, scoped, next work, same as cause 2.
+real, scoped, next work, same as cause 2. `REC-TRIGGER-CALIBRATION-
+BRIEF.md` (repo root) is a self-contained handoff for whoever picks this
+up: the exact numbers, the two harness bugs already found and fixed once
+(don't re-find them), the acceptance criteria for either a real fix or a
+correctly-refused one, and what not to touch.
 
 **Disclosed, not fixed — on purpose, not by default.** Neither cause was
 acted on. A smarter trigger (a CUSUM-style potential function was the
