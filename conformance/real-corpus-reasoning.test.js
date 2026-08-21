@@ -4,49 +4,63 @@ import assert from "node:assert/strict";
 import { createSession, admitChunked } from "../packages/host/corpus.js";
 import { reasonSession } from "../packages/host/reasoning.js";
 
-// Acceptance test for novel structural reasoning. The input is ordinary prose,
-// not hand-authored EOT. The reader must perceive the relations first. The
-// reasoner may then say something new about their graph, but may not invent a
-// semantic transitive edge.
-test("raw prose can yield a novel auditable bridge proposition without semantic transitivity", () => {
-  const text = [
-    "Ada mentored Babbage.",
-    "Babbage influenced Turing.",
-    "Ada mentored Babbage again.",
-    "Babbage influenced Turing again.",
-  ].join(" ");
+const text = [
+  "Ada mentored Babbage.",
+  "Babbage influenced Turing.",
+  "Ada mentored Babbage again.",
+  "Babbage influenced Turing again.",
+].join(" ");
 
+const makeSession = () => {
   const session = createSession();
   admitChunked(session, { sourceId: "acceptance:raw-prose", text });
-  const result = reasonSession(session, { sourceId: "acceptance:raw-prose" });
+  return session;
+};
 
+test("raw prose adjacency is withheld when the Hyperlexicon has not licensed composition", () => {
+  const result = reasonSession(makeSession(), { sourceId: "acceptance:raw-prose" });
   const incoming = result.eot.find((t) => t.subject === "Ada" && t.object === "Babbage");
   const outgoing = result.eot.find((t) => t.subject === "Babbage" && t.object === "Turing");
-  assert.ok(incoming, "reader must independently extract Ada -> Babbage from raw prose");
-  assert.ok(outgoing, "reader must independently extract Babbage -> Turing from raw prose");
+  assert.ok(incoming);
+  assert.ok(outgoing);
+  assert.equal(result.derived.some((t) => t.predicate === "occupies_bridge_between"), false);
+  assert.ok(result.withheld.some((x) =>
+    x.bridge === "Babbage" && x.from === "Ada" && x.to === "Turing" && x.standing === "unknown"
+  ));
+  assert.ok(result.compositionCandidates.some((x) => x.standing === "candidate"));
+});
 
+test("a named GIVEN Hyperlexicon affordance licenses the novel bridge, but never semantic A-to-C transitivity", () => {
+  // Grammar or another prior may be the giver, but it is explicit and optional;
+  // vocabulary alone does not make this proof rule true.
+  const hyperlexicon = {
+    composition: {
+      "mentored\u0000influenced": { standing: "given", giver: "fixture:composition-prior" },
+    },
+  };
+  const result = reasonSession(makeSession(), { sourceId: "acceptance:raw-prose", hyperlexicon });
+  const incoming = result.eot.find((t) => t.subject === "Ada" && t.object === "Babbage");
+  const outgoing = result.eot.find((t) => t.subject === "Babbage" && t.object === "Turing");
   const bridge = result.derived.find((t) =>
-    t.subject === "Babbage"
-    && t.predicate === "occupies_bridge_between"
-    && t.object?.from === "Ada"
-    && t.object?.to === "Turing"
+    t.subject === "Babbage" && t.predicate === "occupies_bridge_between" && t.object?.from === "Ada" && t.object?.to === "Turing"
   );
-  assert.ok(bridge, "reasoner must derive Babbage's bridge position from the two observed witnesses");
+  assert.ok(bridge);
   assert.deepEqual(new Set(bridge.dependsOn), new Set([incoming.id, outgoing.id]));
-  assert.equal(bridge.meta.derived, true);
-  assert.equal(bridge.meta.structural, true);
-
-  // Novel means the proposition is neither a source sentence nor an extracted
-  // source tuple. It is licensed only by the organization of multiple tuples.
+  assert.equal(bridge.meta.giver, "fixture:composition-prior");
   assert.equal(text.includes("occupies_bridge_between"), false);
   assert.equal(result.eot.some((t) => t.predicate === "occupies_bridge_between"), false);
-
-  // Crucial veto: graph composition is not semantic relation transitivity.
   assert.equal(result.eot.some((t) => t.subject === "Ada" && t.object === "Turing"), false);
   assert.equal(result.derived.some((t) => t.subject === "Ada" && t.object === "Turing"), false);
+  assert.ok(result.falsification.some((x) => x.tupleId === bridge.id));
+});
 
-  // The derived proposition itself receives a terrain-aware falsification
-  // envelope, so novelty remains challengeable rather than becoming doctrine.
-  const envelope = result.falsification.find((x) => x.tupleId === bridge.id);
-  assert.ok(envelope, "derived bridge proposition must be falsifiable");
+test("the supply-chain false positive from the live probe is now withheld", () => {
+  const session = createSession();
+  admitChunked(session, {
+    sourceId: "acceptance:supply",
+    text: "Depot Seven supplied North Clinic. North Clinic received Depot Nine. Depot Seven supplied North Clinic again. North Clinic received Depot Nine again.",
+  });
+  const result = reasonSession(session, { sourceId: "acceptance:supply" });
+  assert.equal(result.derived.some((t) => t.predicate === "occupies_bridge_between"), false);
+  assert.ok(result.withheld.length > 0);
 });
