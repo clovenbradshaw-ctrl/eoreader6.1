@@ -10,7 +10,7 @@
 import { canonicalHashSync } from "../spec/canonical-json/index.js";
 import { admitChunked } from "./corpus.js";
 import { sessionEot } from "./reasoning.js";
-import { reasonOverEot } from "../engine/reasoning/eot.js";
+import { normalizeEotTuple, reasonOverEot } from "../engine/reasoning/eot.js";
 import { falsificationEnvelopes } from "../engine/reasoning/falsification.js";
 
 const freeze = (x) => Object.freeze(x);
@@ -48,9 +48,7 @@ export const retrievalTask = (envelope, round = 0) => freeze({
 });
 
 const normaliseRetrieved = (value, task, index) => {
-  if (typeof value === "string") {
-    return { text: value, sourceId: `reasoning:${task.id}:${index}`, meta: {} };
-  }
+  if (typeof value === "string") return { text: value, sourceId: `reasoning:${task.id}:${index}`, meta: {} };
   if (!value || typeof value !== "object") return null;
   if (Array.isArray(value.eot)) return { eot: value.eot, sourceId: value.sourceId ?? `reasoning:${task.id}:${index}`, meta: value.meta ?? {} };
   if (typeof value.text === "string") return { text: value.text, sourceId: value.sourceId ?? `reasoning:${task.id}:${index}`, language: value.language, meta: value.meta ?? {} };
@@ -59,30 +57,8 @@ const normaliseRetrieved = (value, task, index) => {
 
 const collectSessionTuples = (session, { priors = [] } = {}) => sessionEot(session, { priors }).tuples;
 
-/**
- * Iteratively adversarially reason over a live EOReader session.
- *
- * retrieve(task, context) may return one item or an array. Each item is either:
- *   { text, sourceId?, language?, meta? }  -> MUST pass through admitChunked
- *   { eot: [...], sourceId?, meta? }       -> already-EOT evidence, for trusted
- *                                              machine peers/tests/imports
- *   "raw text"                             -> admitted as text
- *
- * The loop stops when:
- *   - no proposition has a falsification envelope,
- *   - retrieval yields no new evidence,
- *   - a full round changes no proposition/reasoning face,
- *   - or maxRounds is reached.
- *
- * No confidence scalar is used. "Changed" means the addressed proposition
- * graph or its findings changed.
- */
 export async function iterateReasonSession(session, {
-  query = {},
-  priors = [],
-  retrieve,
-  maxRounds = 3,
-  maxTasksPerRound = 8,
+  query = {}, priors = [], retrieve, maxRounds = 3, maxTasksPerRound = 8,
 } = {}) {
   if (!session) throw new TypeError("iterateReasonSession: session is required");
   if (typeof retrieve !== "function") throw new TypeError("iterateReasonSession: retrieve(task, context) is required");
@@ -94,58 +70,46 @@ export async function iterateReasonSession(session, {
   const rounds = [];
   let stop = "max_rounds";
 
-  const evaluate = () => {
-    const tuples = [...collectSessionTuples(session, { priors }), ...externalEot];
-    return reasonOverEot(tuples, query);
-  };
-
+  const evaluate = () => reasonOverEot([...collectSessionTuples(session, { priors }), ...externalEot], query);
   let reasoning = evaluate();
   let face = reasoningFace(reasoning);
 
   for (let round = 0; round < maxRounds; round += 1) {
     const envelopes = falsificationEnvelopes(reasoning.tuples ?? []);
-    if (!envelopes.length) {
-      stop = "no_falsifiable_propositions";
-      break;
-    }
+    if (!envelopes.length) { stop = "no_falsifiable_propositions"; break; }
 
     const tasks = envelopes.slice(0, maxTasksPerRound).map((envelope) => retrievalTask(envelope, round));
     const admitted = [];
 
     for (const task of tasks) {
-      const returned = await retrieve(task, freeze({
-        round,
-        query: freeze({ ...query }),
-        reasoning,
-        propositionCount: reasoning.tuples?.length ?? 0,
-      }));
+      const returned = await retrieve(task, freeze({ round, query: freeze({ ...query }), reasoning, propositionCount: reasoning.tuples?.length ?? 0 }));
       const items = Array.isArray(returned) ? returned : returned == null ? [] : [returned];
 
       for (let i = 0; i < items.length; i += 1) {
         const item = normaliseRetrieved(items[i], task, i);
         if (!item) continue;
-        const evidenceHash = canonicalHashSync(item.eot
-          ? { eot: item.eot, sourceId: item.sourceId }
-          : { text: item.text, sourceId: item.sourceId });
+        const evidenceHash = canonicalHashSync(item.eot ? { eot: item.eot, sourceId: item.sourceId } : { text: item.text, sourceId: item.sourceId });
         if (seenEvidence.has(evidenceHash)) continue;
         seenEvidence.add(evidenceHash);
 
         if (item.eot) {
-          externalEot.push(...item.eot.map((tuple, n) => ({
-            ...tuple,
-            id: tuple.id ?? `retrieved:${task.id}:${i}:${n}`,
-            source: tuple.source ?? item.sourceId,
-            meta: { ...(tuple.meta ?? {}), retrievedFor: task.tupleId, retrievalTask: task.id },
-          })));
-          admitted.push(freeze({ taskId: task.id, sourceId: item.sourceId, kind: "eot", count: item.eot.length }));
+          let accepted = 0;
+          for (let n = 0; n < item.eot.length; n += 1) {
+            const normalized = normalizeEotTuple(item.eot[n], n);
+            if (normalized?.gap) continue;
+            externalEot.push(freeze({
+              ...normalized,
+              id: normalized.id?.startsWith("eot:") ? `retrieved:${task.id}:${i}:${n}` : normalized.id,
+              source: normalized.source ?? item.sourceId,
+              meta: freeze({ ...(normalized.meta ?? {}), retrievedFor: task.tupleId, retrievalTask: task.id }),
+            }));
+            accepted += 1;
+          }
+          if (accepted) admitted.push(freeze({ taskId: task.id, sourceId: item.sourceId, kind: "eot", count: accepted }));
           continue;
         }
 
-        const result = admitChunked(session, {
-          text: item.text,
-          sourceId: item.sourceId,
-          language: item.language,
-        });
+        const result = admitChunked(session, { text: item.text, sourceId: item.sourceId, language: item.language });
         admitted.push(freeze({ taskId: task.id, sourceId: item.sourceId, kind: "text", chunks: result.chunks, deduped: result.deduped === true }));
       }
     }
@@ -159,43 +123,22 @@ export async function iterateReasonSession(session, {
     const next = evaluate();
     const nextFace = reasoningFace(next);
     const changed = nextFace !== face;
-    rounds.push(freeze({
-      round,
-      before: face,
-      after: nextFace,
-      changed,
-      dispositionBefore: reasoning.disposition,
-      dispositionAfter: next.disposition,
-      tasks: freeze(tasks),
-      admitted: freeze(admitted),
-      findingsAfter: freeze([...(next.findings ?? [])]),
-    }));
-
+    rounds.push(freeze({ round, before: face, after: nextFace, changed,
+      dispositionBefore: reasoning.disposition, dispositionAfter: next.disposition,
+      tasks: freeze(tasks), admitted: freeze(admitted), findingsAfter: freeze([...(next.findings ?? [])]) }));
     reasoning = next;
     face = nextFace;
-    if (!changed) {
-      stop = "stable";
-      break;
-    }
+    if (!changed) { stop = "stable"; break; }
   }
 
-  return freeze({
-    schema: "AdversarialReasoningRun@1",
-    stop,
-    rounds: freeze(rounds),
-    reasoning,
-    falsification: falsificationEnvelopes(reasoning.tuples ?? []),
-    retrievedEotCount: externalEot.length,
-    evidenceCount: seenEvidence.size,
-  });
+  return freeze({ schema: "AdversarialReasoningRun@1", stop, rounds: freeze(rounds), reasoning,
+    falsification: falsificationEnvelopes(reasoning.tuples ?? []), retrievedEotCount: externalEot.length,
+    evidenceCount: seenEvidence.size });
 }
 
 export const renderAdversarialRun = (run) => {
-  const lines = [
-    `ADVERSARIAL EOT RUN — ${String(run.reasoning?.disposition ?? "unknown").toUpperCase()}`,
-    `stop ${run.stop}`,
-    `rounds ${run.rounds?.length ?? 0} · evidence ${run.evidenceCount ?? 0}`,
-  ];
+  const lines = [`ADVERSARIAL EOT RUN — ${String(run.reasoning?.disposition ?? "unknown").toUpperCase()}`,
+    `stop ${run.stop}`, `rounds ${run.rounds?.length ?? 0} · evidence ${run.evidenceCount ?? 0}`];
   for (const round of run.rounds ?? []) {
     lines.push("", `ROUND ${round.round + 1} — ${round.changed ? "GRAPH CHANGED" : "NO DISPLACEMENT"}`);
     lines.push(`  admitted ${round.admitted.length}`);
