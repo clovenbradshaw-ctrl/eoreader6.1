@@ -903,6 +903,8 @@ const classifyIndividuation = (r, relations) => {
 // that static analysis.
 const PRIORS_RELATIVE_PATH = ["..", "..", "bin", "priors", "lang", ""].join("/");
 const priorsRoot = new URL(PRIORS_RELATIVE_PATH, import.meta.url);
+const POS_PRIORS_RELATIVE_PATH = ["..", "..", "bin", "priors", "pos", ""].join("/");
+const posPriorsRoot = new URL(POS_PRIORS_RELATIVE_PATH, import.meta.url);
 
 // @2 (2026-08-19) added `attested`/`region` provenance blocks alongside the
 // existing `provenance`/`notes`/`abbreviations` keys this loader reads —
@@ -920,6 +922,17 @@ const loadAbbreviationPrior = (language) => {
     );
   if (!raw.provenance?.source) throw new TypeError("loadAbbreviationPrior: a prior must name its giver");
   return { language: raw.language, giver: raw.provenance.source, abbreviations: raw.abbreviations };
+};
+
+const loadPosPrior = (language) => {
+  const filename = language === "en" ? "en-ud-ewt.json" : `${language}.json`;
+  const path = new URL(filename, posPriorsRoot);
+  if (!fs.existsSync(path)) return null;
+  const raw = JSON.parse(fs.readFileSync(path, "utf8"));
+  if (raw.schema !== "POSPrior@1")
+    throw new TypeError(`loadPosPrior: expected schema "POSPrior@1", got ${raw.schema}`);
+  if (!raw.provenance?.source) throw new TypeError("loadPosPrior: a prior must name its giver");
+  return raw;
 };
 
 // The document-local half of discoveredCast, factored out so a caller that
@@ -1055,7 +1068,11 @@ function discoveredCast(session, doc) {
       // most permissive reading, appropriate here because this signal is
       // read RELATIVE to other referents in the same document, never
       // against an absolute count.
-      relations = extractRelations(body, { verbs: discoverRelationVocab(body, { surfaces, functionWords, minSurfaces: 1 }).verbs, functionWords });
+      const posPrior = doc.language ? loadPosPrior(doc.language) : null;
+      relations = extractRelations(body, {
+        verbs: discoverRelationVocab(body, { surfaces, functionWords, minSurfaces: 1, posPrior }).verbs,
+        functionWords,
+      });
       // discoverReferents emits the same gap once per referent, because at
       // that level each referent is the unit. Forwarding 63 identical
       // objects to a reader-facing audit log is noise that buries the gaps

@@ -204,8 +204,17 @@ const SENTENCE_END = /[.!?;]/g;
  * followed — so a causal reader can accumulate admission frame by frame
  * (LOSS-LESS-LADDER.md L3: a verb is admitted once it has ALREADY followed
  * minSurfaces distinct surfaces, never on the strength of the whole text).
+ *
+ * `posPrior`, when supplied, is a giver-named `POSPrior@1`. A connector is
+ * admitted only when VERB+AUX account for more than half of its attested
+ * uses. Unattested forms remain admitted as an explicit prior gap rather
+ * than being treated as non-verbs: a witness cannot refuse what it never
+ * saw. Genuinely mixed attested forms are refused and remain available to an
+ * occurrence-level resolver; one anomalous annotation cannot turn a common
+ * preposition into a verb.
+ * Omit the prior and the original material-only behaviour is unchanged.
  */
-export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS } = {}) => {
+export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS, posPrior = null } = {}) => {
   if (!Number.isInteger(minSurfaces) || minSurfaces < 1)
     throw new TypeError("discoverRelationVocab: minSurfaces is declared — how much recurrence counts as a pattern is the caller's to say, never a default here");
 
@@ -244,8 +253,13 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
   const verbs = new Set();
   const candidates = [];
   for (const [token, seenAfter] of surfacesByToken) {
-    candidates.push({ verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter) });
-    if (seenAfter.size >= minSurfaces) verbs.add(token);
+    const attested = posPrior?.forms?.[token] ?? null;
+    const attestedTotal = attested ? Object.values(attested).reduce((sum, count) => sum + count, 0) : 0;
+    const verbShare = attestedTotal ? ((attested.VERB ?? 0) + (attested.AUX ?? 0)) / attestedTotal : 0;
+    const verbDominant = !posPrior || !attested || verbShare > 0.5;
+    const posStanding = !posPrior ? "not_supplied" : !attested ? "gap" : verbDominant ? "verb_dominant" : "nonverb_dominant";
+    candidates.push({ verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter), verbDominant, verbShare, posStanding, upos: attested });
+    if (seenAfter.size >= minSurfaces && verbDominant) verbs.add(token);
   }
   candidates.sort((x, y) => y.surfaces - x.surfaces);
 
@@ -439,6 +453,9 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
         verb,
         object,
         polarity: negationBeforeVerb.test(before) ? "-" : "+",
+        offset: m.index,
+        subjectOffset: m.index,
+        objectOffset: m.index + m[0].lastIndexOf(m[3]),
       });
       if (rels.length >= limit) { previousMatchEnd = clauseEndAfter(m.index + m[0].length); break; }
     }

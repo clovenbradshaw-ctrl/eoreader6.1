@@ -343,8 +343,12 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     session._terrainsGraphAdmitted.add(sourceId);
     const graph = attachGraph(session);
     const lookup = referentLookup(session, sourceId);
-    const canon = (side) => lookup.get(String(side).toLowerCase()) ?? side;
-    const triples = rel.relations.map((t) => ({ subject: canon(t.subject), verb: t.verb, object: canon(t.object), polarity: t.polarity }));
+    const triples = rel.relations.map((t) => ({
+      subject: lookup.resolve(t.subject, t.subjectOffset ?? t.offset),
+      verb: t.verb,
+      object: lookup.resolve(t.object, t.objectOffset ?? t.offset),
+      polarity: t.polarity,
+    }));
     stages = [];
     // Each stage's nodes carry `weight` — the summed CURRENT (decayed)
     // incident edge weight at that stage (engine graph.js::nodeWeights) —
@@ -376,13 +380,11 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     }
 
     // ── binding: the co-arrival Link over the cast, its own final stage ──
-    // The register is keyed by `referentFace` — the SAME canonical face the
-    // SVO canonicalisation above lands triples on — so one referent is ONE
-    // node whichever organ speaks about it. It was keyed by `r.id`
-    // ("ref:auto:…") until 2026-08-21 while SVO used the display, which
-    // split every bound referent into two disconnected graph nodes: the
-    // surface-span mistake at node scale, fixed at the face, not patched in
-    // a renderer. Apparatus referents are withheld (bindableReferents; the
+    // The register is keyed by `referentFace` — the SAME stable referent id
+    // the SVO canonicalisation above lands triples on — so one referent is
+    // ONE node whichever organ speaks about it. Display strings remain
+    // presentation rather than graph identity. Apparatus referents are
+    // withheld (bindableReferents; the
     // typed Void entry above says who and why).
     let binding = { entities: 0, pairsTested: 0, witnessed: 0, apparatusWithheld: apparatusReferents.length, params: BINDING };
     const sentences = splitSentences(text);

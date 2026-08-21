@@ -13,12 +13,13 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSession, admitChunked, sessionReferents } from "../packages/host/corpus.js";
-import { attachGraph, admitGraph, sessionGraphSnapshot, castStandings, reconcileGraphStandings, referentFace, CELL } from "../packages/host/graph.js";
+import { attachGraph, admitGraph, sessionGraphSnapshot, referentLookup, castStandings, reconcileGraphStandings, referentFace, CELL } from "../packages/host/graph.js";
 import { ORGANS } from "../packages/engine/operators.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIX = join(ROOT, "scripts/adversarial/fixtures");
 const frankenstein = readFileSync(join(FIX, "pg84-frankenstein.txt"), "utf8").replace(/\r\n/g, "\n");
+const frankensteinCoref = JSON.parse(readFileSync(join(FIX, "pg84-frankenstein.coref.json"), "utf8"));
 const wireQuietSubject = readFileSync(join(FIX, "wire-quiet-subject.txt"), "utf8");
 
 const sessionOf = (text) => {
@@ -60,7 +61,18 @@ test("admitGraph reads a document's relations into the session graph, canonicali
   // them, which is exactly the failure emergence/graph.js's own header
   // warns a caller into by feeding it raw surfaces instead of resolved ids.
   assert.ok(!graph.nodes.has("henry"), "'henry' alone must not appear as a separate node");
-  assert.ok(graph.nodes.has("henry clerval"), "the referent's canonical display, lowercased, is the one node");
+  assert.ok(graph.nodes.has(henry.id), "the referent id, not a preferred surface spelling, is the graph node");
+});
+
+test("referent resolution reads beings inside relation phrases and composes received descriptor/narrator priors", () => {
+  const session = sessionOf(frankenstein);
+  const lookup = referentLookup(session, "s", { priors: frankensteinCoref.referents });
+  const elizabeth = sessionReferents(session, { sourceId: "s", limit: 500 }).referents.find((r) => r.surfaces.includes("Elizabeth"));
+  assert.ok(elizabeth);
+  assert.equal(lookup.resolve("to Elizabeth", 0), elizabeth.id, "a being inside an object phrase resolves to identity");
+  assert.equal(lookup.resolve("the dæmon", 0), "creature", "received descriptor surfaces resolve to their referent");
+  const victorOffset = frankenstein.indexOf("I am by birth a Genevese") + 1;
+  assert.equal(lookup.resolve("I", victorOffset), "victor", "first person resolves by the received narrator span at this offset");
 });
 
 test("admitGraph(session) with no sourceId reads every admitted document", () => {
@@ -96,11 +108,11 @@ test("sessionGraphSnapshot is plain, serialisable data — never the live Maps",
   assert.equal(typeof snap.nodeCount, "number");
   assert.equal(typeof snap.edgeCount, "number");
   assert.doesNotThrow(() => JSON.stringify(snap));
-  // Sorted by mentions/weight descending — the strongest belief first, since
+  // Sorted by current weight descending — the strongest belief first, since
   // a caller with a small prompt budget (a background "thought" call) reads
   // this list from the front and truncates.
   for (let i = 1; i < snap.nodes.length; i++) {
-    assert.ok(snap.nodes[i - 1].mentions >= snap.nodes[i].mentions);
+    assert.ok(snap.nodes[i - 1].weight >= snap.nodes[i].weight);
   }
 });
 
@@ -132,6 +144,7 @@ test("castStandings keys the cast's positive individuation verdicts by referentF
   const voss = referents.find((r) => r.display === "Voss");
   assert.ok(newswire, "precondition: the byline is discovered as a referent");
   assert.equal(newswire.individuation, "apparatus", "precondition: the naming-sentence-share demotion fires on this fixture");
+  assert.equal(referentFace(newswire), newswire.id, "graph identity is the stable referent id, never its mutable display spelling");
 
   const standings = castStandings(session, "s");
   assert.equal(standings.get(referentFace(newswire))?.standing, "apparatus");

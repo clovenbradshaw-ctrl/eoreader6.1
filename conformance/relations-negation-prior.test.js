@@ -183,3 +183,20 @@ test("nothing in relations.js hardcodes \"ain't\" or \"neva\" — the vendored f
   assert.ok(!/["']ain't["']/.test(code), 'relations.js hardcodes "ain\'t" — that belongs in the vendored prior, not the organ');
   assert.ok(!/["']neva["']/.test(code), 'relations.js hardcodes "neva" — that belongs in the vendored prior, not the organ');
 });
+
+test("a received POS prior refuses connector-slot nouns and prepositions without erasing attested verbs", () => {
+  const posPrior = {
+    schema: "POSPrior@1",
+    forms: { walked: { VERB: 8 }, at: { ADP: 12, AUX: 1 }, family: { NOUN: 10 } },
+  };
+  const { verbs, candidates } = discoverRelationVocab(
+    "Victor walked home. Elizabeth at Geneva. Henry family friend. Safie instructed Felix.",
+    { surfaces: ["Victor", "Elizabeth", "Henry", "Safie"], minSurfaces: 1, posPrior },
+  );
+  assert.deepEqual([...verbs], ["walked", "instructed"], "an unattested form is a gap, not evidence of non-verb class");
+  assert.equal(candidates.find((c) => c.verb === "at").verbDominant, false);
+  assert.equal(candidates.find((c) => c.verb === "family").verbDominant, false);
+  assert.equal(candidates.find((c) => c.verb === "at").verbShare, 1 / 13);
+  assert.equal(candidates.find((c) => c.verb === "walked").upos.VERB, 8);
+  assert.equal(candidates.find((c) => c.verb === "instructed").posStanding, "gap");
+});

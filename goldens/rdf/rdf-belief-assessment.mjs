@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// First RDF-programme measurement: capture the host belief graph and a
-// commensurable order-perturbed null through the identical admission path.
+// RDF-programme measurement: capture the host belief graph and a
+// commensurable order-perturbed null through identical, staged admission.
 // This does not manufacture RDF when the received snapshot is unavailable.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -16,15 +16,39 @@ const { text: material } = stripContainer(raw);
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
-function read(text, sourceId) {
+const SENTENCES_PER_STAGE = 25;
+
+function read(stages, sourceId) {
   const session = createSession({ engineVersion: "eo-2026-07" });
-  const corpus = admitChunked(session, { text, sourceId, language: "en" });
-  const admission = admitGraph(session, { sourceId });
+  let chunks = 0;
+  let relationsStated = 0;
+  const trajectory = [];
+  let lastAdmission = null;
+  for (const [cursor, stage] of stages.entries()) {
+    const stageSourceId = `${sourceId}:cursor-${cursor + 1}:material-${stage.materialCursor}`;
+    const corpus = admitChunked(session, { text: stage.text, sourceId: stageSourceId, language: "en" });
+    chunks += corpus.chunks;
+    const admission = admitGraph(session, { sourceId: stageSourceId });
+    lastAdmission = admission.admitted[0];
+    relationsStated += lastAdmission.stated;
+    const snapshot = sessionGraphSnapshot(session, { limit: 0 });
+    trajectory.push({
+      cursor: cursor + 1,
+      material_cursor: stage.materialCursor,
+      graph_tick: snapshot.tick,
+      node_count: snapshot.nodeCount,
+      edge_count: snapshot.edgeCount,
+      stated: lastAdmission.stated,
+    });
+  }
   const graph = sessionGraphSnapshot(session, { limit: 25 });
-  const keys = [...admission.graph.edges.keys()];
+  const keys = [...session.graph.edges.keys()];
   return {
-    chunks: corpus.chunks,
-    admission: admission.admitted[0],
+    chunks,
+    stages: stages.length,
+    relations_stated: relationsStated,
+    last_admission: lastAdmission,
+    trajectory,
     graph,
     edge_shape: {
       verb_typed: keys.filter((key) => key.split("|")[1].replace(/^!/, "").length > 0).length,
@@ -34,13 +58,19 @@ function read(text, sourceId) {
   };
 }
 
-// Reversing sentence order preserves the same sentence bytes and uses the
-// same host pipeline. It perturbs discourse/order rather than substituting a
-// hand-built scoring procedure. The transformation and digest are recorded.
+// Reversing fixed sentence-stage order preserves the same sentence bytes and
+// uses the same host pipeline. It perturbs discourse/order rather than
+// substituting a hand-built scoring procedure. The transformation and digest
+// are recorded.
 const sentences = splitSentences(material).map((sentence) => sentence.text);
-const nullMaterial = [...sentences].reverse().join(" ");
-const observed = read(material, "project-gutenberg:pg84:observed");
-const orderNull = read(nullMaterial, "project-gutenberg:pg84:sentence-reversal-null");
+const stages = [];
+for (let from = 0; from < sentences.length; from += SENTENCES_PER_STAGE) {
+  stages.push({ materialCursor: stages.length + 1, text: sentences.slice(from, from + SENTENCES_PER_STAGE).join(" ") });
+}
+const nullStages = [...stages].reverse();
+const nullMaterial = nullStages.map((stage) => stage.text).join(" ");
+const observed = read(stages, "project-gutenberg:pg84:observed");
+const orderNull = read(nullStages, "project-gutenberg:pg84:stage-reversal-null");
 
 const rdfShape = (reading) => ({
   entity_nodes: reading.graph.nodeCount,
@@ -53,7 +83,7 @@ const rdfShape = (reading) => ({
 });
 
 const artifact = {
-  schema: "RDFBeliefAssessment@1",
+  schema: "RDFBeliefAssessment@2",
   standing: {
     graph_shape: "measured",
     rdf_quality: "refused",
@@ -66,6 +96,7 @@ const artifact = {
     sha256: digest(material),
     bytes: Buffer.byteLength(material),
     sentences: sentences.length,
+    staging: { sentences_per_stage: SENTENCES_PER_STAGE, stages: stages.length },
   },
   received_rdf: {
     status: "gap",
@@ -74,7 +105,7 @@ const artifact = {
   },
   observed: { ...rdfShape(observed), ...observed },
   null: {
-    perturbation: "reverse the order of all split sentences",
+    perturbation: "reverse the order of fixed 25-sentence stages while preserving sentence order within each stage",
     sha256: digest(nullMaterial),
     ...rdfShape(orderNull),
     ...orderNull,

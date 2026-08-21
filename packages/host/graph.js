@@ -12,12 +12,11 @@
 // IDENTITY, CANONICALISED THROUGH THE CAST — emergence/graph.js's own header
 // invites this ("feed it raw surfaces and it builds a surface graph; feed it
 // resolved referent ids and it builds a referent graph"): a triple's
-// subject/object is rewritten to the document's own discovered referent
-// display name when one of sessionReferents' surfaces matches, so "Victor"
-// and "Frankenstein" accumulate as one node rather than two. A side with no
-// matching referent (most objects — not every noun phrase is a person/place
-// the cast discovered) is kept as its own lowercase surface, exactly what
-// readTriples already did before this file existed.
+// subject/object is rewritten to the document's resolved referent id when
+// exactly one of sessionReferents' surfaces occurs in the phrase, so "to
+// Alice" and "Alice" accumulate as one being rather than two surface nodes.
+// Ambiguous phrases naming more than one referent, and sides with no match,
+// remain surfaces rather than receiving a guessed identity.
 //
 // NO NEW NODE KIND. This organ instantiates emergence/graph.js's own SYN ·
 // Pattern · Composing cell at host tier (parallel to how host/corpus.js's
@@ -26,6 +25,8 @@
 
 import { createGraph, readTriples, injectPrior, strongestEdges, edgeKey, structuralKey, nodeWeights, restandNode, parseEdgeKey } from "../engine/emergence/graph.js";
 import { sessionRelations, sessionReferents } from "./corpus.js";
+import { diaNorm } from "../engine/perceiver/text/surfaces.js";
+import { isFirstPerson, narratorAt, resolveAllNarratorSpans } from "../engine/perceiver/text/narrator.js";
 
 export { createGraph, readTriples, injectPrior, strongestEdges, edgeKey, structuralKey, nodeWeights, restandNode, parseEdgeKey };
 
@@ -55,30 +56,82 @@ export function attachGraph(session, { gamma = DEFAULT_GAMMA, pruneBelow = DEFAU
 // for the being, so every organ that keys a graph node for a referent must
 // key it the SAME way — this function, nowhere else. Two organs keying the
 // same being two ways is not two spellings, it is the graph believing in
-// two beings where the reading discovered one (the surface-span mistake at
-// node scale — see host/terrains.js's binding register, which did exactly
-// that until 2026-08-21: SVO triples canonicalised to the display while
-// co-arrival binding registered `r.id`, so one referent's stated relations
-// and its co-arrivals accumulated on two disconnected nodes).
-export const referentFace = (r) => String(r.display || r.id).toLowerCase();
+// two beings where the reading discovered one. The stable referent id is
+// that face; display strings remain presentation and may change as the cast
+// learns a fuller name.
+export const referentFace = (r) => String(r.id);
 
-// One document's discovered cast, as a surface -> canonical display name
+// One document's received+discovered cast, as a surface -> referent id
 // lookup, longest surface first so "Victor Frankenstein" claims a mention
 // before "Frankenstein" alone gets the chance to. Exported since the staged
 // admission in host/terrains.js needs the SAME canonicalisation per batch —
 // a second copy of this logic would drift (SEED.md #5: two grounds built to
 // different specs were never comparable).
-export function referentLookup(session, sourceId) {
-  const { referents } = sessionReferents(session, { sourceId });
-  const lookup = new Map();
+export function referentLookup(session, sourceId, { priors = [] } = {}) {
+  const { referents } = sessionReferents(session, { sourceId, priors, limit: Infinity });
+  const entries = [];
   for (const r of referents) {
-    const surfaces = [...r.surfaces].sort((a, b) => b.length - a.length);
-    for (const s of surfaces) lookup.set(String(s).toLowerCase(), r.display || r.id);
+    const surfaces = r.surfaces
+      .map((surface) => typeof surface === "string" ? surface : surface?.surface)
+      .filter(Boolean);
+    for (const surface of surfaces) entries.push({ surface: diaNorm(surface), referentId: r.id });
   }
+  entries.sort((a, b) => b.surface.length - a.surface.length);
+
+  const doc = session.documents.get(sourceId);
+  const body = doc?.text || doc?.chunks?.map((chunk) => chunk.text).join("\n") || "";
+  const { resolved: narratorSpans, unresolved: narratorGaps } = resolveAllNarratorSpans(body, priors);
+  const priorIds = new Set(priors.map((prior) => prior.id).filter(Boolean));
+  const lookup = new Map(entries.map((entry) => [entry.surface, entry.referentId]));
+  lookup.entriesSorted = entries;
+  lookup.narratorSpans = narratorSpans;
+  lookup.narratorGaps = narratorGaps;
+  lookup.priorIds = priorIds;
+  lookup.resolve = (side, offset) => canonicalize(side, offset, lookup);
   return lookup;
 }
 
-const canonicalize = (side, lookup) => lookup.get(String(side).toLowerCase()) ?? side;
+const includesSurface = (phrase, surface) => {
+  let at = phrase.indexOf(surface);
+  while (at !== -1) {
+    const before = at === 0 ? "" : phrase[at - 1];
+    const after = at + surface.length === phrase.length ? "" : phrase[at + surface.length];
+    if ((!before || !/[\p{L}\p{N}]/u.test(before)) && (!after || !/[\p{L}\p{N}]/u.test(after))) return true;
+    at = phrase.indexOf(surface, at + 1);
+  }
+  return false;
+};
+
+const canonicalize = (side, offset, resolver) => {
+  const phrase = diaNorm(side);
+  if (isFirstPerson(phrase)) {
+    const narrator = narratorAt(offset, resolver.narratorSpans);
+    if (narrator.referentId) {
+      const raw = narrator.referentId.replace(/^ref:narrator:/, "");
+      return resolver.priorIds.has(raw) ? raw : narrator.referentId;
+    }
+  }
+
+  const matches = new Set();
+  for (const entry of resolver.entriesSorted) if (includesSurface(phrase, entry.surface)) matches.add(entry.referentId);
+  return matches.size === 1 ? [...matches][0] : side;
+};
+
+/** Resolve relation sides to beings before they enter Network. */
+export function resolveRelations(session, { sourceId, priors = [] } = {}) {
+  const { relations, gaps } = sessionRelations(session, { sourceId });
+  const resolver = referentLookup(session, sourceId, { priors });
+  return {
+    relations: relations.map((relation) => ({
+      subject: resolver.resolve(relation.subject, relation.subjectOffset ?? relation.offset),
+      verb: relation.verb,
+      object: resolver.resolve(relation.object, relation.objectOffset ?? relation.offset),
+      polarity: relation.polarity,
+      offset: relation.offset,
+    })),
+    gaps: [...gaps, ...resolver.narratorGaps],
+  };
+}
 
 /**
  * The cast's POSITIVE individuation verdicts for one document, keyed by the
@@ -94,8 +147,8 @@ const canonicalize = (side, lookup) => lookup.get(String(side).toLowerCase()) ??
  * of evidence licenses withholding judgment, never manufacturing one — the
  * same constitutional line the-fold's grounding ladder already holds.
  */
-export function castStandings(session, sourceId) {
-  const { referents } = sessionReferents(session, { sourceId });
+export function castStandings(session, sourceId, { priors = [] } = {}) {
+  const { referents } = sessionReferents(session, { sourceId, priors });
   const standings = new Map();
   for (const r of referents) {
     if (!r.individuation) continue;
@@ -144,14 +197,14 @@ export function castStandings(session, sourceId) {
  * real standing verdict but no matching node is named on `unresolved`,
  * never silently absorbed into an empty `restood` list.
  */
-export function reconcileGraphStandings(session, { sourceId } = {}) {
+export function reconcileGraphStandings(session, { sourceId, priors = [] } = {}) {
   const graph = session.graph;
   if (!graph) return { restood: [], unresolved: [] };
   const targets = sourceId ? [sourceId] : Array.from(session.documents.keys());
   const restood = [];
   const unresolved = [];
   for (const id of targets) {
-    for (const [face, verdict] of castStandings(session, id)) {
+    for (const [face, verdict] of castStandings(session, id, { priors })) {
       const result = restandNode(graph, face, {
         standing: verdict.standing,
         giver: "host/corpus.js::sessionReferents — the cast's own individuation (apparatus by naming-sentence-share; emanon/protogon/holon by the mass×coupling×agency classifier)",
@@ -181,24 +234,17 @@ export function reconcileGraphStandings(session, { sourceId } = {}) {
  * content-addressed dedup guard already keeps at the corpus tier, one layer
  * down.
  */
-export function admitGraph(session, { sourceId, gamma, pruneBelow, alpha = 1 } = {}) {
+export function admitGraph(session, { sourceId, gamma, pruneBelow, alpha = 1, priors = [] } = {}) {
   const graph = attachGraph(session, { gamma, pruneBelow });
   const targets = sourceId ? [sourceId] : Array.from(session.documents.keys());
   const results = [];
   for (const id of targets) {
-    const { relations, gaps } = sessionRelations(session, { sourceId: id });
+    const { relations, gaps } = resolveRelations(session, { sourceId: id, priors });
     if (!relations.length) {
       results.push({ sourceId: id, stated: 0, newEdges: 0, newNodes: 0, gaps });
       continue;
     }
-    const lookup = referentLookup(session, id);
-    const triples = relations.map((t) => ({
-      subject: canonicalize(t.subject, lookup),
-      verb: t.verb,
-      object: canonicalize(t.object, lookup),
-      polarity: t.polarity,
-    }));
-    const movement = readTriples(graph, triples, { alpha, structural: true });
+    const movement = readTriples(graph, relations, { alpha, structural: true });
     results.push({ sourceId: id, ...movement, gaps });
   }
   // The cast's current individuation verdicts land on the nodes the triples
@@ -208,7 +254,7 @@ export function admitGraph(session, { sourceId, gamma, pruneBelow, alpha = 1 } =
   // referent the cast has typed but whose stated-relations node the SVO
   // extractor's own subject span never matched (see reconcileGraphStandings'
   // own header for the measured case this names).
-  const { restood, unresolved } = reconcileGraphStandings(session, { sourceId });
+  const { restood, unresolved } = reconcileGraphStandings(session, { sourceId, priors });
   return { graph, admitted: results, restood, unresolved };
 }
 
