@@ -325,6 +325,60 @@ by this pass:
    incrementally-amortizable update may need a genuinely different
    statistical formulation, not just a cache.
 
+**Amended same day — a smarter trigger was actually tried, on user
+direction, and cause 1 turned out not to be the fixable one either.**
+`difference()` (nul/index.js) already carries the exceedance MAGNITUDE, not
+just a boolean, on every `exceeds_witness` gap (`observed - support[1]`) —
+so a magnitude-weighted cumulative trigger (CUSUM-shaped: accumulate
+normalized excess, leak a fixed amount per calm step, fire at a threshold)
+is buildable without any new engine-level computation. Three candidates
+(decay-by-1, decay-by-half, and a leak/threshold CUSUM) were replayed
+against the real per-step `difference()` trace on Frankenstein, Heart of
+Darkness, and Pride and Prejudice, driven through a scratch harness
+cross-checked byte-for-byte against the real `readAtmosphere` output
+before any candidate's numbers were trusted (the harness's first two
+drafts each had a real bug — a stale ground never refreshed on tending
+steps, then a stale array-tail comparison that let a later region's own
+span spuriously match an earlier region's fire — both caught by that
+cross-check, not assumed away).
+
+**Decay does nothing on the real books tested.** Frankenstein's and Heart
+of Darkness's above-censoring events are either already adjacent (fire
+identically to baseline) or spaced far enough apart that ordinary decay
+rates drain the memory between them; both decay candidates reproduced
+baseline's exact spans on every corpus tried.
+
+**Heart of Darkness's problem is signal sparsity, not trigger blindness.**
+Only 3 above-censoring events occur in the entire 977-chunk read (at hops
+50, 80, 85 — the last two adjacent, one short of tolerance=3), with
+magnitudes of 0.10/0.12/0.25 (normalized excess). A leak fast enough to
+stay safe on iid noise (0.15/step, the value tried) fully drains any one
+event's magnitude within ~2 steps — nowhere near enough memory to bridge
+30-step gaps between rare events. A leak slow enough to bridge that gap
+was NOT calibrated against a null before this pass ran out of budget, and
+this is the load-bearing point, raised directly by the user mid-session:
+**the leak rate is a magic number right now, not a Born-rule / null-derived
+one** — exactly the class of parameter this file's own top section forbids
+tuning by checking what it does on real material. A leak slow enough to
+catch Heart of Darkness's sparse signal, swept by hand against only three
+books, would be indistinguishable from calibrating against the answer key.
+Worse: a leak with NO decay at all (pure lifetime count, fires at 3 total
+events ever) trivially fires on Heart of Darkness, but on a sufficiently
+long read it is GUARANTEED to eventually misfire on pure noise too, no
+matter how rare the background above-rate is — violating the exact
+0/20-false-alarm guarantee `MIN_GROUND`'s own multi-pass calibration
+history (above) was built to hold.
+
+**What a real fix needs, named rather than attempted blind:** the leak
+rate wants the same treatment `slackRunNull` already gives run-length —
+built from the ACTUAL background rate of above-censoring events on
+structureless material (drawn from a null, not eyeballed), so the leak is
+provably slower than genuine sparse-but-real drift yet still provably
+bounds the false-alarm rate as read length grows, checked at more than
+one length the way `falseAlarmRate` above was starting to (900 and 3000
+steps) before this pass stopped. Not built this session — disclosed as
+real, scoped, next work, same as cause 2.
+
 **Disclosed, not fixed — on purpose, not by default.** Neither cause was
 acted on. A smarter trigger (a CUSUM-style potential function was the
 literature's own suggestion) would address cause 1 alone and would not
