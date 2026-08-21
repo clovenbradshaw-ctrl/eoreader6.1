@@ -1,0 +1,22 @@
+name: EOT reasoning conformance
+
+on:
+  push:
+    branches: [codex/eot-reasoning-engine]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full conformance suite
+        run: npm test
+      - name: EOT reasoning tests explicitly
+        run: node --test conformance/eot-reasoning.test.js conformance/adversarial-reasoning.test.js conformance/reasoning-host.test.js
