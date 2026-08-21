@@ -44,10 +44,12 @@ export function sessionEot(session, { sourceId, priors = [] } = {}) {
   return Object.freeze({ tuples: Object.freeze(tuples), gaps: Object.freeze(gaps) });
 }
 
-export function reasonSession(session, { sourceId, priors = [], query = {} } = {}) {
+export function reasonSession(session, { sourceId, priors = [], query = {}, hyperlexicon = null } = {}) {
   const live = sessionEot(session, { sourceId, priors });
   const reasoning = reasonOverEot(live.tuples, query);
-  const derived = deriveEotInsights(reasoning.tuples, query);
+  const derived = deriveEotInsights(reasoning.tuples, query, { hyperlexicon });
+  const withheld = derived.withheld ?? [];
+  const compositionCandidates = derived.candidates ?? [];
   const envelopes = falsificationEnvelopes([...reasoning.tuples, ...derived]);
   return Object.freeze({
     sourceId: sourceId ?? null,
@@ -55,13 +57,21 @@ export function reasonSession(session, { sourceId, priors = [], query = {} } = {
     extractionGaps: live.gaps,
     reasoning,
     derived,
+    withheld,
+    compositionCandidates,
     falsification: envelopes,
   });
 }
 
 export function renderSessionReasoning(result) {
   const lines = [renderEotReasoning(result.reasoning)];
-  if (result.derived?.length) lines.push("", renderDerivedInsights(result.derived));
+  if (result.derived?.length || result.withheld?.length) lines.push("", renderDerivedInsights(result.derived));
+  if (result.compositionCandidates?.length) {
+    lines.push("", "HYPERLEXICON CANDIDATES");
+    for (const candidate of result.compositionCandidates) {
+      lines.push(`  ${candidate.left} -> ${candidate.right}: ${candidate.standing} (${candidate.witnesses.length} witnessed adjacencies)`);
+    }
+  }
   if (result.falsification?.length) {
     lines.push("", "FALSIFICATION ENVELOPES");
     for (const envelope of result.falsification) {
@@ -69,8 +79,6 @@ export function renderSessionReasoning(result) {
       lines.push(`    ${envelope.attack}`);
     }
   }
-  if (result.extractionGaps?.length) {
-    lines.push("", `EXTRACTION GAPS ${result.extractionGaps.length}`);
-  }
+  if (result.extractionGaps?.length) lines.push("", `EXTRACTION GAPS ${result.extractionGaps.length}`);
   return lines.join("\n");
 }
