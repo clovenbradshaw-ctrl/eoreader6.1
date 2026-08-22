@@ -31,25 +31,21 @@ test('Welsh VSO is read through received typology, not English SVO', () => {
   assert.equal(relations[0].meta.grammaticalShape, 'VSO');
 });
 
-test('Arabic VSO uses the same generic adapter over a different script', () => {
+test('Arabic VSO order does not override received case marking', () => {
   const prior = loadOrderConvention('ar');
   assert.equal(prior.systemId, 'nl:arb');
   assert.deepEqual(prior.order, ['V', 'S', 'O']);
+  assert.equal(prior.role_marking, 'case');
 
   const reading = readExperienceStream({
-    sourceId: 'lang-arabic-vso',
+    sourceId: 'lang-arabic-case',
     language: 'ar',
     entitySpec: ENTITY_SPEC,
     events: one('رأى خالد عمر.'),
   });
-  const relations = typed(reading.trajectory[0]);
-  assert.equal(relations.length, 1);
-  assert.equal(relations[0].relation, 'رأى');
-  assert.deepEqual(relations[0].participants.map(p => [p.role, p.value]), [
-    ['actor', 'خالد'],
-    ['undergoer', 'عمر'],
-  ]);
-  assert.equal(relations[0].meta.grammaticalShape, 'VSO');
+  const t = reading.trajectory[0];
+  assert.equal(typed(t).length, 0, 'VSO order alone must not masquerade as Arabic role evidence');
+  assert.ok(t.observations.gaps.some(g => g.reason === 'missing_case_realisation_prior'));
 });
 
 test('Basque case marking blocks unsafe positional role inference', () => {
