@@ -5,7 +5,6 @@
 // reasoning layers consume role-neutral observations and never inspect word
 // order, capitalization, determiners, or lexical tokens.
 
-import { tokenize, buildFrequencyTable, functionWordSet } from './material.js';
 import { discoverRelationVocab, extractRelations } from './relations.js';
 import { DEFINITE_DETERMINERS, INDEFINITE_DETERMINERS } from './priors.js';
 import { roleRelation } from '../../reasoning/role-eot.js';
@@ -103,35 +102,76 @@ const englishIdentityEvidence = (sentences, knownIdentities = []) => {
   return { supports: freeze(supports), attacks: freeze(attacks) };
 };
 
-const englishRelations = ({ text, surf, eventIndex }) => {
+const includesWholeForm = (phrase, form) => {
+  const hay = ` ${norm(phrase)} `;
+  const needle = ` ${norm(form)} `;
+  return needle.trim().length > 0 && hay.includes(needle);
+};
+
+const anchorObject = (rawObject, identitySupports, forms) => {
+  const stripped = norm(stripLeadingDeterminer(rawObject));
+  if (!stripped) return stripped;
+
+  // An identity-supporting descriptor is stronger than a generic lexical form:
+  // "the courier Rowan" is represented as the live `courier` participant so
+  // later identity revision can re-canonicalize relations that depended on it.
+  const identityForms = (identitySupports ?? []).flatMap(x => [x.left, x.right]).filter(Boolean);
+  const identityHit = identityForms
+    .filter(x => includesWholeForm(stripped, x))
+    .sort((a, b) => norm(b).length - norm(a).length)[0];
+  if (identityHit) return norm(identityHit);
+
+  // Prefer perceived name forms inside a larger object phrase. This keeps an
+  // addressable participant rather than treating a whole English noun phrase
+  // as a universal EOT object.
+  const nameHit = (forms ?? [])
+    .filter(x => x.witnessable && x.key && includesWholeForm(stripped, x.key))
+    .sort((a, b) => b.key.length - a.key.length)[0];
+  if (nameHit) return nameHit.key;
+
+  return stripped;
+};
+
+const subjectIsPerceivedName = (subject, forms) => {
+  const s = norm(subject);
+  return (forms ?? []).some(x => x.witnessable && x.key === s);
+};
+
+const englishRelations = ({ text, surf, eventIndex, identitySupports, forms }) => {
   const names = (surf.candidates ?? [])
     .filter(c => c.witnessable)
     .map(c => ({ surface: c.display ?? c.surfaces?.[0] }))
     .filter(x => x.surface);
   if (!names.length) return freeze([]);
 
-  const functionWords = functionWordSet(buildFrequencyTable(tokenize(text)));
+  // Do NOT derive a Zipf closed class from one short event. On an event-sized
+  // population that statistic classifies the event's own content words as
+  // ordinary and suppresses real relation candidates. The existing relation
+  // organ is therefore used in its declared permissive mode here; its output
+  // is then witness-gated below to a perceived name as actor.
   const verbs = discoverRelationVocab(text, {
     surfaces: names,
-    functionWords,
+    functionWords: null,
     minSurfaces: 1,
   }).verbs;
-  const raw = extractRelations(text, { verbs, functionWords });
+  const raw = extractRelations(text, { verbs, functionWords: null });
 
-  return freeze(raw.map((r, i) => roleRelation({
-    id: `text-role:${eventIndex}:${i}`,
-    op: 'CON',
-    grain: 'Figure',
-    relation: norm(r.verb),
-    participants: [
-      { role: 'actor', value: norm(r.subject), witness: { event: eventIndex, offset: r.subjectOffset } },
-      { role: 'undergoer', value: norm(stripLeadingDeterminer(r.object)), witness: { event: eventIndex, offset: r.objectOffset } },
-    ],
-    polarity: r.polarity === '-' ? -1 : 1,
-    scope: { start: eventIndex, end: eventIndex + 1 },
-    witness: { event: eventIndex, source: 'text/en' },
-    meta: { giver: 'lang/en:text-structure@1', grammaticalShape: 'SVO-candidate' },
-  })));
+  return freeze(raw
+    .filter(r => subjectIsPerceivedName(r.subject, forms))
+    .map((r, i) => roleRelation({
+      id: `text-role:${eventIndex}:${i}`,
+      op: 'CON',
+      grain: 'Figure',
+      relation: norm(r.verb),
+      participants: [
+        { role: 'actor', value: norm(r.subject), witness: { event: eventIndex, offset: r.subjectOffset } },
+        { role: 'undergoer', value: anchorObject(r.object, identitySupports, forms), witness: { event: eventIndex, offset: r.objectOffset } },
+      ],
+      polarity: r.polarity === '-' ? -1 : 1,
+      scope: { start: eventIndex, end: eventIndex + 1 },
+      witness: { event: eventIndex, source: 'text/en' },
+      meta: { giver: 'lang/en:text-structure@1', grammaticalShape: 'SVO-candidate' },
+    })));
 };
 
 export function observeTextStructure({ text, surf, eventIndex = 0, language, knownIdentities = [] } = {}) {
@@ -158,7 +198,13 @@ export function observeTextStructure({ text, surf, eventIndex = 0, language, kno
   }
 
   const identity = englishIdentityEvidence(surf.sentences ?? [], knownIdentities);
-  const relations = englishRelations({ text, surf, eventIndex });
+  const relations = englishRelations({
+    text,
+    surf,
+    eventIndex,
+    identitySupports: identity.supports,
+    forms,
+  });
   return freeze({
     schema: TEXT_STRUCTURE_SCHEMA,
     language: 'en',
