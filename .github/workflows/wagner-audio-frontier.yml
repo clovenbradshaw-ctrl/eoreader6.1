@@ -10,6 +10,14 @@ on:
       - 'packages/engine/loops/surf.js'
       - 'scripts/eval/wagner-audio-frontier.mjs'
       - '.github/workflows/wagner-audio-frontier.yml'
+  pull_request:
+    paths:
+      - 'packages/host/frontier.js'
+      - 'packages/host/frontier-surf.js'
+      - 'packages/engine/perceiver/audio/**'
+      - 'packages/engine/loops/surf.js'
+      - 'scripts/eval/wagner-audio-frontier.mjs'
+      - '.github/workflows/wagner-audio-frontier.yml'
   workflow_dispatch:
 
 jobs:
