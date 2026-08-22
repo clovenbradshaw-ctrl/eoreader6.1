@@ -8,15 +8,14 @@
       "https://www.ehu.eus/en/web/eins/cases-and-postpositions",
       "https://assets.cambridge.org/97813165/13316/excerpt/9781316513316_excerpt.pdf"
     ],
-    "note": "Received grammatical witness. EHU states ergative -k, dative -i, absolutive zero; transitive subjects are ergative and transitive direct objects absolutive. Cambridge illustrates Ane-k Lea ... du. This seed intentionally covers only simple overt transitive proper-name clauses; it is not a general Basque morphological analyzer."
+    "note": "Received grammatical witness. EHU states ergative -k, dative -i, absolutive zero; transitive subjects are ergative and transitive direct objects absolutive. Cambridge illustrates Ane-k Lea ... du. This seed intentionally covers only simple singular overt transitive proper-name clauses; plural ergative -ek is refused because suffix-only stripping cannot disambiguate a name ending in e from plural morphology. It is not a general Basque morphological analyzer."
   },
   "alignment": "ergative-absolutive",
   "roles": {
     "actor": {
       "case": "ergative",
       "markers": [
-        { "suffix": "k", "strip": "k" },
-        { "suffix": "ek", "strip": "ek" }
+        { "suffix": "k", "strip": "k", "scope": "singular proper-name phrase only" }
       ]
     },
     "undergoer": {
@@ -29,7 +28,7 @@
     "auxiliaries": ["du"]
   },
   "scope": {
-    "supported": "simple transitive clause with exactly one overt ergative proper-name phrase, one overt absolutive proper-name phrase, one main predicate, and final witnessed auxiliary du",
-    "refuse": "all other morphology, syncretism, plural case, dative arguments, omitted arguments, auxiliary variants, or clauses where the supported role assignment is not unique"
+    "supported": "simple transitive clause with exactly one singular overt ergative proper-name phrase, one overt absolutive proper-name phrase, one main predicate, and final witnessed auxiliary du",
+    "refuse": "plural case, dative arguments, omitted arguments, auxiliary variants, syncretism, or any clause where the supported role assignment is not unique"
   }
 }
