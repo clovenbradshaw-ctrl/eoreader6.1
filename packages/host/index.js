@@ -36,6 +36,12 @@ export {
   EXPERIENCE_TRAJECTORY_SCHEMA,
 } from "./experience-stream.js";
 
+// Open structure is omnimodal Fold state. These surfaces parse no language:
+// modality-specific perceivers/emergence organs supply unresolved structure;
+// the frontier carries it, and tension/release are derived from that ledger.
+export { createOpenFrontier, advanceFrontier, FRONTIER_SCHEMA } from "./frontier.js";
+export { frontierFromSurf } from "./frontier-surf.js";
+
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
 export { retrievalTask, iterateReasonSession, renderAdversarialRun } from "./adversarial-reasoning.js";
