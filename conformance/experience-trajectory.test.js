@@ -4,7 +4,7 @@ import { openExperienceReading, advanceReading, readExperienceStream } from '../
 
 const ENTITY_SPEC = { window: 8, draws: 16, reseeds: 8, minArrivals: 2 };
 const e = value => ({ kind: 'text', unit: 'passage', value });
-const read = (sourceId, events) => readExperienceStream({ sourceId, events, entitySpec: ENTITY_SPEC });
+const read = (sourceId, events) => readExperienceStream({ sourceId, events, entitySpec: ENTITY_SPEC, language: 'en' });
 const bytes = s => new TextEncoder().encode(s).length;
 
 test('trajectory: changing future material cannot alter an earlier Fold', () => {
@@ -22,7 +22,7 @@ test('trajectory: changing future material cannot alter an earlier Fold', () => 
 test('trajectory: the live transition sees one event and advances absolute horizon coordinates', () => {
   const first = e('Inside the yard, Alice saw Bob beside the gate.\n\n');
   const second = e('Near the wall, Bob spoke while Alice listened.\n\n');
-  const state = openExperienceReading({ sourceId: 'live-blind', entitySpec: ENTITY_SPEC });
+  const state = openExperienceReading({ sourceId: 'live-blind', entitySpec: ENTITY_SPEC, language: 'en' });
 
   const t0 = advanceReading(state, first);
   const frozenT0 = structuredClone(t0);
