@@ -21,12 +21,11 @@ import {
   openReading,
   arrive,
   witnessArrival,
-  offerCandidates,
-  reviewEntities,
   carryEntities,
   refusals,
   lapsedEntities,
 } from '../engine/referents/entity.js';
+import { reviewTouchedEntities, offerTouchedCandidates } from '../engine/referents/entity-local.js';
 import { isGap } from '../../nul/index.js';
 
 const freeze = x => Object.freeze(x);
@@ -206,6 +205,7 @@ const admitExperienceCandidates = (entityReading, surf) => {
       tokens: tokenize(c.surfaces?.[0] ?? c.display),
     }))
     .filter(c => c.surface && c.tokens.length);
+  const touched = [...new Set(witnessables.map(x => x.surface))];
 
   for (const sentence of surf.sentences) {
     const tokens = tokenize(sentence.text);
@@ -217,9 +217,12 @@ const admitExperienceCandidates = (entityReading, surf) => {
     }
   }
 
-  const lapsed = reviewEntities(entityReading);
-  const born = offerCandidates(entityReading);
-  return { born, lapsed, unit: 'token' };
+  // Normal proposition reading changes only the candidate/being surfaces whose
+  // evidence changed in this proposition. Full-register review is reserved for
+  // explicit assertion/deeper-reading audits such as final cast commitment.
+  const lapsed = reviewTouchedEntities(entityReading, touched);
+  const born = offerTouchedCandidates(entityReading, touched);
+  return { born, lapsed, unit: 'token', touched: freeze(touched) };
 };
 
 const gateThroughWitnessedBeings = (proposed, entityReading) => {
@@ -254,6 +257,7 @@ const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
   lapsed: freeze(lapsedEntities(entityReading).map(x => freeze({ ...x }))),
   bornThisEvent: changes.born,
   lapsedThisEvent: changes.lapsed,
+  touchedSurfaces: changes.touched ?? freeze([]),
   unit: changes.unit,
 });
 
@@ -361,8 +365,6 @@ export function advanceReading(state, event) {
   });
   state.prefixBytes = admittedEvent.byteEnd;
 
-  // The corpus caches are invalidated because the raw horizon grew, but normal
-  // reading does not immediately recompute whole-document cast/relations.
   state.horizon._cast?.delete(state.sourceId);
   state.horizon._surfaces?.delete(state.sourceId);
 
@@ -379,9 +381,6 @@ export function advanceReading(state, event) {
     observations,
   });
 
-  // Compatibility assertion surface is projected from THIS event's witnessed
-  // observations. Any lasting consequence is carried by recursive ontology /
-  // frontier / Fold, rather than by rescanning all previous text.
   const tentative = eventAssertions({
     sourceId: state.sourceId,
     surf: surfPerception,
