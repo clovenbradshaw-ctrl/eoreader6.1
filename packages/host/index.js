@@ -24,9 +24,10 @@ export { attachGraph, admitGraph, resolveRelations, sessionGraphSnapshot, create
 export { attachTiers, admitTiers, sessionTiersSnapshot } from "./tiers.js";
 export { attachSelf, admitSelf, sessionSelfSnapshot, sessionTestimonyHolarchy, SELF, SELF_MISMATCH, WORLD } from "./self.js";
 
-// Canonical public reading entrypoint. Consumers that mean "read this" should
-// call this rather than assembling lower-level organs themselves.
+// Canonical whole-admission entrypoint retained for compatibility. New blind
+// reading work should prefer the experience-stream transition below.
 export { admitReading, READING_PIPELINE_SCHEMA, READING_ASSEMBLIES } from "./reading.js";
+export { readExperienceStream, textExperienceStream, EXPERIENCE_TRAJECTORY_SCHEMA } from "./experience-stream.js";
 
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
