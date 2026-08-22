@@ -1,15 +1,11 @@
-// Constitutive adversarial reading: the atomic unit is an experience event.
+// Constitutive adversarial reading: one canonical stateful pipeline.
 //
-// Two implementations live here deliberately:
-//   1. readExperienceStream — the slow prefix oracle. Every Fold(t) is rebuilt
-//      from exactly the material available through t, making future leakage
-//      mechanically impossible.
-//   2. readExperienceStreamIncremental — the operational reader. It keeps one
-//      growing horizon session and admits one experience event at a time.
+// ExperienceStream -> Surf(t) -> prior Fold(t-1) -> tentative experience
+// -> adversarial perturbation -> witnessed admission -> Fold(t) -> surprise.
 //
-// The incremental implementation is acceptable only while trajectory tests
-// prove it equivalent to the prefix oracle. Optimization is subordinate to
-// blindness.
+// There is intentionally no second production reader. Temporal blindness is
+// tested by changing/appending future events and proving earlier snapshots do
+// not change.
 
 import { createSession, admitChunked } from './corpus.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
@@ -32,12 +28,8 @@ const bytes = s => utf8.encode(String(s ?? '')).length;
 const key = x => JSON.stringify(x);
 const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@2';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@3';
 
-// Text is only the first modality. This is intentionally a policy seam: a
-// caller may provide events from scene/turn/chapter, row/column, phrase,
-// transition, etc. The reader never silently claims that 2k characters is the
-// temporal grammar of every material.
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
   if (unit !== 'paragraph') throw new TypeError(`textExperienceStream: unsupported declared unit ${unit}`);
@@ -70,8 +62,7 @@ const structuralDelta = (before, after) => {
 const surfacePresent = (text, surface) => {
   const needle = norm(surface);
   if (!needle) return false;
-  const hay = ` ${norm(text)} `;
-  return hay.includes(` ${needle} `);
+  return ` ${norm(text)} `.includes(` ${needle} `);
 };
 
 const candidateSnapshot = proposed => freeze((proposed.cast ?? []).map(x => freeze({
@@ -82,22 +73,12 @@ const candidateSnapshot = proposed => freeze((proposed.cast ?? []).map(x => free
 })));
 
 const admitExperienceCandidates = (entityReading, proposed, event) => {
-  // ③ INS · Figure's ground arrives before this unit's candidates are offered.
-  // Surprisal is therefore measured against the lexicon as it stood BEFORE
-  // this event, exactly as entity.js requires.
   arrive(entityReading, tokenize(event.value));
-
-  // Perception can propose many surfaces from the prefix. Only a surface
-  // actually present in THIS Surf earns an arrival at THIS reading unit. No
-  // later discovery may backfill an earlier arrival.
   for (const c of proposed.cast ?? []) {
     for (const surface of c.surfaces ?? []) {
       if (surfacePresent(event.value, surface)) witnessArrival(entityReading, norm(surface));
     }
   }
-
-  // Existing beliefs are re-tested against the grown reading before new births
-  // are offered. A lapse is a real Fold withdrawal; a refusal stays a gap.
   const lapsed = reviewEntities(entityReading);
   const born = offerCandidates(entityReading);
   return { born, lapsed };
@@ -114,22 +95,13 @@ const gateThroughWitnessedBeings = (proposed, entityReading) => {
     return admitted;
   });
 
-  // A relation may point from an admitted being to a non-being (a door, a
-  // place, a value). Requiring both ends to be admitted entities would erase
-  // ordinary meaning. The subject, however, must be an admitted being rather
-  // than a surface candidate masquerading as one.
   const links = (proposed.links ?? []).filter(l => {
     const subject = String(l.assertion?.subject ?? '');
     if (admittedReferents.has(subject)) return true;
     return [...admittedSurfaces].some(s => norm(subject) === s);
   });
 
-  return freeze({
-    schema: 'WitnessGatedAssertionResolution@1',
-    sourceId: proposed.sourceId,
-    cast: freeze(cast),
-    links: freeze(links),
-  });
+  return freeze({ schema: 'WitnessGatedAssertionResolution@1', sourceId: proposed.sourceId, cast: freeze(cast), links: freeze(links) });
 };
 
 const admissionSnapshot = (entityReading, proposed, changes) => freeze({
@@ -151,20 +123,6 @@ const foldFrom = (perturbation, i, byteEnd) => freeze({
   ]),
 });
 
-const trajectoryStep = ({ event, i, prefixBytes, proposed, perturbation, admission, priorFold }) => {
-  const delta = structuralDelta(priorFold, perturbation);
-  const fold = foldFrom(perturbation, i, event.end ?? prefixBytes);
-  return freeze({
-    event: i,
-    surf: freeze({ ...event, horizonByteEnd: prefixBytes }),
-    tentative: proposed,
-    admission,
-    perturbation,
-    fold,
-    delta,
-  });
-};
-
 const validate = ({ sourceId, events, entitySpec }) => {
   if (!sourceId) throw new TypeError('readExperienceStream: sourceId is required');
   if (!Array.isArray(events)) throw new TypeError('readExperienceStream: events must be an ordered array');
@@ -176,7 +134,8 @@ const validate = ({ sourceId, events, entitySpec }) => {
   }
 };
 
-const runCausalPrefix = ({ sourceId, events, priors, entitySpec }) => {
+export function readExperienceStream({ sourceId, events, priors = [], entitySpec } = {}) {
+  validate({ sourceId, events, entitySpec });
   const horizon = createSession();
   const entityReading = openReading(entitySpec);
   const trajectory = [];
@@ -190,39 +149,26 @@ const runCausalPrefix = ({ sourceId, events, priors, entitySpec }) => {
     horizon._cast?.delete(sourceId);
     horizon._surfaces?.delete(sourceId);
 
-    const proposed = adversariallyResolveAssertions(horizon, { sourceId, priors });
-    const changes = admitExperienceCandidates(entityReading, proposed, event);
-    const perturbation = gateThroughWitnessedBeings(proposed, entityReading);
-    const admission = admissionSnapshot(entityReading, proposed, changes);
-    const step = trajectoryStep({ event, i, prefixBytes, proposed, perturbation, admission, priorFold });
-    trajectory.push(step);
+    // Tentative experience is what the current horizon proposes, before the
+    // witnessed reader decides what is entitled to enter its Fold.
+    const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
+    const changes = admitExperienceCandidates(entityReading, tentative, event);
+    const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
+    const admission = admissionSnapshot(entityReading, tentative, changes);
+    const fold = foldFrom(perturbation, i, event.end ?? prefixBytes);
+    const delta = structuralDelta(priorFold, perturbation);
+
+    trajectory.push(freeze({
+      event: i,
+      surf: freeze({ ...event, horizonByteEnd: prefixBytes }),
+      tentative,
+      admission,
+      perturbation,
+      fold,
+      delta,
+    }));
     priorFold = perturbation;
   }
-  return trajectory;
-};
 
-/**
- * Reference blind reader. Every requested Fold(t) is obtained by replaying
- * exactly the prefix through the causal admission assembly. This is expensive
- * on purpose: future material is mechanically unable to influence the state.
- */
-export function readExperienceStream({ sourceId, events, priors = [], entitySpec } = {}) {
-  validate({ sourceId, events, entitySpec });
-  const trajectory = [];
-  for (let i = 0; i < events.length; i++) {
-    const prefix = runCausalPrefix({ sourceId, events: events.slice(0, i + 1), priors, entitySpec });
-    trajectory.push(prefix.at(-1));
-  }
-  return freeze({ schema: EXPERIENCE_TRAJECTORY_SCHEMA, implementation: 'prefix-oracle', sourceId, eventCount: events.length, trajectory: freeze(trajectory) });
-}
-
-/**
- * Operational blind reader. One corpus horizon and one witnessed entity
- * reading survive across the trajectory. Its semantics are allowed only while
- * conformance proves equality with the prefix oracle at every Fold boundary.
- */
-export function readExperienceStreamIncremental({ sourceId, events, priors = [], entitySpec } = {}) {
-  validate({ sourceId, events, entitySpec });
-  const trajectory = runCausalPrefix({ sourceId, events, priors, entitySpec });
-  return freeze({ schema: EXPERIENCE_TRAJECTORY_SCHEMA, implementation: 'incremental', sourceId, eventCount: events.length, trajectory: freeze(trajectory) });
+  return freeze({ schema: EXPERIENCE_TRAJECTORY_SCHEMA, sourceId, eventCount: events.length, trajectory: freeze(trajectory) });
 }
