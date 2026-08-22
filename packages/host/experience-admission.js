@@ -16,6 +16,12 @@ const MIN_CHUNK_CHARS = 20;
 const utf8 = new TextEncoder();
 const byteLength = text => utf8.encode(String(text ?? '')).length;
 
+const nextChunkIndex = info => {
+  const chunks = info?.chunks ?? [];
+  if (!chunks.length) return 0;
+  return Math.max(...chunks.map((chunk, i) => Number.isInteger(chunk.chunk_index) ? chunk.chunk_index : i)) + 1;
+};
+
 export function admitExperienceEvent(session, {
   sourceId,
   text,
@@ -36,7 +42,7 @@ export function admitExperienceEvent(session, {
 
   const baseText = info?.text ?? '';
   const baseByte = byteLength(baseText);
-  const startChunkIndex = info?.chunks?.length ?? 0;
+  const startChunkIndex = nextChunkIndex(info);
   const admitted = [];
   const pieces = [];
 
@@ -89,6 +95,7 @@ export function admitExperienceEvent(session, {
         text: chunkText,
         byteStart,
         byteEnd,
+        chunk_index: chunkIndex,
         eventId: eventKey,
       };
       admitted.push(chunk);
