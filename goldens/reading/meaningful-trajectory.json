@@ -1,0 +1,34 @@
+{
+  "schema": "EOReadingSemanticGolden@1",
+  "purpose": "Reject trajectory implementations that agree with each other while merely projecting a cast list instead of reading relational meaning.",
+  "events": [
+    {
+      "text": "Mara entered the observatory. Ivo remained outside. Mara locked the brass door.\n\n",
+      "expect": {
+        "castSurfaces": ["Mara", "Ivo"],
+        "meaning": [
+          {"subjectContains":"Mara","predicateContains":"lock","objectContains":"door","polarity":"positive"}
+        ],
+        "mustNotTreatAsCast": ["observatory", "brass door"]
+      }
+    },
+    {
+      "text": "At dawn Ivo said Mara had never locked the door. The key was still in Ivo's pocket.\n\n",
+      "expect": {
+        "castSurfaces": ["Mara", "Ivo"],
+        "meaning": [
+          {"subjectContains":"Mara","predicateContains":"lock","objectContains":"door"}
+        ],
+        "requiresPerturbation": true
+      }
+    },
+    {
+      "text": "Mara showed the broken latch: the door had swung shut by itself.\n\n",
+      "expect": {
+        "castSurfaces": ["Mara", "Ivo"],
+        "requiresReorganization": true,
+        "semanticPoint": "The initial experience that Mara locked the door must no longer remain an uncomplicated surviving assertion; later evidence changes the causal reading rather than merely adding another named entity."
+      }
+    }
+  ]
+}
