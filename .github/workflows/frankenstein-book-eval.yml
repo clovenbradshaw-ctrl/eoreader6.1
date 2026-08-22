@@ -1,0 +1,31 @@
+name: Frankenstein full-book eval
+on:
+  push:
+    branches: [codex/constitutive-adversarial-reading]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: frankenstein-full-book-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frankenstein:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch Project Gutenberg Frankenstein
+        run: |
+          mkdir -p tmp artifacts
+          curl -L --fail --retry 3 https://www.gutenberg.org/cache/epub/84/pg84.txt -o tmp/frankenstein.txt
+      - name: Read full book recursively
+        run: node scripts/eval/frankenstein-book.mjs tmp/frankenstein.txt artifacts/frankenstein-book-report.json
+      - name: Summarize report
+        run: |
+          node -e "const r=require('./artifacts/frankenstein-book-report.json'); console.log(JSON.stringify({cast:r.cast.count,relations:r.relations.count,graphNodes:r.graph.nodeCount,graphEdges:r.graph.edgeCount,hl:r.hyperlexicon,taskCounts:r.tasks.byKindAndStatus,parameters:r.parameters?.parameters?.length,finalBeings:r.finalFold?.beings?.length,unresolved:r.finalFold?.unresolved?.length},null,2))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frankenstein-book-report
+          path: artifacts/frankenstein-book-report.json

@@ -1,0 +1,16 @@
+name: Experience trajectory conformance
+on:
+  push:
+    branches: [codex/constitutive-adversarial-reading]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test conformance/experience-admission.test.js conformance/experience-trajectory.test.js conformance/reading-semantic-golden.test.js conformance/net-new-blind-reading.test.js conformance/recursive-reading-golden.test.js conformance/held-out-reading-comparison.test.js conformance/frontier-omnimodal.test.js conformance/frontier-audio-e2e.test.js conformance/language-typology-reading.test.js conformance/difference-gated-reading.test.js conformance/parameter-discovery.test.js conformance/book-recursive-reading.test.js

@@ -1,0 +1,50 @@
+{
+  "schema": "EORecursiveReadingGolden@1",
+  "purpose": "Require a reader to revise what it thinks exists, then re-canonicalize affected relations before committing the new Fold.",
+  "entitySpec": {"window":8,"draws":16,"reseeds":8,"minArrivals":2},
+  "events": [
+    {
+      "text": "Near the west arch, Nera watched a hooded courier place a blue token on the table. Later that hour, Nera called the courier Rowan.\n\n",
+      "expect": {
+        "perceive": ["Nera", "Rowan", "hooded courier"],
+        "identity": {"rowanCourier":"unresolved_or_consistent"},
+        "forbid": ["rowanCourierProvenSame"]
+      }
+    },
+    {
+      "text": "Before sunset, Rowan returned to Nera and spoke about the blue token. Nera again referred to the hooded courier as Rowan.\n\n",
+      "expect": {
+        "perceive": ["Nera", "Rowan", "hooded courier"],
+        "identity": {"rowanCourier":"live_hypothesis"},
+        "meaning": ["courier placed blue token"]
+      }
+    },
+    {
+      "text": "At the next bell, Nera stood beside Rowan at the fountain while the hooded courier crossed the west arch behind them carrying another blue token.\n\n",
+      "expect": {
+        "perceive": ["Nera", "Rowan", "hooded courier"],
+        "attack": ["identity_collision", "incompatible_multiplicity"],
+        "acts": ["SEG", "DEF"],
+        "identity": {"rowanCourier":"distinct"},
+        "requiresRelationRecanonicalization": true,
+        "requiresStructuralSurprise": true
+      }
+    },
+    {
+      "text": "Nera then learned that the courier was Iven, who had carried both blue tokens while Rowan had remained with her at the fountain.\n\n",
+      "expect": {
+        "perceive": ["Nera", "Rowan", "Iven", "courier"],
+        "identity": {"ivenCourier":"consistent_or_same", "rowanCourier":"distinct"},
+        "meaning": ["Iven/courier carried blue tokens", "Rowan remained with Nera"],
+        "requiresStructuralSurprise": true
+      }
+    }
+  ],
+  "globalInvariants": [
+    "No earlier Fold changes when a later event is appended or changed.",
+    "Perception of a form does not itself grant beinghood.",
+    "A live identity hypothesis is not prematurely SYNed into proven sameness.",
+    "When event 3 defeats Rowan=courier, affected earlier relations are re-canonicalized before Fold3 commits.",
+    "The trajectory preserves that the reader once entertained Rowan=courier even after the current Fold rejects it."
+  ]
+}

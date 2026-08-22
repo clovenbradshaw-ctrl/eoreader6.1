@@ -34,7 +34,17 @@ export function adversariallyResolveAssertions(session,{sourceId,priors=[]}={}) 
     const surfaces=(ref.surfaces??[]).map(s=>typeof s==='string'?s:s?.surface).filter(Boolean);
     const attacks=[];
     // Attack 1: can this alleged being be another discovered being?
-    const rivals=refs.filter(x=>x!==ref).map(other=>({other,score:Math.max(overlap(ref.display,other.display),...surfaces.flatMap(s=>(other.surfaces??[]).map(o=>overlap(s,typeof o==='string'?o:o?.surface)))})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+    const rivals=refs
+      .filter(x=>x!==ref)
+      .map(other=>({
+        other,
+        score:Math.max(
+          overlap(ref.display,other.display),
+          ...surfaces.flatMap(s=>(other.surfaces??[]).map(o=>overlap(s,typeof o==='string'?o:o?.surface)))
+        ),
+      }))
+      .filter(x=>x.score>0)
+      .sort((a,b)=>b.score-a.score);
     if(rivals.length) attacks.push(freeze({type:'identity_collision',rivals:freeze(rivals.slice(0,8).map(x=>({id:x.other.id,display:x.other.display,lexicalOverlap:x.score})))}));
 
     // Attack 2: do this referent's own surfaces imply multiple incompatible
