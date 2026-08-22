@@ -14,6 +14,7 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE = /^\p{Lu}/u;
 const LOWER = /^\p{Ll}/u;
+const APPOSITIONAL_RUN = /^[\p{L}\p{M}'’\s]+$/u;
 const DETERMINERS = new Set([...DEFINITE_DETERMINERS, ...INDEFINITE_DETERMINERS]);
 
 export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@1';
@@ -46,18 +47,22 @@ const englishIdentityEvidence = (sentences, knownIdentities = []) => {
   const attacks = [];
 
   for (let sentenceIndex = 0; sentenceIndex < sentences.length; sentenceIndex++) {
-    const rs = rows(sentences[sentenceIndex].text);
+    const sentenceText = sentences[sentenceIndex].text;
+    const rs = rows(sentenceText);
 
     // Appositional/name-like shape only: determiner + 1..3 lowercase forms +
     // capitalized name, e.g. "the courier Rowan" / "the hooded courier Rowan".
-    // This is far narrower than generic token proximity and is explicitly
-    // English-shaped evidence, not a universal identity mechanism.
+    // Punctuation is part of the evidence: "the station, Nora" is NOT the
+    // same structural shape and must not become one merely because tokenization
+    // discarded the comma.
     for (let i = 0; i < rs.length; i++) {
       if (!DETERMINERS.has(rs[i].key)) continue;
       for (let nameAt = i + 2; nameAt <= Math.min(i + 4, rs.length - 1); nameAt++) {
         if (!TITLE.test(rs[nameAt].token)) continue;
         const descriptorRows = rs.slice(i + 1, nameAt);
         if (!descriptorRows.length || !descriptorRows.every(x => LOWER.test(x.token))) continue;
+        const rawRun = sentenceText.slice(rs[i].charStart, rs[nameAt].charEnd);
+        if (!APPOSITIONAL_RUN.test(rawRun)) continue;
         const descriptor = descriptorRows.map(x => x.key).join(' ');
         supports.push(freeze({
           left: descriptor,
@@ -69,9 +74,6 @@ const englishIdentityEvidence = (sentences, knownIdentities = []) => {
       }
     }
 
-    // Only identities that were already opened by stronger evidence may be
-    // attacked by separated co-presentation. This prevents arbitrary nearby
-    // nouns/verbs from becoming identity hypotheses in the first place.
     for (const identity of knownIdentities ?? []) {
       if (identity.standing === 'distinct') continue;
       const leftTokens = norm(identity.descriptor ?? identity.left).split(/\s+/).filter(Boolean);
@@ -112,18 +114,12 @@ const anchorObject = (rawObject, identitySupports, forms) => {
   const stripped = norm(stripLeadingDeterminer(rawObject));
   if (!stripped) return stripped;
 
-  // An identity-supporting descriptor is stronger than a generic lexical form:
-  // "the courier Rowan" is represented as the live `courier` participant so
-  // later identity revision can re-canonicalize relations that depended on it.
   const identityForms = (identitySupports ?? []).flatMap(x => [x.left, x.right]).filter(Boolean);
   const identityHit = identityForms
     .filter(x => includesWholeForm(stripped, x))
     .sort((a, b) => norm(b).length - norm(a).length)[0];
   if (identityHit) return norm(identityHit);
 
-  // Prefer perceived name forms inside a larger object phrase. This keeps an
-  // addressable participant rather than treating a whole English noun phrase
-  // as a universal EOT object.
   const nameHit = (forms ?? [])
     .filter(x => x.witnessable && x.key && includesWholeForm(stripped, x.key))
     .sort((a, b) => b.key.length - a.key.length)[0];
@@ -144,11 +140,6 @@ const englishRelations = ({ text, surf, eventIndex, identitySupports, forms }) =
     .filter(x => x.surface);
   if (!names.length) return freeze([]);
 
-  // Do NOT derive a Zipf closed class from one short event. On an event-sized
-  // population that statistic classifies the event's own content words as
-  // ordinary and suppresses real relation candidates. The existing relation
-  // organ is therefore used in its declared permissive mode here; its output
-  // is then witness-gated below to a perceived name as actor.
   const verbs = discoverRelationVocab(text, {
     surfaces: names,
     functionWords: null,
@@ -178,8 +169,6 @@ export function observeTextStructure({ text, surf, eventIndex = 0, language, kno
   if (!surf) throw new TypeError('observeTextStructure: surf is required');
   const forms = freeze(formRows(surf));
 
-  // Silence is honest when the language-specific structural adapter is not
-  // declared. Surface/form perception may still proceed; grammar does not.
   if (language !== 'en') {
     return freeze({
       schema: TEXT_STRUCTURE_SCHEMA,
