@@ -48,10 +48,18 @@ export function loadOrderConvention(language) {
 }
 
 export function textStructurePriors(language) {
-  const pos = loadPosPrior(language);
+  const loadedPos = loadPosPrior(language);
   const order = loadOrderConvention(language);
+  // `observeTextStructure` already receives the POS prior object through the
+  // canonical reader. Carry the independent omnimodal order gift alongside it
+  // so no engine module performs host I/O and no second reader seam is needed.
+  const pos = loadedPos
+    ? Object.freeze({ ...loadedPos, orderConvention: order })
+    : order
+      ? Object.freeze({ schema: 'POSPriorGap@1', orderConvention: order })
+      : null;
   const gaps = [];
-  if (language && !pos) gaps.push({
+  if (language && !loadedPos) gaps.push({
     reason: 'missing_pos_prior',
     language,
     detail: `no POSPrior@1 is installed for declared language ${language}`,
