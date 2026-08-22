@@ -13,7 +13,7 @@ function surfaceText(xs) {
 }
 
 test('canonical reader: hand-audited golden keeps perception distinct from beinghood', () => {
-  const reading = readExperienceStream({ sourceId:'semantic-golden', events, entitySpec:ENTITY_SPEC });
+  const reading = readExperienceStream({ sourceId:'semantic-golden', events, entitySpec:ENTITY_SPEC, language:'en' });
   assert.equal(reading.trajectory.length, golden.events.length);
 
   for (let i=0; i<golden.events.length; i++) {
