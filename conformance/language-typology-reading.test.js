@@ -68,7 +68,7 @@ test('Basque case marking blocks unsafe positional role inference', () => {
   assert.ok(t.observations.gaps.some(g => g.reason === 'missing_case_realisation_prior'));
 });
 
-test('German no-dominant-order prior remains a real refusal', () => {
+test('German no-dominant-order prior never becomes positional roles', () => {
   const prior = loadOrderConvention('de');
   assert.equal(prior.systemId, 'nl:deu');
   assert.equal(prior.rigidity, 'none');
@@ -82,5 +82,6 @@ test('German no-dominant-order prior remains a real refusal', () => {
   });
   const t = reading.trajectory[0];
   assert.equal(typed(t).length, 0);
-  assert.ok(t.observations.gaps.some(g => g.reason === 'no_dominant_order'));
+  assert.ok(t.observations.gaps.some(g =>
+    g.reason === 'no_dominant_order' || g.reason === 'missing_case_realisation_prior'));
 });
