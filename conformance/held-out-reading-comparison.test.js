@@ -47,10 +47,12 @@ const constitutiveMeasurement = () => {
     sourceId: 'held-out-river-station',
     events,
     entitySpec: ENTITY_SPEC,
+    language: 'en',
   });
   const first = reading.trajectory[0];
   const last = reading.trajectory.at(-1);
   return {
+    reading,
     schema: reading.schema,
     historicalSnapshots: reading.trajectory.length,
     candidateBeingBoundaryExposed: Boolean(first?.admission?.candidates && first?.admission?.beings),
@@ -58,10 +60,13 @@ const constitutiveMeasurement = () => {
     firstBeings: count(first?.admission?.beings),
     finalBeings: count(last?.admission?.beings),
     provisionalRelationsByEvent: reading.trajectory.map(x => count(x.fold?.provisional?.links)),
+    identityAlternativesByEvent: reading.trajectory.map(x => count(x.fold?.identityAlternatives)),
     settledRelationsByEvent: reading.trajectory.map(x => count(x.fold?.links)),
     unresolvedByEvent: reading.trajectory.map(x => count(x.fold?.unresolved)),
     reorganizedByEvent: reading.trajectory.map(x => x.surprise?.reorganized ?? 0),
     surpriseByEvent: reading.trajectory.map(x => x.surprise?.score ?? 0),
+    tensionByEvent: reading.trajectory.map(x => x.fold?.tension ?? 0),
+    releaseByEvent: reading.trajectory.map(x => x.fold?.release ?? 0),
     transformationsByEvent: reading.trajectory.map(x => x.surprise?.transformations ?? {}),
     horizonBytes: reading.trajectory.map(x => x.surf?.horizonByteEnd ?? null),
   };
@@ -71,7 +76,6 @@ test('held-out: frozen constitutive reader is measured against unchanged legacy 
   const legacy = legacyMeasurement();
   const constitutive = constitutiveMeasurement();
 
-  // These are architectural, not fixture-tuned semantic thresholds.
   assert.equal(constitutive.historicalSnapshots, events.length,
     'constitutive reading lost its event-by-event history');
   assert.equal(constitutive.firstBeings, 0,
@@ -82,10 +86,26 @@ test('held-out: frozen constitutive reader is measured against unchanged legacy 
     'unseen material produced no provisional relational meaning at all');
   assert.ok(constitutive.reorganizedByEvent.slice(1).some(n => n > 0),
     'later unseen evidence never reorganized the Fold');
+
+  // Anti-false-green checks added after the first held-out run exposed generic
+  // token adjacency masquerading as identity. This fixture contains no
+  // appositional identity claim, so a reader should not invent one.
+  assert.ok(constitutive.identityAlternativesByEvent.every(n => n === 0),
+    'ordinary adjacency fabricated identity alternatives on held-out prose');
+  for (const step of constitutive.reading.trajectory) {
+    for (const rel of step.fold.provisional.links ?? []) {
+      assert.notEqual(String(rel.object ?? '').trim().toLowerCase(), 'the',
+        'bare determiner was emitted as a relation object');
+      assert.ok(Array.isArray(rel.participants), 'canonical provisional relation lost role participants');
+    }
+  }
+
   for (let i = 1; i < constitutive.horizonBytes.length; i++) {
     assert.ok(constitutive.horizonBytes[i] > constitutive.horizonBytes[i - 1],
       'reader horizon did not advance monotonically');
   }
 
-  console.log('HELD_OUT_READING_COMPARISON ' + JSON.stringify({ legacy, constitutive }));
+  const printable = { ...constitutive };
+  delete printable.reading;
+  console.log('HELD_OUT_READING_COMPARISON ' + JSON.stringify({ legacy, constitutive: printable }));
 });
