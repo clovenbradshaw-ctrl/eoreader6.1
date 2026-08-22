@@ -61,10 +61,6 @@ const structuralDelta = (before, after) => {
   return freeze({ admitted, withdrawn, reorganized: admitted + withdrawn, surprise: (admitted + withdrawn) / denominator });
 };
 
-// SURF perception is intentionally earlier and weaker than referent admission.
-// It answers only: what candidate forms did THIS event make available to the
-// reader? It does not say that a candidate is a being, nor that two surfaces
-// name one being. Those are later, defeasible Fold questions.
 const perceiveEvent = event => {
   const sentences = splitSentences(event.value);
   const surfaces = extractSurfaces(sentences);
@@ -75,7 +71,7 @@ const perceiveEvent = event => {
       display: s.surface,
       surfaces: freeze([s.surface]),
       mentions: s.mentions,
-      sentenceOrders: freeze([...(s.sentences ?? [])]),
+      sentenceCount: s.sentences,
       standing: 'candidate',
       giver: 'event-local-perception',
     }))),
@@ -103,8 +99,6 @@ const candidateSnapshot = (surf, proposed) => {
 
 const admitExperienceCandidates = (entityReading, surf, event) => {
   arrive(entityReading, tokenize(event.value));
-  // Witness what the present Surf actually exposed, independent of whether
-  // document-scale cast discovery has enough evidence to project a referent.
   for (const c of surf.candidates ?? []) {
     for (const surface of c.surfaces ?? []) witnessArrival(entityReading, norm(surface));
   }
@@ -173,23 +167,12 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
-
-    // 1. SURF: perceive the arriving event before it is allowed to alter any
-    // document-scale referent projection. This is candidate evidence only.
     const surfPerception = perceiveEvent(event);
-
-    // 2. Material becomes available at the information horizon.
     admitChunked(horizon, { sourceId, text: event.value });
     prefixBytes += bytes(event.value);
     horizon._cast?.delete(sourceId);
     horizon._surfaces?.delete(sourceId);
-
-    // 3. The accumulated horizon may propose referents/relations, but those
-    // proposals do not themselves earn beinghood.
     const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
-
-    // 4. Witness the CURRENT Surf's candidate arrivals causally, then run the
-    // entity birth/lapse gate over state that contains no future material.
     const changes = admitExperienceCandidates(entityReading, surfPerception, event);
     const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
     const admission = admissionSnapshot(entityReading, surfPerception, tentative, changes);
