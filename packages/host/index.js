@@ -24,18 +24,16 @@ export { attachGraph, admitGraph, resolveRelations, sessionGraphSnapshot, create
 export { attachTiers, admitTiers, sessionTiersSnapshot } from "./tiers.js";
 export { attachSelf, admitSelf, sessionSelfSnapshot, sessionTestimonyHolarchy, SELF, SELF_MISMATCH, WORLD } from "./self.js";
 
-// Canonical whole-admission entrypoint retained for compatibility. New blind
-// reading work should prefer the experience-stream transition below.
+// Canonical whole-admission entrypoint retained for compatibility. Constitutive
+// blind reading has one stateful experience-stream pipeline.
 export { admitReading, READING_PIPELINE_SCHEMA, READING_ASSEMBLIES } from "./reading.js";
-export { readExperienceStream, readExperienceStreamIncremental, textExperienceStream, EXPERIENCE_TRAJECTORY_SCHEMA } from "./experience-stream.js";
+export { readExperienceStream, textExperienceStream, EXPERIENCE_TRAJECTORY_SCHEMA } from "./experience-stream.js";
 
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
 export { retrievalTask, iterateReasonSession, renderAdversarialRun } from "./adversarial-reasoning.js";
 export { adversariallyResolveAssertions } from "./assertion-resolution.js";
 
-// HL is named in full at the API boundary while preserving the historical HL
-// name as an explicit canonical identity.
 export {
   HL,
   HL_SCHEMA,
