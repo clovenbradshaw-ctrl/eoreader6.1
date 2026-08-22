@@ -13,4 +13,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test conformance/experience-admission.test.js conformance/experience-trajectory.test.js conformance/reading-semantic-golden.test.js conformance/net-new-blind-reading.test.js conformance/recursive-reading-golden.test.js conformance/held-out-reading-comparison.test.js
+      - run: node --test conformance/experience-admission.test.js conformance/experience-trajectory.test.js conformance/reading-semantic-golden.test.js conformance/net-new-blind-reading.test.js conformance/recursive-reading-golden.test.js conformance/held-out-reading-comparison.test.js conformance/frontier-omnimodal.test.js
