@@ -12,6 +12,7 @@ import { admitExperienceEvent } from './experience-admission.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
 import { createRecursiveOntology, advanceRecursiveOntology } from './recursive-ontology.js';
 import { createOpenFrontier, advanceFrontier } from './frontier.js';
+import { textStructurePriors } from './language-priors.js';
 import { observeTextStructure } from '../engine/perceiver/text/structural-observations.js';
 import { tokenize } from '../engine/perceiver/text/material.js';
 import { splitSentences } from '../engine/perceiver/text/spans.js';
@@ -36,8 +37,8 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@9';
-export const EXPERIENCE_READING_STATE_SCHEMA = 'EOExperienceReadingState@2';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@10';
+export const EXPERIENCE_READING_STATE_SCHEMA = 'EOExperienceReadingState@3';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -323,11 +324,13 @@ const validateOptions = ({ sourceId, events, entitySpec }) => {
 
 export function openExperienceReading({ sourceId, priors = [], entitySpec, language } = {}) {
   validateOptions({ sourceId, entitySpec });
+  const languagePriors = textStructurePriors(language);
   return {
     schema: EXPERIENCE_READING_STATE_SCHEMA,
     sourceId,
     priors: freeze([...priors]),
     language: language ?? null,
+    languagePriors,
     horizon: createSession(),
     entityReading: openReading(entitySpec),
     ontology: createRecursiveOntology(),
@@ -374,6 +377,7 @@ export function advanceReading(state, event) {
     eventIndex: i,
     language: state.language,
     knownIdentities: [...state.ontology.identities.values()],
+    posPrior: state.languagePriors.pos,
   });
   const recursive = advanceRecursiveOntology(state.ontology, {
     eventIndex: i,
@@ -408,6 +412,11 @@ export function advanceReading(state, event) {
       }),
       perception: surfPerception,
     }),
+    languagePriors: freeze({
+      language: state.languagePriors.language,
+      posGiver: state.languagePriors.pos?.provenance?.source ?? null,
+      gaps: state.languagePriors.gaps,
+    }),
     observations,
     tentative,
     admission,
@@ -433,6 +442,10 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
     schema: EXPERIENCE_TRAJECTORY_SCHEMA,
     sourceId,
     language: state.language,
+    languagePriors: freeze({
+      posGiver: state.languagePriors.pos?.provenance?.source ?? null,
+      gaps: state.languagePriors.gaps,
+    }),
     eventCount: events.length,
     trajectory: freeze([...state.trajectory]),
   });
