@@ -17,7 +17,7 @@ const LOWER = /^\p{Ll}/u;
 const APPOSITIONAL_RUN = /^[\p{L}\p{M}'’\s]+$/u;
 const DETERMINERS = new Set([...DEFINITE_DETERMINERS, ...INDEFINITE_DETERMINERS]);
 
-export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@2';
+export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@3';
 
 const rows = text => [...String(text ?? '').matchAll(WORD)].map((m, i) => ({
   token: m[0],
@@ -135,19 +135,24 @@ const subjectIsPerceivedName = (subject, forms) => {
   return (forms ?? []).some(x => x.witnessable && x.key === s);
 };
 
-const englishRelations = ({ text, surf, eventIndex, identitySupports, forms }) => {
+const englishRelations = ({ text, surf, eventIndex, identitySupports, forms, posPrior }) => {
   const names = (surf.candidates ?? [])
     .filter(c => c.witnessable)
     .map(c => ({ surface: c.display ?? c.surfaces?.[0] }))
     .filter(x => x.surface);
   if (!names.length) return freeze([]);
 
-  const verbs = discoverRelationVocab(text, {
+  // Event-local relation discovery is permissive with respect to material
+  // frequency, but not with respect to received grammar. POSPrior@1 is the
+  // existing repo mechanism that refuses non-verb-dominant connectors such as
+  // "again" without hardcoding an adverb list in this adapter.
+  const discovered = discoverRelationVocab(text, {
     surfaces: names,
     functionWords: null,
     minSurfaces: 1,
-  }).verbs;
-  const raw = extractRelations(text, { verbs, functionWords: null });
+    posPrior,
+  });
+  const raw = extractRelations(text, { verbs: discovered.verbs, functionWords: null });
 
   return freeze(raw
     .filter(r => subjectIsPerceivedName(r.subject, forms))
@@ -163,11 +168,15 @@ const englishRelations = ({ text, surf, eventIndex, identitySupports, forms }) =
       polarity: r.polarity === '-' ? -1 : 1,
       scope: { start: eventIndex, end: eventIndex + 1 },
       witness: { event: eventIndex, source: 'text/en' },
-      meta: { giver: 'lang/en:text-structure@1', grammaticalShape: 'SVO-candidate' },
+      meta: {
+        giver: 'lang/en:text-structure@1',
+        grammaticalShape: 'SVO-candidate',
+        posPrior: posPrior?.provenance?.source ?? null,
+      },
     })));
 };
 
-export function observeTextStructure({ text, surf, eventIndex = 0, language, knownIdentities = [] } = {}) {
+export function observeTextStructure({ text, surf, eventIndex = 0, language, knownIdentities = [], posPrior = null } = {}) {
   if (!surf) throw new TypeError('observeTextStructure: surf is required');
   const forms = freeze(formRows(surf));
 
@@ -195,7 +204,15 @@ export function observeTextStructure({ text, surf, eventIndex = 0, language, kno
     eventIndex,
     identitySupports: identity.supports,
     forms,
+    posPrior,
   });
+  const gaps = [];
+  if (!posPrior) gaps.push(freeze({
+    reason: 'missing_pos_prior',
+    language: 'en',
+    detail: 'English structural observation proceeded without a received POS prior; connector ambiguity remains unresolved',
+  }));
+
   return freeze({
     schema: TEXT_STRUCTURE_SCHEMA,
     language: 'en',
@@ -204,6 +221,6 @@ export function observeTextStructure({ text, surf, eventIndex = 0, language, kno
     identitySupports: identity.supports,
     identityAttacks: identity.attacks,
     relations,
-    gaps: freeze([]),
+    gaps: freeze(gaps),
   });
 }
