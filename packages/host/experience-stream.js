@@ -31,7 +31,7 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@5';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@6';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -77,9 +77,9 @@ const lexicalSpans = sentence => {
 const titlecaseRuns = sentence => {
   const words = [...sentence.text.matchAll(WORD)].map(m => m[0]);
   const out = [];
-  // Sentence-initial capitalisation is grammatical evidence only. It remains
-  // perceptible through lexicalSpans, but does not become witnessable merely
-  // because it opened a sentence.
+  // Sentence-initial capitalisation alone is grammatical evidence. It remains
+  // perceptible through lexicalSpans; another occurrence in this event can
+  // still make the same form witnessable when the candidate records merge.
   let i = 1;
   while (i < words.length) {
     if (!TITLE_WORD.test(words[i])) { i++; continue; }
@@ -160,24 +160,41 @@ const candidateSnapshot = (surf, proposed) => {
   return freeze(out);
 };
 
-const containsForm = (text, surface) => ` ${norm(text)} `.includes(` ${norm(surface)} `);
+const suffixMatches = (tokens, at, surfaceTokens) => {
+  if (!surfaceTokens.length || at + 1 < surfaceTokens.length) return false;
+  const start = at + 1 - surfaceTokens.length;
+  for (let i = 0; i < surfaceTokens.length; i++) {
+    if (tokens[start + i] !== surfaceTokens[i]) return false;
+  }
+  return true;
+};
 
 const admitExperienceCandidates = (entityReading, surf) => {
-  // The material's meaningful sentence units, not the outer passage container,
-  // are the arrivals the Entity witness gate compares. This preserves order
-  // and gives recurrence an actual temporal shape.
+  const witnessables = (surf.candidates ?? [])
+    .filter(c => c.witnessable)
+    .map(c => ({
+      surface: norm(c.surfaces?.[0] ?? c.display),
+      tokens: tokenize(c.surfaces?.[0] ?? c.display),
+    }))
+    .filter(c => c.surface && c.tokens.length);
+
+  // Entity existence is measured over the lexical stream in causal order.
+  // The outer passage and its sentences remain Surf boundaries; each token is
+  // the Figure organ's reach-unit, so `window: 8` means an eight-token present
+  // rather than eight paragraphs or eight whole sentences.
   for (const sentence of surf.sentences) {
-    arrive(entityReading, tokenize(sentence.text));
-    for (const c of surf.candidates ?? []) {
-      if (!c.witnessable) continue;
-      for (const surface of c.surfaces ?? []) {
-        if (containsForm(sentence.text, surface)) witnessArrival(entityReading, norm(surface));
+    const tokens = tokenize(sentence.text);
+    for (let at = 0; at < tokens.length; at++) {
+      arrive(entityReading, [tokens[at]]);
+      for (const candidate of witnessables) {
+        if (suffixMatches(tokens, at, candidate.tokens)) witnessArrival(entityReading, candidate.surface);
       }
     }
   }
+
   const lapsed = reviewEntities(entityReading);
   const born = offerCandidates(entityReading);
-  return { born, lapsed };
+  return { born, lapsed, unit: 'token' };
 };
 
 const gateThroughWitnessedBeings = (proposed, entityReading) => {
@@ -207,6 +224,7 @@ const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
   lapsed: freeze(lapsedEntities(entityReading).map(x => freeze({ ...x }))),
   bornThisEvent: changes.born,
   lapsedThisEvent: changes.lapsed,
+  unit: changes.unit,
 });
 
 const foldFrom = (perturbation, i, byteEnd) => freeze({
