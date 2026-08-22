@@ -22,7 +22,7 @@ const textOf = value => {
   return [];
 };
 
-export const BOOK_READING_SCHEMA = 'EOBookReading@2';
+export const BOOK_READING_SCHEMA = 'EOBookReading@3';
 
 const taskQueryText = task => {
   const words = [...textOf(task.query ?? task.target)]
@@ -31,6 +31,31 @@ const taskQueryText = task => {
     .filter(x => x.length > 1);
   return [...new Set(words)].slice(0, 8).join(' ');
 };
+
+const compactEventRecord = (transition, taskState, candidates, withheld, executed) => freeze({
+  event: transition.event,
+  byteStart: transition.surf?.admission?.byteStart ?? null,
+  byteEnd: transition.surf?.admission?.byteEnd ?? transition.surf?.horizonByteEnd ?? null,
+  unit: transition.surf?.unit ?? null,
+  section: transition.surf?.section ?? null,
+  sectionLabel: transition.surf?.sectionLabel ?? null,
+  proposition: transition.surf?.proposition ?? null,
+  delta: transition.delta,
+  surprise: freeze({
+    score: transition.surprise?.score ?? null,
+    tension: transition.surprise?.tension ?? null,
+    release: transition.surprise?.release ?? null,
+  }),
+  transformations: transition.surprise?.transformations ?? null,
+  observationGaps: transition.observations?.gaps ?? freeze([]),
+  taskDelta: taskState.delta,
+  hyperlexiconCandidates: freeze(candidates.map(x => freeze({
+    left: x.left, right: x.right, standing: x.standing,
+    witnessCount: x.witnesses?.length ?? 0,
+  }))),
+  withheldCount: withheld.length,
+  executedTaskIds: freeze(executed.map(x => x.taskId)),
+});
 
 export function executeReadingTask(state, task, { limit = 8, maxBytes = 4000 } = {}) {
   if (!task || task.status !== 'open') return freeze({ taskId: task?.id ?? null, evidence: freeze([]), gap: 'task_not_open' });
@@ -61,13 +86,7 @@ export function executeReadingTask(state, task, { limit = 8, maxBytes = 4000 } =
 
 export function openBookReading({ sourceId, priors = [], entitySpec, language, hyperlexicon = null } = {}) {
   const reader = openExperienceReading({ sourceId, priors, entitySpec, language });
-  // Book reading accumulates witness evidence cheaply. Whether a recurring
-  // surface deserves the stronger ontological assertion "this is a being / cast
-  // member" is tested when that assertion is actually requested.
   reader.entityReading.deferAssertions = true;
-  // A book keeps one current Fold plus append-only deltas. Small audited readers
-  // retain complete snapshots; duplicating the entire graph at every proposition
-  // is neither required for reconstruction nor computationally lawful at scale.
   reader.ontology.compact = true;
   return {
     schema: BOOK_READING_SCHEMA,
@@ -75,17 +94,12 @@ export function openBookReading({ sourceId, priors = [], entitySpec, language, h
     tasks: createReadingTaskLedger(),
     hyperlexicon: hyperlexicon ?? createHyperlexicon(),
     taskRuns: [],
-    chapters: [],
+    eventLog: [],
     castAssertion: null,
+    lastTransition: null,
   };
 }
 
-/**
- * Make the consequential cast assertion once against all evidence accumulated
- * so far. This does not reread text: it challenges the append-only arrival
- * record already built during reading. The result can itself motivate deeper
- * identity work downstream.
- */
 export function assertBookCast(state) {
   if (!state || state.schema !== BOOK_READING_SCHEMA) throw new TypeError('assertBookCast: openBookReading state is required');
   const register = state.reader.entityReading;
@@ -113,6 +127,7 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
   const eot = lastIteration?.eot ?? [];
   const derived = deriveEotInsights(eot, {}, { hyperlexicon: state.hyperlexicon });
   const candidates = derived.candidates ?? [];
+  const withheld = derived.withheld ?? [];
   state.hyperlexicon = admitHyperlexiconCandidates(state.hyperlexicon, candidates);
 
   const taskState = advanceReadingTasks(state.tasks, {
@@ -125,7 +140,7 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
     },
     frontier: transition.frontier,
     hyperlexiconCandidates: candidates,
-    withheldCompositions: derived.withheld ?? [],
+    withheldCompositions: withheld,
   });
 
   const executed = [];
@@ -137,36 +152,35 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
     executed.push(run);
   }
 
-  return freeze({
-    transition,
-    hyperlexiconCandidates: freeze([...candidates]),
-    withheldCompositions: freeze([...(derived.withheld ?? [])]),
-    tasks: taskState,
-    executed: freeze(executed),
-  });
+  const record = compactEventRecord(transition, taskState, candidates, withheld, executed);
+  state.eventLog.push(record);
+  state.lastTransition = transition;
+
+  // The canonical small reader keeps rich snapshots for audit goldens. The
+  // book wrapper has already converted this event into its append-only delta,
+  // so retaining the same rich transition again would recursively duplicate
+  // the current Fold. Frontier history is likewise redundant with eventLog.
+  state.reader.trajectory.length = 0;
+  if (state.reader.frontier?.history) state.reader.frontier.history.length = 0;
+
+  return freeze({ record, transition, tasks: taskState, executed: freeze(executed) });
 }
 
-const parameterRows = trajectory => {
+const parameterRows = eventLog => {
   const rows = [];
-  for (let i = 0; i + 1 < trajectory.length; i++) {
-    const here = trajectory[i]?.transition;
-    const next = trajectory[i + 1]?.transition;
-    const distinctions = [
-      ...(here?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
-      ...(here?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
-    ];
-    const outcomes = [
-      ...(next?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
-      ...(next?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
-    ];
+  for (let i = 0; i + 1 < eventLog.length; i++) {
+    const here = eventLog[i];
+    const next = eventLog[i + 1];
     rows.push({
-      distinctions,
-      outcomes,
-      provenance: {
-        event: here?.event ?? i,
-        byteStart: here?.surf?.admission?.byteStart ?? null,
-        byteEnd: here?.surf?.admission?.byteEnd ?? null,
-      },
+      distinctions: [
+        ...(here?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+        ...(here?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
+      ],
+      outcomes: [
+        ...(next?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+        ...(next?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
+      ],
+      provenance: { event: here.event, byteStart: here.byteStart, byteEnd: here.byteEnd },
     });
   }
   return rows;
@@ -175,20 +189,17 @@ const parameterRows = trajectory => {
 export function readBook({ sourceId, text, events, priors = [], entitySpec, language, hyperlexicon = null, executeTopTasks = 0 } = {}) {
   const stream = events ?? textExperienceStream(text ?? '', { unit: 'paragraph' });
   const state = openBookReading({ sourceId, priors, entitySpec, language, hyperlexicon });
-  const trajectory = [];
-  for (const event of stream) trajectory.push(advanceBookReading(state, event, { executeTopTasks }));
+  for (const event of stream) advanceBookReading(state, event, { executeTopTasks });
 
   const castAssertion = assertBookCast(state);
-  // Preserve the older corpus referent projection as a diagnostic comparison,
-  // not as the canonical book cast assertion.
   const projected = sessionReferents(state.reader.horizon, { sourceId, priors, limit: Infinity });
-  const parameterDiscovery = discoverParameters(parameterRows(trajectory));
+  const parameterDiscovery = discoverParameters(parameterRows(state.eventLog));
 
   return freeze({
     schema: BOOK_READING_SCHEMA,
     sourceId,
     eventCount: stream.length,
-    trajectory: freeze(trajectory),
+    trajectory: freeze([...state.eventLog]),
     cast: castAssertion,
     projectedCast: freeze({
       referents: freeze([...(projected.referents ?? [])].map(x => freeze({ ...x }))),
