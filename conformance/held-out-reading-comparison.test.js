@@ -54,6 +54,7 @@ const constitutiveMeasurement = () => {
   return {
     reading,
     schema: reading.schema,
+    posGiver: reading.languagePriors?.posGiver ?? null,
     historicalSnapshots: reading.trajectory.length,
     candidateBeingBoundaryExposed: Boolean(first?.admission?.candidates && first?.admission?.beings),
     firstCandidates: count(first?.admission?.candidates),
@@ -87,15 +88,20 @@ test('held-out: frozen constitutive reader is measured against unchanged legacy 
   assert.ok(constitutive.reorganizedByEvent.slice(1).some(n => n > 0),
     'later unseen evidence never reorganized the Fold');
 
-  // Anti-false-green checks added after the first held-out run exposed generic
-  // token adjacency masquerading as identity. This fixture contains no
-  // appositional identity claim, so a reader should not invent one.
+  assert.match(constitutive.posGiver ?? '', /Universal Dependencies UD_English-EWT/,
+    'English grammatical structure was not grounded in the received POS prior');
+
+  // Anti-false-green checks added after earlier held-out runs exposed generic
+  // token adjacency masquerading as identity and then the adverb "again"
+  // masquerading as a relation. Neither is allowed to return.
   assert.ok(constitutive.identityAlternativesByEvent.every(n => n === 0),
     'ordinary adjacency fabricated identity alternatives on held-out prose');
   for (const step of constitutive.reading.trajectory) {
     for (const rel of step.fold.provisional.links ?? []) {
       assert.notEqual(String(rel.object ?? '').trim().toLowerCase(), 'the',
         'bare determiner was emitted as a relation object');
+      assert.notEqual(String(rel.relation ?? rel.predicate ?? '').trim().toLowerCase(), 'again',
+        'nonverb-dominant connector was emitted as a relation despite the received POS prior');
       assert.ok(Array.isArray(rel.participants), 'canonical provisional relation lost role participants');
     }
   }
