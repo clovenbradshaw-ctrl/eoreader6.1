@@ -3,13 +3,16 @@
 // Reading is not a fixed sequence of extractive passes. The Fold itself opens
 // work, but unresolved structure is NOT sufficient to earn work. A task exists
 // only when the alternatives make a counterfactual difference downstream.
+//
+// Storage invariant: the ledger is append-only by DELTA. Current task state
+// lives in tasks; history never embeds prior task histories again.
 
 import { identityDifference, frontierDifference, hyperlexiconDifference } from './difference-gate.js';
 
 const freeze = x => Object.freeze(x);
 const stable = x => typeof x === 'string' ? x : JSON.stringify(x);
 
-export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@3';
+export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@4';
 
 export function createReadingTaskLedger() {
   return {
@@ -20,19 +23,45 @@ export function createReadingTaskLedger() {
 }
 
 const taskId = (kind, target) => `${kind}:${stable(target)}`;
+const consequenceKey = x => `${x?.type ?? 'consequence'}:${x?.identityId ?? x?.bridge ?? x?.from ?? ''}:${x?.to ?? ''}`;
+const witnessKey = x => `${x?.event ?? ''}:${x?.byteStart ?? ''}:${x?.byteEnd ?? ''}:${x?.relationId ?? x?.identityId ?? ''}`;
+
+const appendUnique = (existing, incoming, keyFn) => {
+  const seen = new Set(existing.map(keyFn));
+  const added = [];
+  for (const item of incoming ?? []) {
+    const key = keyFn(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    existing.push(item);
+    added.push(item);
+  }
+  return added;
+};
 
 const upsert = (ledger, spec, eventIndex) => {
   const id = spec.id ?? taskId(spec.kind, spec.target);
   const current = ledger.tasks.get(id);
   if (current?.status === 'open') {
     current.lastTriggeredAt = eventIndex;
-    current.triggers = [...current.triggers, spec.trigger];
-    current.witnesses = [...current.witnesses, ...(spec.witnesses ?? [])];
-    current.consequences = [...new Map([
-      ...(current.consequences ?? []).map(x => [stable(x), x]),
-      ...(spec.consequences ?? []).map(x => [stable(x), x]),
-    ]).values()];
-    return { type: 'persisted', task: { ...current } };
+    const triggerAdded = current.lastRecordedTriggerEvent === eventIndex ? [] : [spec.trigger];
+    if (triggerAdded.length) {
+      current.triggers.push(spec.trigger);
+      current.lastRecordedTriggerEvent = eventIndex;
+    }
+    const witnessesAdded = appendUnique(current.witnesses, spec.witnesses ?? [], witnessKey);
+    const consequencesAdded = appendUnique(current.consequences, spec.consequences ?? [], consequenceKey);
+    return {
+      type: 'persisted',
+      delta: freeze({
+        id,
+        kind: current.kind,
+        event: eventIndex,
+        triggersAdded: freeze(triggerAdded),
+        witnessesAdded: freeze(witnessesAdded),
+        consequencesAdded: freeze(consequencesAdded),
+      }),
+    };
   }
   const task = {
     id,
@@ -41,6 +70,7 @@ const upsert = (ledger, spec, eventIndex) => {
     status: 'open',
     openedAt: eventIndex,
     lastTriggeredAt: eventIndex,
+    lastRecordedTriggerEvent: eventIndex,
     trigger: spec.trigger,
     triggers: [spec.trigger],
     witnesses: [...(spec.witnesses ?? [])],
@@ -50,7 +80,21 @@ const upsert = (ledger, spec, eventIndex) => {
     terrain: spec.terrain ?? null,
   };
   ledger.tasks.set(id, task);
-  return { type: 'opened', task: { ...task } };
+  return {
+    type: 'opened',
+    delta: freeze({
+      id,
+      kind: task.kind,
+      event: eventIndex,
+      target: task.target,
+      trigger: task.trigger,
+      witnessesAdded: freeze([...task.witnesses]),
+      consequencesAdded: freeze([...task.consequences]),
+      query: task.query,
+      closure: task.closure,
+      terrain: task.terrain,
+    }),
+  };
 };
 
 export function closeReadingTask(ledger, id, { eventIndex, reason, witnesses = [] } = {}) {
@@ -59,8 +103,8 @@ export function closeReadingTask(ledger, id, { eventIndex, reason, witnesses = [
   task.status = 'closed';
   task.closedAt = eventIndex;
   task.closeReason = reason ?? 'resolved_by_fold';
-  task.witnesses = [...task.witnesses, ...witnesses];
-  return freeze({ ...task, witnesses: freeze([...task.witnesses]) });
+  const witnessesAdded = appendUnique(task.witnesses, witnesses, witnessKey);
+  return freeze({ id, kind: task.kind, event: eventIndex, reason: task.closeReason, witnessesAdded: freeze(witnessesAdded) });
 }
 
 const identityTasks = ({ recursive, eventIndex, byteStart, byteEnd }) => {
@@ -69,12 +113,15 @@ const identityTasks = ({ recursive, eventIndex, byteStart, byteEnd }) => {
     if (identity.standing === 'distinct') continue;
     const difference = identityDifference(identity, recursive);
     if (!difference.makesDifference) continue;
+    const latest = identity.history?.at(-1) ?? null;
     out.push({
       kind: 'resolve_identity',
       terrain: 'Entity',
       target: identity.id,
       trigger: { type: 'identity_alternative', standing: identity.standing, event: eventIndex },
-      witnesses: [{ event: eventIndex, byteStart, byteEnd, history: identity.history ?? [] }],
+      // Point at the current observation/latest act. Never embed the complete
+      // identity history inside another append-only history record.
+      witnesses: [{ event: eventIndex, byteStart, byteEnd, identityId: identity.id, latestAct: latest?.act ?? null }],
       consequences: difference.consequences,
       query: { identity: identity.id, seek: ['co-presence', 'segregation', 'displacement', 'explicit-witness'] },
       closure: 'distinct, explicitly witnessed same-being, or stable typed gap',
@@ -93,7 +140,7 @@ const frontierTasks = ({ frontier, eventIndex, byteStart, byteEnd }) => {
       terrain: open.terrain ?? null,
       target: open.id,
       trigger: { type: 'frontier_pressure', standing: open.standing, age: open.age ?? 0, event: eventIndex },
-      witnesses: [{ event: eventIndex, byteStart, byteEnd, provenance: open.provenance ?? [] }],
+      witnesses: [{ event: eventIndex, byteStart, byteEnd, openId: open.id }],
       consequences: difference.consequences,
       query: { openStructure: open.id, expectation: open.expectation ?? null },
       closure: 'frontier record resolves, reframes, splits, merges, or is superseded',
@@ -104,9 +151,6 @@ const frontierTasks = ({ frontier, eventIndex, byteStart, byteEnd }) => {
 
 const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteStart, byteEnd }) => {
   const out = [];
-  // A withheld composition is evidence of non-license, not automatically a
-  // reason to spend more work. Deeper reading is earned only when a repeated
-  // candidate plus that withholding blocks a downstream derivation.
   for (const candidate of candidates) {
     const difference = hyperlexiconDifference(candidate, withheld);
     if (!difference.makesDifference) continue;
@@ -115,7 +159,7 @@ const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteSta
       terrain: 'Network',
       target: { left: candidate.left, right: candidate.right },
       trigger: { type: 'repeated_relation_adjacency', witnesses: candidate.witnesses?.length ?? 0, event: eventIndex },
-      witnesses: [{ event: eventIndex, byteStart, byteEnd, tuplePairs: candidate.witnesses ?? [] }],
+      witnesses: [{ event: eventIndex, byteStart, byteEnd }],
       consequences: difference.consequences,
       query: { composition: [candidate.left, candidate.right], seek: ['counterexample', 'scope-dependence', 'additional-paths'] },
       closure: 'affordance remains candidate, is explicitly GIVEN by a named giver, or is defeated; recurrence alone never grants it',
@@ -147,7 +191,7 @@ export function advanceReadingTasks(ledger, {
   const opened = [], persisted = [], closed = [];
   for (const spec of specs) {
     const result = upsert(ledger, spec, eventIndex);
-    (result.type === 'opened' ? opened : persisted).push(result.task);
+    (result.type === 'opened' ? opened : persisted).push(result.delta);
   }
 
   for (const task of ledger.tasks.values()) {
@@ -159,19 +203,27 @@ export function advanceReadingTasks(ledger, {
     if (done) closed.push(done);
   }
 
+  // Current-state view only. This is not appended to history.
   const open = [...ledger.tasks.values()]
     .filter(x => x.status === 'open')
     .sort((a, b) => b.consequences.length - a.consequences.length || a.openedAt - b.openedAt)
     .map(x => freeze({
-      ...x,
-      triggers: freeze([...x.triggers]),
-      witnesses: freeze([...x.witnesses]),
+      id: x.id,
+      kind: x.kind,
+      target: x.target,
+      status: x.status,
+      openedAt: x.openedAt,
+      lastTriggeredAt: x.lastTriggeredAt,
       consequences: freeze([...x.consequences]),
+      query: x.query,
+      closure: x.closure,
+      terrain: x.terrain,
     }));
+
   const delta = freeze({
     event: eventIndex,
-    opened: freeze(opened.map(x => freeze({ ...x }))),
-    persisted: freeze(persisted.map(x => freeze({ ...x }))),
+    opened: freeze(opened),
+    persisted: freeze(persisted),
     closed: freeze(closed),
   });
   ledger.history.push(delta);
