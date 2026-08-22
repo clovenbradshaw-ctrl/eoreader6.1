@@ -8,7 +8,7 @@
 const freeze = x => Object.freeze(x);
 const stable = x => JSON.stringify(x);
 
-export const FRONTIER_SCHEMA = 'EOOpenFrontier@1';
+export const FRONTIER_SCHEMA = 'EOOpenFrontier@2';
 
 export function createOpenFrontier() {
   return {
@@ -33,7 +33,7 @@ const currentlyOpen = ({ recursive, perturbation, obligations = [] }) => {
       kind: 'identity_alternative',
       subject: identity.id,
       standing: identity.standing,
-      provenance: identity.history ?? [],
+      provenance: identity.history ?? (identity.latestAct ? [identity.latestAct] : []),
     });
   }
 
@@ -49,10 +49,6 @@ const currentlyOpen = ({ recursive, perturbation, obligations = [] }) => {
     });
   }
 
-  // Generic omnimodal seam. An audio/music emergence organ can open an
-  // expected recurrence or unresolved pattern continuation; a field reader
-  // can open an unexplained regime transition; a table can open a missing
-  // dependency. No language-shaped fields are required here.
   for (const obligation of obligations ?? []) {
     if (!obligation?.id || obligation.status === 'resolved' || obligation.status === 'closed') continue;
     out.set(obligationKey(obligation), {
@@ -71,9 +67,10 @@ const currentlyOpen = ({ recursive, perturbation, obligations = [] }) => {
 };
 
 export function advanceFrontier(frontier, { eventIndex, recursive, perturbation, obligations = [] } = {}) {
-  if (!frontier || frontier.schema !== FRONTIER_SCHEMA) {
+  if (!frontier || !String(frontier.schema).startsWith('EOOpenFrontier@')) {
     throw new TypeError('advanceFrontier: createOpenFrontier state is required');
   }
+  const compact = Boolean(recursive?.compact);
   const now = currentlyOpen({ recursive, perturbation, obligations });
   const opened = [];
   const persisted = [];
@@ -87,33 +84,56 @@ export function advanceFrontier(frontier, { eventIndex, recursive, perturbation,
         status: 'open',
         openedAt: eventIndex,
         lastChangedAt: eventIndex,
-        age: 0,
+        pressure: item.pressure ?? null,
       };
       frontier.records.set(id, record);
-      opened.push({ ...record });
+      opened.push({ ...record, age: 0 });
     } else {
-      prior.age = eventIndex - prior.openedAt;
       prior.lastChangedAt = eventIndex;
       prior.standing = item.standing;
       prior.expectation = item.expectation;
       prior.provenance = item.provenance;
       prior.pressure = item.pressure;
-      persisted.push({ ...prior });
+      persisted.push({ ...prior, age: eventIndex - prior.openedAt });
     }
   }
 
-  for (const [id, prior] of frontier.records) {
-    if (prior.status !== 'open' || now.has(id)) continue;
-    prior.status = 'resolved';
-    prior.resolvedAt = eventIndex;
-    prior.lastChangedAt = eventIndex;
-    prior.age = eventIndex - prior.openedAt;
-    resolved.push({ ...prior });
+  if (compact) {
+    // Absence from a delta means unchanged, never resolved. Only explicit
+    // transformations close records in compact append-only reading.
+    const explicitResolved = new Set([
+      ...(recursive?.transformations?.identitySplits ?? []).map(x => `identity:${x.identityId}`),
+      ...(obligations ?? [])
+        .filter(x => x?.id && (x.status === 'resolved' || x.status === 'closed'))
+        .map(x => obligationKey(x)),
+    ]);
+    for (const id of explicitResolved) {
+      const prior = frontier.records.get(id);
+      if (!prior || prior.status !== 'open') continue;
+      prior.status = 'resolved';
+      prior.resolvedAt = eventIndex;
+      prior.lastChangedAt = eventIndex;
+      resolved.push({ ...prior, age: eventIndex - prior.openedAt });
+    }
+  } else {
+    for (const [id, prior] of frontier.records) {
+      if (prior.status !== 'open' || now.has(id)) continue;
+      prior.status = 'resolved';
+      prior.resolvedAt = eventIndex;
+      prior.lastChangedAt = eventIndex;
+      resolved.push({ ...prior, age: eventIndex - prior.openedAt });
+    }
   }
 
+  // This is the current Fold view, not history. Age is derived from the cursor;
+  // unchanged records are not rewritten merely because time advanced.
   const open = [...frontier.records.values()]
     .filter(x => x.status === 'open')
-    .map(x => freeze({ ...x, provenance: freeze([...(x.provenance ?? [])]) }));
+    .map(x => freeze({
+      ...x,
+      age: eventIndex - x.openedAt,
+      provenance: freeze([...(x.provenance ?? [])]),
+    }));
 
   const delta = freeze({
     event: eventIndex,
@@ -123,9 +143,6 @@ export function advanceFrontier(frontier, { eventIndex, recursive, perturbation,
   });
   frontier.history.push(delta);
 
-  // Scalars are downstream navigation aids. The inspectable ledger is the
-  // canonical record. Default pressure is persistence-weighted only; a
-  // modality/emergence organ may supply a nonnegative structural pressure.
   const weight = x => Number.isFinite(x.pressure) && x.pressure >= 0 ? x.pressure : 1;
   const tension = open.reduce((sum, x) => sum + weight(x) * (1 + x.age), 0);
   const release = resolved.reduce((sum, x) => sum + weight(x) * (1 + x.age), 0);
