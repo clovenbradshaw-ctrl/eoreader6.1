@@ -2,6 +2,7 @@ name: Frankenstein full-book eval
 on:
   push:
     branches: [codex/constitutive-adversarial-reading]
+  pull_request:
   workflow_dispatch:
 jobs:
   frankenstein:
