@@ -1,15 +1,18 @@
 // Constitutive adversarial reading: one canonical stateful pipeline.
 //
-// ExperienceStream -> Surf(t) -> prior Fold(t-1) -> provisional ontology
-// -> recursive adversarial reasoning -> witnessed admission -> Fold(t)
-// -> structural surprise.
+// ExperienceStream -> modality perception -> Surf(t) -> prior Fold(t-1)
+// -> structural observations -> recursive ontology/reasoning -> witnessed
+// admission -> open frontier -> Fold(t) -> structural surprise.
 //
-// Perception, provisional standing, and settled beinghood remain distinct.
+// The current outer event adapter is text. The recursive ontology, EOT role
+// layer, frontier, and temporal reasoning are modality-neutral.
 
 import { createSession } from './corpus.js';
 import { admitExperienceEvent } from './experience-admission.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
 import { createRecursiveOntology, advanceRecursiveOntology } from './recursive-ontology.js';
+import { createOpenFrontier, advanceFrontier } from './frontier.js';
+import { observeTextStructure } from '../engine/perceiver/text/structural-observations.js';
 import { tokenize } from '../engine/perceiver/text/material.js';
 import { splitSentences } from '../engine/perceiver/text/spans.js';
 import { extractSurfaces } from '../engine/perceiver/text/surfaces.js';
@@ -33,8 +36,8 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@8';
-export const EXPERIENCE_READING_STATE_SCHEMA = 'EOExperienceReadingState@1';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@9';
+export const EXPERIENCE_READING_STATE_SCHEMA = 'EOExperienceReadingState@2';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -64,8 +67,9 @@ const structuralKeys = state => {
   for (const x of state.recursive?.identityAlternatives ?? []) out.add(`I:${x.id}:${x.standing}`);
   for (const x of state.recursive?.provisionalEntities ?? []) out.add(`P:${x.id}:${x.standing}`);
   for (const x of state.recursive?.provisionalLinks ?? []) {
-    out.add(`R:${x.id}:${stable(x.subjectAlternatives)}:${x.predicate}:${x.object}:${x.polarity}`);
+    out.add(`R:${x.id}:${stable(x.participants)}:${x.relation}:${x.polarity}`);
   }
+  for (const x of state.frontier?.open ?? []) out.add(`O:${x.id}:${x.standing}:${x.age}`);
   return out;
 };
 
@@ -115,7 +119,7 @@ const titlecaseRuns = sentence => {
   return out;
 };
 
-const perceiveEvent = event => {
+const perceiveTextEvent = event => {
   const sentences = splitSentences(event.value);
   const strictNames = extractSurfaces(sentences);
   const candidates = new Map();
@@ -158,6 +162,7 @@ const perceiveEvent = event => {
   }
 
   return freeze({
+    medium: 'text',
     sentences: freeze(sentences.map(s => freeze({ text: s.text, offset: s.offset, order: s.order }))),
     candidates: freeze([...candidates.values()]),
   });
@@ -251,7 +256,7 @@ const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
   unit: changes.unit,
 });
 
-const foldFrom = (perturbation, recursive, i, byteEnd) => freeze({
+const foldFrom = (perturbation, recursive, frontier, i, byteEnd) => freeze({
   cursor: freeze({ event: i, byteEnd }),
   cast: perturbation.cast,
   links: perturbation.links,
@@ -260,14 +265,18 @@ const foldFrom = (perturbation, recursive, i, byteEnd) => freeze({
     entities: recursive.provisionalEntities,
     links: recursive.provisionalLinks,
   }),
+  frontier,
+  tension: frontier.tension,
+  release: frontier.release,
   unresolved: freeze([
     ...perturbation.cast.filter(x => String(x.disposition).startsWith('unresolved') || String(x.disposition).startsWith('needs_')),
     ...perturbation.links.filter(x => x.disposition !== 'survives' && x.disposition !== 'survives_scoped'),
     ...recursive.identityAlternatives.filter(x => x.standing !== 'distinct'),
+    ...frontier.open,
   ]),
 });
 
-const transformationSurprise = ({ recursive, admission, delta }) => {
+const transformationSurprise = ({ recursive, admission, frontier, delta }) => {
   const births = admission.bornThisEvent > 0
     ? admission.beings.slice(-admission.bornThisEvent).map(x => ({ id: x.id, surfaces: x.surfaces }))
     : [];
@@ -276,6 +285,7 @@ const transformationSurprise = ({ recursive, admission, delta }) => {
     : [];
   const transformations = freeze({
     ...recursive.transformations,
+    frontier: frontier.delta,
     entityBirths: freeze(births.map(freeze)),
     entityLapses: freeze(lapses.map(freeze)),
     settledAdmissions: delta.admittedKeys,
@@ -287,6 +297,8 @@ const transformationSurprise = ({ recursive, admission, delta }) => {
     withdrawn: delta.withdrawn,
     reorganized: delta.reorganized,
     score: delta.surprise,
+    tension: frontier.tension,
+    release: frontier.release,
   });
 };
 
@@ -317,6 +329,7 @@ export function openExperienceReading({ sourceId, priors = [], entitySpec, langu
     horizon: createSession(),
     entityReading: openReading(entitySpec),
     ontology: createRecursiveOntology(),
+    frontier: createOpenFrontier(),
     trajectory: [],
     priorState: null,
     prefixBytes: 0,
@@ -325,9 +338,9 @@ export function openExperienceReading({ sourceId, priors = [], entitySpec, langu
 }
 
 /**
- * Advance the one canonical reader by exactly one experience event.
- * The supplied state is intentionally persistent and mutable; the returned
- * transition is immutable. No future event is available to this function.
+ * Advance the one canonical text reader by exactly one experience event.
+ * The temporal/ontology/frontier machinery called inside this transition is
+ * modality-neutral; text perception supplies one declared observation source.
  */
 export function advanceReading(state, event) {
   if (!state || state.schema !== EXPERIENCE_READING_STATE_SCHEMA) {
@@ -336,7 +349,7 @@ export function advanceReading(state, event) {
   const i = state.eventIndex;
   validateEvent(event, i);
 
-  const surfPerception = perceiveEvent(event);
+  const surfPerception = perceiveTextEvent(event);
   const admittedEvent = admitExperienceEvent(state.horizon, {
     sourceId: state.sourceId,
     text: event.value,
@@ -345,8 +358,6 @@ export function advanceReading(state, event) {
   });
   state.prefixBytes = admittedEvent.byteEnd;
 
-  // These are derived document projections. An arriving event changes their
-  // source material even when no storage chunk boundary was crossed.
   state.horizon._cast?.delete(state.sourceId);
   state.horizon._surfaces?.delete(state.sourceId);
 
@@ -354,19 +365,33 @@ export function advanceReading(state, event) {
     sourceId: state.sourceId,
     priors: state.priors,
   });
+
+  const observations = observeTextStructure({
+    text: event.value,
+    surf: surfPerception,
+    eventIndex: i,
+    language: state.language,
+    knownIdentities: [...state.ontology.identities.values()],
+  });
   const recursive = advanceRecursiveOntology(state.ontology, {
     eventIndex: i,
-    surf: surfPerception,
-    text: event.value,
-    tentative,
+    observations,
   });
+
   const changes = admitExperienceCandidates(state.entityReading, surfPerception);
   const perturbation = gateThroughWitnessedBeings(tentative, state.entityReading);
   const admission = admissionSnapshot(state.entityReading, surfPerception, tentative, changes);
-  const currentState = { perturbation, recursive };
+  const frontier = advanceFrontier(state.frontier, {
+    eventIndex: i,
+    recursive,
+    perturbation,
+    obligations: event.obligations ?? [],
+  });
+
+  const currentState = { perturbation, recursive, frontier };
   const delta = structuralDelta(state.priorState, currentState);
-  const fold = foldFrom(perturbation, recursive, i, event.end ?? state.prefixBytes);
-  const surprise = transformationSurprise({ recursive, admission, delta });
+  const fold = foldFrom(perturbation, recursive, frontier, i, event.end ?? state.prefixBytes);
+  const surprise = transformationSurprise({ recursive, admission, frontier, delta });
 
   const transition = freeze({
     event: i,
@@ -381,10 +406,12 @@ export function advanceReading(state, event) {
       }),
       perception: surfPerception,
     }),
+    observations,
     tentative,
     admission,
     iterations: recursive.iterations,
     perturbation,
+    frontier,
     fold,
     delta,
     surprise,
