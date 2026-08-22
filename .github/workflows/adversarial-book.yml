@@ -1,0 +1,19 @@
+name: Adversarial book assertions
+on:
+  push:
+    branches: [codex/eot-reasoning-engine]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: curl -L --fail https://www.gutenberg.org/cache/epub/46/pg46.txt -o /tmp/book.txt
+      - run: node scripts/adversarial-christmas-carol.mjs /tmp/book.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adversarial-book-result
+          path: adversarial-book-result.json

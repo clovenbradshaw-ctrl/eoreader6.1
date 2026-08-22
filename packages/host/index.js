@@ -31,6 +31,7 @@ export { admitReading, READING_PIPELINE_SCHEMA, READING_ASSEMBLIES } from "./rea
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
 export { retrievalTask, iterateReasonSession, renderAdversarialRun } from "./adversarial-reasoning.js";
+export { adversariallyResolveAssertions } from "./assertion-resolution.js";
 
 // HL is named in full at the API boundary while preserving the historical HL
 // name as an explicit canonical identity.
