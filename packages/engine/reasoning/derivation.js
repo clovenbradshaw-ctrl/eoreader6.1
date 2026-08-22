@@ -19,7 +19,14 @@ const disjoint = (a, b) => {
   const a0 = scalar(a?.start); const a1 = scalar(a?.end);
   const b0 = scalar(b?.start); const b1 = scalar(b?.end);
   if ([a0, a1, b0, b1].some((v) => v === null)) return false;
-  return Math.min(a1, b1) < Math.max(a0, b0);
+  return Math.min(a1, b1) <= Math.max(a0, b0);
+};
+
+const scopesCompatible = (a, b) => {
+  const a0 = scalar(a?.start); const a1 = scalar(a?.end);
+  const b0 = scalar(b?.start); const b1 = scalar(b?.end);
+  if ([a0, a1, b0, b1].some((v) => v === null)) return true;
+  return Math.max(a0, b0) < Math.min(a1, b1);
 };
 
 /**
@@ -28,15 +35,24 @@ const disjoint = (a, b) => {
  * nominate a pair for checking, but only a named GIVEN HL affordance may
  * license a composed bridge proposition.
  */
+const positiveTuples = (input = []) => input.map((t, i) => normalizeEotTuple(t, i)).filter((t) => !t?.gap && t.polarity > 0);
+const bySubject = (tuples) => {
+  const index = new Map();
+  for (const tuple of tuples) { const key = stable(tuple.subject); if (!index.has(key)) index.set(key, []); index.get(key).push(tuple); }
+  return index;
+};
+
 export function acquireCompositionCandidates(input = [], { minWitnesses = 2 } = {}) {
-  const tuples = input.map((t, i) => t?.cell ? t : normalizeEotTuple(t, i)).filter((t) => !t?.gap && t.polarity > 0);
+  const tuples = positiveTuples(input);
+  const outgoingBySubject = bySubject(tuples);
   const counts = new Map();
-  for (const incoming of tuples) for (const outgoing of tuples) {
-    if (incoming.id === outgoing.id) continue;
-    if (stable(incoming.object) !== stable(outgoing.subject)) continue;
-    const key = `${stable(incoming.predicate)}\u0000${stable(outgoing.predicate)}`;
-    if (!counts.has(key)) counts.set(key, { left: incoming.predicate, right: outgoing.predicate, witnesses: [] });
-    counts.get(key).witnesses.push(freeze([incoming.id, outgoing.id]));
+  for (const incoming of tuples) {
+    for (const outgoing of outgoingBySubject.get(stable(incoming.object)) ?? []) {
+      if (incoming.id === outgoing.id || !scopesCompatible(incoming.scope, outgoing.scope)) continue;
+      const key = `${stable(incoming.predicate)}\u0000${stable(outgoing.predicate)}`;
+      if (!counts.has(key)) counts.set(key, { left: incoming.predicate, right: outgoing.predicate, witnesses: [] });
+      counts.get(key).witnesses.push(freeze([incoming.id, outgoing.id]));
+    }
   }
   return freeze([...counts.values()].filter((x) => x.witnesses.length >= minWitnesses).map((x) => freeze({
     left: x.left,
@@ -47,60 +63,63 @@ export function acquireCompositionCandidates(input = [], { minWitnesses = 2 } = 
 }
 
 const deriveBridgePositions = (tuples, hyperlexicon, withheld) => {
-  const positive = tuples.filter((t) => t.polarity > 0);
+  const positive = positiveTuples(tuples);
+  const outgoingBySubject = bySubject(positive);
   const derived = [];
   const seen = new Set();
 
-  for (const incoming of positive) for (const outgoing of positive) {
-    if (incoming.id === outgoing.id) continue;
-    if (stable(incoming.object) !== stable(outgoing.subject)) continue;
+  for (const incoming of positive) {
+    for (const outgoing of outgoingBySubject.get(stable(incoming.object)) ?? []) {
+      if (incoming.id === outgoing.id || !scopesCompatible(incoming.scope, outgoing.scope)) continue;
 
-    const left = incoming.subject;
-    const bridge = incoming.object;
-    const right = outgoing.object;
-    if (stable(left) === stable(bridge) || stable(bridge) === stable(right) || stable(left) === stable(right)) continue;
+      const left = incoming.subject;
+      const bridge = incoming.object;
+      const right = outgoing.object;
+      if (stable(left) === stable(bridge) || stable(bridge) === stable(right) || stable(left) === stable(right)) continue;
 
-    const affordance = compositionAffordance(hyperlexicon, incoming.predicate, outgoing.predicate);
-    if (affordance.standing !== "given") {
-      withheld.push(freeze({
-        type: "composition_underdetermined",
-        bridge,
-        from: left,
-        to: right,
-        leftPredicate: incoming.predicate,
-        rightPredicate: outgoing.predicate,
-        standing: affordance.standing,
-        tupleIds: freeze([incoming.id, outgoing.id]),
-        reason: "shared-node adjacency does not license composition without a GIVEN Hyperlexicon affordance",
+      const affordance = compositionAffordance(hyperlexicon, incoming.predicate, outgoing.predicate);
+      if (affordance.standing !== "given") {
+        withheld.push(freeze({
+          type: "composition_underdetermined",
+          bridge,
+          from: left,
+          to: right,
+          leftPredicate: incoming.predicate,
+          rightPredicate: outgoing.predicate,
+          standing: affordance.standing,
+          tupleIds: freeze([incoming.id, outgoing.id]),
+          reason: "shared-node adjacency does not license composition without a GIVEN Hyperlexicon affordance",
+        }));
+        continue;
+      }
+
+      const id = `derived:${stable(bridge)}:bridge:${stable(left)}:${stable(right)}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      derived.push(freeze({
+        id,
+        op: "EVA",
+        grain: "Pattern",
+        subject: bridge,
+        predicate: "occupies_bridge_between",
+        object: freeze({ from: left, to: right }),
+        polarity: 1,
+        scope: incoming.scope?.start != null ? incoming.scope : outgoing.scope,
+        dependsOn: freeze([incoming.id, outgoing.id]),
+        meta: freeze({
+          derived: true,
+          structural: true,
+          giver: affordance.giver,
+          composition: freeze({ left: incoming.predicate, right: outgoing.predicate, standing: affordance.standing }),
+          rule: "shared-node adjacency plus a GIVEN Hyperlexicon composition affordance licenses an observed bridge",
+          path: freeze([
+            freeze({ tupleId: incoming.id, subject: incoming.subject, predicate: incoming.predicate, object: incoming.object }),
+            freeze({ tupleId: outgoing.id, subject: outgoing.subject, predicate: outgoing.predicate, object: outgoing.object }),
+          ]),
+        }),
+        cell: cellOf("EVA", "Pattern"),
       }));
-      continue;
     }
-
-    const id = `derived:${stable(bridge)}:bridge:${stable(left)}:${stable(right)}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    derived.push(freeze({
-      id,
-      op: "EVA",
-      grain: "Pattern",
-      subject: bridge,
-      predicate: "occupies_bridge_between",
-      object: freeze({ from: left, to: right }),
-      polarity: 1,
-      dependsOn: freeze([incoming.id, outgoing.id]),
-      meta: freeze({
-        derived: true,
-        structural: true,
-        giver: affordance.giver,
-        composition: freeze({ left: incoming.predicate, right: outgoing.predicate, standing: affordance.standing }),
-        rule: "shared-node adjacency plus a GIVEN Hyperlexicon composition affordance licenses an observed bridge",
-        path: freeze([
-          freeze({ tupleId: incoming.id, subject: incoming.subject, predicate: incoming.predicate, object: incoming.object }),
-          freeze({ tupleId: outgoing.id, subject: outgoing.subject, predicate: outgoing.predicate, object: outgoing.object }),
-        ]),
-      }),
-      cell: cellOf("EVA", "Pattern"),
-    }));
   }
   return derived;
 };
@@ -117,6 +136,7 @@ export function deriveEotInsights(input = [], query = {}, { hyperlexicon = null 
   const withheld = [];
   const derived = [...deriveBridgePositions(tuples, hyperlexicon, withheld)];
   for (const group of groups.values()) {
+    if (query.subject === undefined || query.predicate === undefined) continue;
     const objects = new Set(group.map((t) => stable(t.object)));
     if (objects.size < 2) continue;
     const pairs = [];
