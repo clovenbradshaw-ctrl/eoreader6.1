@@ -1,10 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { openBookReading, advanceBookReading } from '../../packages/host/book-reading.js';
+import { openBookReading, advanceBookReading, assertBookCast } from '../../packages/host/book-reading.js';
 import { discoverParameters } from '../../packages/engine/emergence/parameter-discovery.js';
 import { splitSentences } from '../../packages/engine/perceiver/text/spans.js';
-import { reviewEntities, offerCandidates, carryEntities, refusals, lapsedEntities } from '../../packages/engine/referents/entity.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
@@ -75,14 +74,12 @@ for (let i = 0; i < events.length; i++) {
 }
 const readingElapsedMs = Date.now() - t0;
 
-// Cast membership is a consequential assertion, so challenge the full register
-// exactly once when we make that assertion. This is not ordinary reading and
-// therefore legitimately revisits candidates/beings against the completed
-// causal ground. It does NOT reparse the book.
+// Cast membership is a consequential assertion. Ordinary proposition reading
+// has accumulated witnessed arrivals without repeatedly proving beinghood;
+// challenge the full register once here, against that already-read evidence.
 const castAuditStart = Date.now();
-const lapsedAtAssertion = reviewEntities(state.reader.entityReading);
-const bornAtAssertion = offerCandidates(state.reader.entityReading);
-const castEntities = carryEntities(state.reader.entityReading).map(x => ({ ...x, surfaces: [...(x.surfaces ?? [])] }));
+const castAssertion = assertBookCast(state);
+const castEntities = castAssertion.beings;
 const castAuditElapsedMs = Date.now() - castAuditStart;
 
 // The graph already exists in the Fold. Serialize that live ontology instead
@@ -138,7 +135,7 @@ const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {})
 const finalTransition = trajectory.at(-1)?.transition ?? null;
 
 const report = {
-  schema: 'EOFrankensteinBookEvaluation@4',
+  schema: 'EOFrankensteinBookEvaluation@5',
   source: {
     id: 'gutenberg:84', url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
     bytes: Buffer.byteLength(body), sections: sections.length, propositions: events.length,
@@ -151,9 +148,9 @@ const report = {
   cast: {
     count: castEntities.length,
     referents: castEntities,
-    assertionAudit: { born: bornAtAssertion, lapsed: lapsedAtAssertion },
-    refusals: refusals(state.reader.entityReading),
-    lapsed: lapsedEntities(state.reader.entityReading),
+    assertionAudit: { born: castAssertion.born, lapsed: castAssertion.lapsed },
+    refusals: castAssertion.refusals,
+    lapsed: castAssertion.lapsedEntities,
     identityAlternatives: identities,
   },
   relations: { count: relations.length, rows: relations },
