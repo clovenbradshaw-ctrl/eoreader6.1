@@ -1,15 +1,15 @@
 // Recursive deeper-reading task scheduler.
 //
 // Reading is not a fixed sequence of extractive passes. The Fold itself opens
-// work: unresolved identity, frontier pressure, scope conflict, repeated
-// relation paths, and withheld Hyperlexicon composition all become explicit
-// tasks over already-admitted evidence. Tasks never manufacture conclusions;
-// they name what must be re-read or tested, why, where, and what would close it.
+// work, but unresolved structure is NOT sufficient to earn work. A task exists
+// only when the alternatives make a counterfactual difference downstream.
+
+import { identityDifference, frontierDifference, hyperlexiconDifference } from './difference-gate.js';
 
 const freeze = x => Object.freeze(x);
 const stable = x => typeof x === 'string' ? x : JSON.stringify(x);
 
-export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@2';
+export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@3';
 
 export function createReadingTaskLedger() {
   return {
@@ -28,7 +28,10 @@ const upsert = (ledger, spec, eventIndex) => {
     current.lastTriggeredAt = eventIndex;
     current.triggers = [...current.triggers, spec.trigger];
     current.witnesses = [...current.witnesses, ...(spec.witnesses ?? [])];
-    current.priority = Math.max(current.priority ?? 0, spec.priority ?? 0);
+    current.consequences = [...new Map([
+      ...(current.consequences ?? []).map(x => [stable(x), x]),
+      ...(spec.consequences ?? []).map(x => [stable(x), x]),
+    ]).values()];
     return { type: 'persisted', task: { ...current } };
   }
   const task = {
@@ -38,10 +41,10 @@ const upsert = (ledger, spec, eventIndex) => {
     status: 'open',
     openedAt: eventIndex,
     lastTriggeredAt: eventIndex,
-    priority: spec.priority ?? 1,
     trigger: spec.trigger,
     triggers: [spec.trigger],
     witnesses: [...(spec.witnesses ?? [])],
+    consequences: [...(spec.consequences ?? [])],
     query: spec.query ?? null,
     closure: spec.closure ?? null,
     terrain: spec.terrain ?? null,
@@ -64,13 +67,15 @@ const identityTasks = ({ recursive, eventIndex, byteStart, byteEnd }) => {
   const out = [];
   for (const identity of recursive?.identityAlternatives ?? []) {
     if (identity.standing === 'distinct') continue;
+    const difference = identityDifference(identity, recursive);
+    if (!difference.makesDifference) continue;
     out.push({
       kind: 'resolve_identity',
       terrain: 'Entity',
       target: identity.id,
-      priority: 4,
       trigger: { type: 'identity_alternative', standing: identity.standing, event: eventIndex },
       witnesses: [{ event: eventIndex, byteStart, byteEnd, history: identity.history ?? [] }],
+      consequences: difference.consequences,
       query: { identity: identity.id, seek: ['co-presence', 'segregation', 'displacement', 'explicit-witness'] },
       closure: 'distinct, explicitly witnessed same-being, or stable typed gap',
     });
@@ -81,13 +86,15 @@ const identityTasks = ({ recursive, eventIndex, byteStart, byteEnd }) => {
 const frontierTasks = ({ frontier, eventIndex, byteStart, byteEnd }) => {
   const out = [];
   for (const open of frontier?.open ?? []) {
+    const difference = frontierDifference(open);
+    if (!difference.makesDifference) continue;
     out.push({
       kind: 'resolve_open_structure',
       terrain: open.terrain ?? null,
       target: open.id,
-      priority: 1 + Math.max(0, open.age ?? 0),
       trigger: { type: 'frontier_pressure', standing: open.standing, age: open.age ?? 0, event: eventIndex },
       witnesses: [{ event: eventIndex, byteStart, byteEnd, provenance: open.provenance ?? [] }],
+      consequences: difference.consequences,
       query: { openStructure: open.id, expectation: open.expectation ?? null },
       closure: 'frontier record resolves, reframes, splits, merges, or is superseded',
     });
@@ -98,13 +105,15 @@ const frontierTasks = ({ frontier, eventIndex, byteStart, byteEnd }) => {
 const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteStart, byteEnd }) => {
   const out = [];
   for (const candidate of candidates) {
+    const difference = hyperlexiconDifference(candidate, withheld);
+    if (!difference.makesDifference) continue;
     out.push({
       kind: 'test_hyperlexicon_affordance',
       terrain: 'Network',
       target: { left: candidate.left, right: candidate.right },
-      priority: 2 + Math.min(4, candidate.witnesses?.length ?? 0),
       trigger: { type: 'repeated_relation_adjacency', witnesses: candidate.witnesses?.length ?? 0, event: eventIndex },
       witnesses: [{ event: eventIndex, byteStart, byteEnd, tuplePairs: candidate.witnesses ?? [] }],
+      consequences: difference.consequences,
       query: { composition: [candidate.left, candidate.right], seek: ['counterexample', 'scope-dependence', 'additional-paths'] },
       closure: 'affordance remains candidate, is explicitly GIVEN by a named giver, or is defeated; recurrence alone never grants it',
     });
@@ -114,9 +123,9 @@ const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteSta
       kind: 'inspect_withheld_composition',
       terrain: 'Network',
       target: { left: item.leftPredicate, right: item.rightPredicate, bridge: item.bridge },
-      priority: 2,
       trigger: { type: 'composition_withheld', standing: item.standing, event: eventIndex },
       witnesses: [{ event: eventIndex, byteStart, byteEnd, tupleIds: item.tupleIds ?? [] }],
+      consequences: [{ type: 'blocked_derivation', bridge: item.bridge, from: item.from, to: item.to, tupleIds: item.tupleIds ?? [] }],
       query: { from: item.from, bridge: item.bridge, to: item.to },
       closure: 'a GIVEN affordance licenses the bridge, or evidence preserves the withholding',
     });
@@ -150,21 +159,24 @@ export function advanceReadingTasks(ledger, {
     (result.type === 'opened' ? opened : persisted).push(result.task);
   }
 
-  // Identity/frontier work mirrors current Fold standing. If it is no longer
-  // present as unresolved state, close the task now but keep its history.
   for (const task of ledger.tasks.values()) {
     if (task.status !== 'open' || !autoClosable.has(task.kind) || active.has(task.id)) continue;
     const done = closeReadingTask(ledger, task.id, {
       eventIndex,
-      reason: 'current_fold_no_longer_carries_this_unresolved_structure',
+      reason: 'current_fold_no_longer_carries_a_difference-making_unresolved_structure',
     });
     if (done) closed.push(done);
   }
 
   const open = [...ledger.tasks.values()]
     .filter(x => x.status === 'open')
-    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.openedAt - b.openedAt)
-    .map(x => freeze({ ...x, triggers: freeze([...x.triggers]), witnesses: freeze([...x.witnesses]) }));
+    .sort((a, b) => b.consequences.length - a.consequences.length || a.openedAt - b.openedAt)
+    .map(x => freeze({
+      ...x,
+      triggers: freeze([...x.triggers]),
+      witnesses: freeze([...x.witnesses]),
+      consequences: freeze([...x.consequences]),
+    }));
   const delta = freeze({
     event: eventIndex,
     opened: freeze(opened.map(x => freeze({ ...x }))),
