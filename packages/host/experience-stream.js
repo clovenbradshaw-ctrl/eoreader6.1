@@ -9,7 +9,7 @@
 
 import { createSession } from './corpus.js';
 import { admitExperienceEvent } from './experience-admission.js';
-import { adversariallyResolveAssertions } from './assertion-resolution.js';
+import { eventAssertions } from './event-assertions.js';
 import { createRecursiveOntology, advanceRecursiveOntology } from './recursive-ontology.js';
 import { createOpenFrontier, advanceFrontier } from './frontier.js';
 import { textStructurePriors } from './language-priors.js';
@@ -70,9 +70,6 @@ const structuralKeys = state => {
   for (const x of state.recursive?.provisionalLinks ?? []) {
     out.add(`R:${x.id}:${stable(x.participants)}:${x.relation}:${x.polarity}`);
   }
-  // Persistence belongs to tension, not surprise. Age intentionally does not
-  // participate in the structural key: carrying one unchanged obligation for
-  // another event raises tension without fabricating a new reorganization.
   for (const x of state.frontier?.open ?? []) out.add(`O:${x.id}:${x.standing}`);
   return out;
 };
@@ -185,7 +182,7 @@ const candidateSnapshot = (surf, proposed) => {
       display: c.display ?? surfaces[0] ?? null,
       surfaces: freeze([...surfaces]),
       disposition: c.disposition ?? c.standing ?? 'candidate',
-      giver: c.giver ?? 'document-referent-projection',
+      giver: c.giver ?? 'event-local-observation-projection',
       witnessable: c.witnessable ?? null,
     }));
   }
@@ -343,9 +340,10 @@ export function openExperienceReading({ sourceId, priors = [], entitySpec, langu
 }
 
 /**
- * Advance the one canonical text reader by exactly one experience event.
- * The temporal/ontology/frontier machinery called inside this transition is
- * modality-neutral; text perception supplies one declared observation source.
+ * Advance by appending the current event's observations. The Fold owns the
+ * effect of those observations on accumulated understanding. Whole-horizon
+ * adversarial assertion resolution is an explicit audit operation, not part
+ * of the normal reading loop.
  */
 export function advanceReading(state, event) {
   if (!state || state.schema !== EXPERIENCE_READING_STATE_SCHEMA) {
@@ -363,13 +361,10 @@ export function advanceReading(state, event) {
   });
   state.prefixBytes = admittedEvent.byteEnd;
 
+  // The corpus caches are invalidated because the raw horizon grew, but normal
+  // reading does not immediately recompute whole-document cast/relations.
   state.horizon._cast?.delete(state.sourceId);
   state.horizon._surfaces?.delete(state.sourceId);
-
-  const tentative = adversariallyResolveAssertions(state.horizon, {
-    sourceId: state.sourceId,
-    priors: state.priors,
-  });
 
   const observations = observeTextStructure({
     text: event.value,
@@ -381,6 +376,15 @@ export function advanceReading(state, event) {
   });
   const recursive = advanceRecursiveOntology(state.ontology, {
     eventIndex: i,
+    observations,
+  });
+
+  // Compatibility assertion surface is projected from THIS event's witnessed
+  // observations. Any lasting consequence is carried by recursive ontology /
+  // frontier / Fold, rather than by rescanning all previous text.
+  const tentative = eventAssertions({
+    sourceId: state.sourceId,
+    surf: surfPerception,
     observations,
   });
 
