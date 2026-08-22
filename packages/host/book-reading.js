@@ -2,14 +2,15 @@
 //
 // The canonical reader advances one experience at a time. This host assembly
 // keeps that causal discipline while adding long-horizon work: Hyperlexicon
-// accumulation, deeper-reading task scheduling, and byte-anchored re-reading
-// over material that has already entered the horizon.
+// accumulation, consequence-gated deeper-reading tasks, byte-anchored
+// re-reading, and anonymous parameter discovery from the trajectory itself.
 
 import { openExperienceReading, advanceReading, textExperienceStream } from './experience-stream.js';
 import { searchSpans, readSpan, sessionReferents } from './corpus.js';
 import { createReadingTaskLedger, advanceReadingTasks } from './reading-tasks.js';
 import { createHyperlexicon, admitHyperlexiconCandidates } from '../engine/reasoning/hyperlexicon.js';
 import { deriveEotInsights } from '../engine/reasoning/derivation.js';
+import { discoverParameters } from '../engine/emergence/parameter-discovery.js';
 
 const freeze = x => Object.freeze(x);
 const textOf = value => {
@@ -20,7 +21,7 @@ const textOf = value => {
   return [];
 };
 
-export const BOOK_READING_SCHEMA = 'EOBookReading@1';
+export const BOOK_READING_SCHEMA = 'EOBookReading@2';
 
 const taskQueryText = task => {
   const words = [...textOf(task.query ?? task.target)]
@@ -84,6 +85,7 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
     byteEnd: transition.surf?.admission?.byteEnd ?? transition.surf?.horizonByteEnd ?? null,
     recursive: {
       identityAlternatives: transition.fold?.identityAlternatives ?? [],
+      provisionalLinks: transition.fold?.provisional?.links ?? [],
     },
     frontier: transition.frontier,
     hyperlexiconCandidates: candidates,
@@ -106,17 +108,40 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
   });
 }
 
+const parameterRows = trajectory => {
+  const rows = [];
+  for (let i = 0; i + 1 < trajectory.length; i++) {
+    const here = trajectory[i]?.transition;
+    const next = trajectory[i + 1]?.transition;
+    const distinctions = [
+      ...(here?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+      ...(here?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
+    ];
+    const outcomes = [
+      ...(next?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+      ...(next?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
+    ];
+    rows.push({
+      distinctions,
+      outcomes,
+      provenance: {
+        event: here?.event ?? i,
+        byteStart: here?.surf?.admission?.byteStart ?? null,
+        byteEnd: here?.surf?.admission?.byteEnd ?? null,
+      },
+    });
+  }
+  return rows;
+};
+
 export function readBook({ sourceId, text, events, priors = [], entitySpec, language, hyperlexicon = null, executeTopTasks = 0 } = {}) {
   const stream = events ?? textExperienceStream(text ?? '', { unit: 'paragraph' });
   const state = openBookReading({ sourceId, priors, entitySpec, language, hyperlexicon });
   const trajectory = [];
   for (const event of stream) trajectory.push(advanceBookReading(state, event, { executeTopTasks }));
 
-  const cast = sessionReferents(state.reader.horizon, {
-    sourceId,
-    priors,
-    limit: Infinity,
-  });
+  const cast = sessionReferents(state.reader.horizon, { sourceId, priors, limit: Infinity });
+  const parameterDiscovery = discoverParameters(parameterRows(trajectory));
 
   return freeze({
     schema: BOOK_READING_SCHEMA,
@@ -128,10 +153,12 @@ export function readBook({ sourceId, text, events, priors = [], entitySpec, lang
       gaps: freeze([...(cast.gaps ?? [])]),
     }),
     hyperlexicon: state.hyperlexicon,
+    parameterDiscovery,
     tasks: freeze([...state.tasks.tasks.values()].map(x => freeze({
       ...x,
       triggers: freeze([...(x.triggers ?? [])]),
       witnesses: freeze([...(x.witnesses ?? [])]),
+      consequences: freeze([...(x.consequences ?? [])]),
     }))),
     taskRuns: freeze([...state.taskRuns]),
   });
