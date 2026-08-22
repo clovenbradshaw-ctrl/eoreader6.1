@@ -11,6 +11,7 @@ import { createReadingTaskLedger, advanceReadingTasks } from './reading-tasks.js
 import { createHyperlexicon, admitHyperlexiconCandidates } from '../engine/reasoning/hyperlexicon.js';
 import { deriveEotInsights } from '../engine/reasoning/derivation.js';
 import { discoverParameters } from '../engine/emergence/parameter-discovery.js';
+import { offerCandidates, reviewEntities, carryEntities, refusals, lapsedEntities } from '../engine/referents/entity.js';
 
 const freeze = x => Object.freeze(x);
 const textOf = value => {
@@ -60,6 +61,10 @@ export function executeReadingTask(state, task, { limit = 8, maxBytes = 4000 } =
 
 export function openBookReading({ sourceId, priors = [], entitySpec, language, hyperlexicon = null } = {}) {
   const reader = openExperienceReading({ sourceId, priors, entitySpec, language });
+  // Book reading accumulates witness evidence cheaply. Whether a recurring
+  // surface deserves the stronger ontological assertion "this is a being / cast
+  // member" is tested when that assertion is actually requested.
+  reader.entityReading.deferAssertions = true;
   // A book keeps one current Fold plus append-only deltas. Small audited readers
   // retain complete snapshots; duplicating the entire graph at every proposition
   // is neither required for reconstruction nor computationally lawful at scale.
@@ -71,7 +76,34 @@ export function openBookReading({ sourceId, priors = [], entitySpec, language, h
     hyperlexicon: hyperlexicon ?? createHyperlexicon(),
     taskRuns: [],
     chapters: [],
+    castAssertion: null,
   };
+}
+
+/**
+ * Make the consequential cast assertion once against all evidence accumulated
+ * so far. This does not reread text: it challenges the append-only arrival
+ * record already built during reading. The result can itself motivate deeper
+ * identity work downstream.
+ */
+export function assertBookCast(state) {
+  if (!state || state.schema !== BOOK_READING_SCHEMA) throw new TypeError('assertBookCast: openBookReading state is required');
+  const register = state.reader.entityReading;
+  register.deferAssertions = false;
+  const born = offerCandidates(register);
+  const lapsed = reviewEntities(register);
+  const beings = carryEntities(register).map(x => freeze({ ...x, surfaces: freeze([...(x.surfaces ?? [])]) }));
+  const result = freeze({
+    schema: 'EOBookCastAssertion@1',
+    born,
+    lapsed,
+    beings: freeze(beings),
+    refusals: freeze(refusals(register).map(x => freeze({ ...x }))),
+    lapsedEntities: freeze(lapsedEntities(register).map(x => freeze({ ...x }))),
+  });
+  state.castAssertion = result;
+  register.deferAssertions = true;
+  return result;
 }
 
 export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
@@ -146,7 +178,10 @@ export function readBook({ sourceId, text, events, priors = [], entitySpec, lang
   const trajectory = [];
   for (const event of stream) trajectory.push(advanceBookReading(state, event, { executeTopTasks }));
 
-  const cast = sessionReferents(state.reader.horizon, { sourceId, priors, limit: Infinity });
+  const castAssertion = assertBookCast(state);
+  // Preserve the older corpus referent projection as a diagnostic comparison,
+  // not as the canonical book cast assertion.
+  const projected = sessionReferents(state.reader.horizon, { sourceId, priors, limit: Infinity });
   const parameterDiscovery = discoverParameters(parameterRows(trajectory));
 
   return freeze({
@@ -154,9 +189,10 @@ export function readBook({ sourceId, text, events, priors = [], entitySpec, lang
     sourceId,
     eventCount: stream.length,
     trajectory: freeze(trajectory),
-    cast: freeze({
-      referents: freeze([...(cast.referents ?? [])].map(x => freeze({ ...x }))),
-      gaps: freeze([...(cast.gaps ?? [])]),
+    cast: castAssertion,
+    projectedCast: freeze({
+      referents: freeze([...(projected.referents ?? [])].map(x => freeze({ ...x }))),
+      gaps: freeze([...(projected.gaps ?? [])]),
     }),
     hyperlexicon: state.hyperlexicon,
     parameterDiscovery,
