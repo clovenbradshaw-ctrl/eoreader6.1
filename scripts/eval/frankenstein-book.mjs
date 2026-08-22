@@ -65,7 +65,10 @@ const state = openBookReading({ sourceId: 'gutenberg:84', language: 'en', entity
 const t0 = Date.now();
 for (let i = 0; i < events.length; i++) {
   advanceBookReading(state, events[i], { executeTopTasks: 1 });
-  if ((i + 1) % 250 === 0 || i + 1 === events.length) console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel}`);
+  if ((i + 1) % 250 === 0 || i + 1 === events.length) {
+    const heapMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+    console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel} heapMB=${heapMB} forms=${state.reader.ontology.forms.size} identities=${state.reader.ontology.identities.size} relations=${state.reader.ontology.relations.size} frontier=${state.reader.frontier.records.size} tasks=${state.tasks.tasks.size} eventLog=${state.eventLog.length}`);
+  }
 }
 const readingElapsedMs = Date.now() - t0;
 
