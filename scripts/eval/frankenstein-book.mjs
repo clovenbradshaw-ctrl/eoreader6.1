@@ -7,6 +7,7 @@ import { splitSentences } from '../../packages/engine/perceiver/text/spans.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
+const requestedSection = process.argv[4]?.trim() || null;
 const raw = fs.readFileSync(input, 'utf8').replace(/\r\n/g, '\n');
 
 const startMarkers = [
@@ -34,16 +35,23 @@ body = body.trim();
 
 const heading = /^(?:LETTER\s+[IVXLC0-9]+|CHAPTER\s+[IVXLC0-9]+)\.?\s*$/gim;
 const marks = [...body.matchAll(heading)].map(m => ({ at: m.index, label: m[0].trim() }));
-const sections = [];
+const allSections = [];
 if (marks.length) {
-  if (marks[0].at > 0 && body.slice(0, marks[0].at).trim()) sections.push({ label: 'front-matter', value: body.slice(0, marks[0].at).trim() });
+  if (marks[0].at > 0 && body.slice(0, marks[0].at).trim()) allSections.push({ label: 'front-matter', value: body.slice(0, marks[0].at).trim() });
   for (let i = 0; i < marks.length; i++) {
     const start = marks[i].at;
     const end = marks[i + 1]?.at ?? body.length;
     const value = body.slice(start, end).trim();
-    if (value) sections.push({ label: marks[i].label, value });
+    if (value) allSections.push({ label: marks[i].label, value });
   }
-} else sections.push({ label: 'whole-work', value: body });
+} else allSections.push({ label: 'whole-work', value: body });
+
+const normLabel = x => String(x ?? '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const sections = requestedSection
+  ? allSections.filter(s => normLabel(s.label) === normLabel(requestedSection))
+  : allSections;
+if (!sections.length) throw new Error(`Requested section not found: ${requestedSection}`);
+const selectedBody = sections.map(s => s.value).join('\n\n');
 
 const events = [];
 for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
@@ -60,7 +68,7 @@ for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
 }
 const entitySpec = { window: 16, draws: 64, reseeds: 32, minArrivals: 2 };
 
-console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(body)} sections=${sections.length} propositions=${events.length}`);
+console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(selectedBody)} sections=${sections.length} propositions=${events.length} scope=${requestedSection ?? 'whole-work'}`);
 const state = openBookReading({ sourceId: 'gutenberg:84', language: 'en', entitySpec });
 const t0 = Date.now();
 for (let i = 0; i < events.length; i++) {
@@ -126,10 +134,10 @@ const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {})
 const finalTransition = state.lastTransition;
 
 const report = {
-  schema: 'EOFrankensteinBookEvaluation@6',
+  schema: 'EOFrankensteinBookEvaluation@7',
   source: {
     id: 'gutenberg:84', url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
-    bytes: Buffer.byteLength(body), sections: sections.length, propositions: events.length,
+    scope: requestedSection ?? 'whole-work', bytes: Buffer.byteLength(selectedBody), sections: sections.length, propositions: events.length,
     sectionLabels: sections.map(s => s.label),
   },
   runtime: { readingElapsedMs, castAuditElapsedMs, parameterElapsedMs, elapsedMs: Date.now() - t0 },
@@ -169,7 +177,7 @@ const report = {
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify(report, null, 2));
 console.log(JSON.stringify({
-  sourceBytes: report.source.bytes, sections: report.source.sections, propositions: report.source.propositions,
+  scope: report.source.scope, sourceBytes: report.source.bytes, sections: report.source.sections, propositions: report.source.propositions,
   readingElapsedMs, castAuditElapsedMs, parameterElapsedMs, elapsedMs: report.runtime.elapsedMs,
   cast: report.cast.count, relations: report.relations.count,
   graphNodes: report.graph.nodeCount, graphEdges: report.graph.edgeCount,
