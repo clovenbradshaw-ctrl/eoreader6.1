@@ -10,6 +10,7 @@
 
 import { canonicalHashSync } from '../spec/canonical-json/index.js';
 import { register } from '../../provenance/index.js';
+import { loadAbbreviationPrior } from './language-priors.js';
 
 const CHUNK_SIZE = 2000;
 const MIN_CHUNK_CHARS = 20;
@@ -32,6 +33,13 @@ export function admitExperienceEvent(session, {
   if (!sourceId) throw new TypeError('admitExperienceEvent: sourceId is required');
   if (eventId === undefined || eventId === null) throw new TypeError('admitExperienceEvent: eventId is required');
   if (!text) return { chunks: 0, admitted: [] };
+
+  // corpus.js currently uses doc.language only to address an abbreviation
+  // prior. Keep grammatical language on the ExperienceReading state, but do
+  // not put a language tag on the corpus record unless that exact gift exists.
+  // This prevents a Basque NegationPrior from being misread as an
+  // AbbreviationPrior while preserving English's stronger sentence witness.
+  const corpusLanguage = language && loadAbbreviationPrior(language) ? language : null;
 
   const eventKey = String(eventId);
   let info = session.documents.get(sourceId);
@@ -110,7 +118,7 @@ export function admitExperienceEvent(session, {
     info.pieces = info.pieces.concat(pieces);
     info.text = baseText + text;
     info.experienceEventIds = [...seenEvents, eventKey];
-    if (language) info.language = language;
+    if (corpusLanguage) info.language = corpusLanguage;
   } else {
     info = {
       id: sourceId,
@@ -118,7 +126,7 @@ export function admitExperienceEvent(session, {
       chunks: admitted,
       pieces,
       text,
-      language: language ?? null,
+      language: corpusLanguage,
       admissionHashes: [],
       experienceEventIds: [eventKey],
     };
@@ -131,5 +139,7 @@ export function admitExperienceEvent(session, {
     eventId: eventKey,
     byteStart: baseByte,
     byteEnd: baseByte + byteLength(text),
+    language: language ?? null,
+    corpusLanguage,
   };
 }
