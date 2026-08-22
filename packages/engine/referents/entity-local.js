@@ -2,12 +2,16 @@
 //
 // A normal observation should touch only the beings/candidates whose evidence
 // changed. Full-register review is an explicit assertion/audit operation.
+// Book reading may set `state.deferAssertions = true`: arrivals are still
+// appended exactly as witnessed, but no beinghood claim is repeatedly proved
+// while evidence is merely accumulating.
 
 import { admitEntity, admitFromArrivals } from './entity.js';
 
 const unique = xs => [...new Set((xs ?? []).filter(Boolean))];
 
 export function reviewTouchedEntities(state, surfaces = []) {
+  if (state?.deferAssertions) return 0;
   let lapsedCount = 0;
   for (const surface of unique(surfaces)) {
     const entity = state.entities.get(surface);
@@ -24,6 +28,7 @@ export function reviewTouchedEntities(state, surfaces = []) {
 }
 
 export function offerTouchedCandidates(state, surfaces = []) {
+  if (state?.deferAssertions) return 0;
   let born = 0;
   for (const surface of unique(surfaces)) {
     const at = state.arrivals.get(surface);
