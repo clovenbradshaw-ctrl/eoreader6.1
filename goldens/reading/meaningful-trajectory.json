@@ -1,33 +1,37 @@
 {
-  "schema": "EOReadingSemanticGolden@1",
-  "purpose": "Reject trajectory implementations that agree with each other while merely projecting a cast list instead of reading relational meaning.",
+  "schema": "EOReadingSemanticGolden@2",
+  "purpose": "Reject readers that project perceived name surfaces directly into beinghood. The trajectory must preserve candidate perception separately from witnessed admission, then test relational meaning only once its subject is an admitted being.",
   "events": [
     {
-      "text": "Mara entered the observatory. Ivo remained outside. Mara locked the brass door.\n\n",
+      "text": "Mara entered the observatory. Ivo remained outside. Mara checked the brass door.\n\n",
       "expect": {
-        "castSurfaces": ["Mara", "Ivo"],
-        "meaning": [
-          {"subjectContains":"Mara","predicateContains":"lock","objectContains":"door","polarity":"positive"}
-        ],
-        "mustNotTreatAsCast": ["observatory", "brass door"]
+        "candidateSurfaces": ["Mara", "Ivo"],
+        "beingSurfaces": [],
+        "mustNotTreatAsBeing": ["observatory", "brass door"],
+        "semanticPoint": "Perception is not existence: a first encounter may nominate surfaces without birthing a being."
       }
     },
     {
-      "text": "At dawn Ivo said Mara had never locked the door. The key was still in Ivo's pocket.\n\n",
+      "text": "At dawn Mara returned. Ivo waited outside while Mara examined the latch.\n\n",
       "expect": {
-        "castSurfaces": ["Mara", "Ivo"],
-        "meaning": [
-          {"subjectContains":"Mara","predicateContains":"lock","objectContains":"door"}
-        ],
-        "requiresPerturbation": true
+        "candidateSurfaces": ["Mara", "Ivo"],
+        "semanticPoint": "Recurrence supplies another witnessed arrival; admission is decided by the entity gate, not by this fixture."
       }
     },
     {
-      "text": "Mara showed the broken latch: the door had swung shut by itself.\n\n",
+      "text": "Mara said she had locked the door. Ivo said Mara had never locked it.\n\n",
       "expect": {
-        "castSurfaces": ["Mara", "Ivo"],
-        "requiresReorganization": true,
-        "semanticPoint": "The initial experience that Mara locked the door must no longer remain an uncomplicated surviving assertion; later evidence changes the causal reading rather than merely adding another named entity."
+        "candidateSurfaces": ["Mara", "Ivo"],
+        "requiresPerturbationWhenAdmitted": true,
+        "semanticPoint": "Contradictory testimony must remain contestable if its subject has actually earned admission."
+      }
+    },
+    {
+      "text": "Mara showed the broken latch: the door had swung shut by itself. Ivo watched Mara test it again.\n\n",
+      "expect": {
+        "candidateSurfaces": ["Mara", "Ivo"],
+        "requiresReorganizationWhenAdmitted": true,
+        "semanticPoint": "Later causal evidence may reorganize an admitted reading; the golden does not force premature beinghood merely to make that revision visible."
       }
     }
   ]
