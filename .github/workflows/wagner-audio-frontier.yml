@@ -1,0 +1,34 @@
+name: Wagner audio frontier eval
+
+on:
+  push:
+    branches: [codex/constitutive-adversarial-reading]
+    paths:
+      - 'packages/host/frontier.js'
+      - 'packages/host/frontier-surf.js'
+      - 'packages/engine/perceiver/audio/**'
+      - 'packages/engine/loops/surf.js'
+      - 'scripts/eval/wagner-audio-frontier.mjs'
+      - '.github/workflows/wagner-audio-frontier.yml'
+  workflow_dispatch:
+
+jobs:
+  wagner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch public-domain Wagner audio
+        run: |
+          curl -L --fail --retry 3 \
+            'https://upload.wikimedia.org/wikipedia/commons/6/6e/Wagner_-_die_walkure_fantasie.ogg' \
+            -o /tmp/wagner.ogg
+      - name: Decode bounded excerpt to WAV
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i /tmp/wagner.ogg -t 90 -ac 1 -ar 22050 -c:a pcm_s16le /tmp/wagner.wav
+      - name: Read Wagner without transcript
+        run: node scripts/eval/wagner-audio-frontier.mjs /tmp/wagner.wav
