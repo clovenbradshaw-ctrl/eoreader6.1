@@ -14,7 +14,7 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE = /^\p{Lu}/u;
 const LOWER = /^\p{Ll}/u;
-const APPOSITIONAL_RUN = /^[\p{L}\p{M}'’\s]+$/u;
+const APPOSITIONAL_DELIMITER = /^\s*[,;:—–-]\s*$/u;
 const DETERMINERS = new Set([...DEFINITE_DETERMINERS, ...INDEFINITE_DETERMINERS]);
 
 export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@5';
@@ -74,8 +74,8 @@ const englishIdentityEvidence = (sentences, knownIdentities = []) => {
         if (!TITLE.test(rs[nameAt].token)) continue;
         const descriptorRows = rs.slice(i + 1, nameAt);
         if (!descriptorRows.length || !descriptorRows.every(x => LOWER.test(x.token))) continue;
-        const rawRun = sentenceText.slice(rs[i].charStart, rs[nameAt].charEnd);
-        if (!APPOSITIONAL_RUN.test(rawRun)) continue;
+        const delimiter = sentenceText.slice(descriptorRows.at(-1).charEnd, rs[nameAt].charStart);
+        if (!APPOSITIONAL_DELIMITER.test(delimiter)) continue;
         supports.push(freeze({
           left: descriptorRows.map(x => x.key).join(' '), right: rs[nameAt].key, standing: 'consistent',
           evidence: freeze({ kind: 'text_appositional_shape', sentence: sentenceIndex, start: i, end: nameAt }),
