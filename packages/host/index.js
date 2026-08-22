@@ -36,6 +36,22 @@ export {
   EXPERIENCE_TRAJECTORY_SCHEMA,
 } from "./experience-stream.js";
 
+// Book-scale reading layers recursive work over the same one-event causal
+// transition. It never replaces the reader with a batch second pass.
+export {
+  openBookReading,
+  advanceBookReading,
+  executeReadingTask,
+  readBook,
+  BOOK_READING_SCHEMA,
+} from "./book-reading.js";
+export {
+  createReadingTaskLedger,
+  advanceReadingTasks,
+  closeReadingTask,
+  READING_TASK_LEDGER_SCHEMA,
+} from "./reading-tasks.js";
+
 // Open structure is omnimodal Fold state. These surfaces parse no language:
 // modality-specific perceivers/emergence organs supply unresolved structure;
 // the frontier carries it, and tension/release are derived from that ledger.
