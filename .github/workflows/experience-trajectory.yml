@@ -1,5 +1,7 @@
 name: Experience trajectory conformance
 on:
+  push:
+    branches: [codex/constitutive-adversarial-reading]
   pull_request:
   workflow_dispatch:
 jobs:
