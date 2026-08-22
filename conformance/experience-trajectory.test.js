@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readExperienceStream } from '../packages/host/index.js';
+import { openExperienceReading, advanceReading, readExperienceStream } from '../packages/host/index.js';
 
 const ENTITY_SPEC = { window: 8, draws: 16, reseeds: 8, minArrivals: 2 };
 const e = value => ({ kind: 'text', unit: 'passage', value });
 const read = (sourceId, events) => readExperienceStream({ sourceId, events, entitySpec: ENTITY_SPEC });
+const bytes = s => new TextEncoder().encode(s).length;
 
 test('trajectory: changing future material cannot alter an earlier Fold', () => {
   const first = e('Inside the yard, Alice saw Bob beside the gate.\n\n');
@@ -16,6 +17,27 @@ test('trajectory: changing future material cannot alter an earlier Fold', () => 
   const b = read('blind', [first, futureB]);
   assert.deepEqual(a.trajectory[0], prefix.trajectory[0]);
   assert.deepEqual(b.trajectory[0], prefix.trajectory[0]);
+});
+
+test('trajectory: the live transition sees one event and advances absolute horizon coordinates', () => {
+  const first = e('Inside the yard, Alice saw Bob beside the gate.\n\n');
+  const second = e('Near the wall, Bob spoke while Alice listened.\n\n');
+  const state = openExperienceReading({ sourceId: 'live-blind', entitySpec: ENTITY_SPEC });
+
+  const t0 = advanceReading(state, first);
+  const frozenT0 = structuredClone(t0);
+  assert.equal(state.eventIndex, 1);
+  assert.equal(t0.surf.admission.byteStart, 0);
+  assert.equal(t0.surf.admission.byteEnd, bytes(first.value));
+  assert.equal(t0.surf.horizonByteEnd, bytes(first.value));
+  assert.equal(state.horizon.documents.get('live-blind').text, first.value);
+
+  const t1 = advanceReading(state, second);
+  assert.deepEqual(t0, frozenT0, 'later experience mutated the already-committed prior transition');
+  assert.equal(state.eventIndex, 2);
+  assert.equal(t1.surf.admission.byteStart, bytes(first.value));
+  assert.equal(t1.surf.admission.byteEnd, bytes(first.value + second.value));
+  assert.equal(state.horizon.documents.get('live-blind').text, first.value + second.value);
 });
 
 test('trajectory: a perceived candidate is not silently promoted to a being', () => {
