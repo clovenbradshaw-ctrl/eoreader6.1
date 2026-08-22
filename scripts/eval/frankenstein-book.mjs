@@ -36,9 +36,7 @@ const heading = /^(?:LETTER\s+[IVXLC0-9]+|CHAPTER\s+[IVXLC0-9]+)\.?\s*$/gim;
 const marks = [...body.matchAll(heading)].map(m => ({ at: m.index, label: m[0].trim() }));
 const sections = [];
 if (marks.length) {
-  if (marks[0].at > 0 && body.slice(0, marks[0].at).trim()) {
-    sections.push({ label: 'front-matter', value: body.slice(0, marks[0].at).trim() });
-  }
+  if (marks[0].at > 0 && body.slice(0, marks[0].at).trim()) sections.push({ label: 'front-matter', value: body.slice(0, marks[0].at).trim() });
   for (let i = 0; i < marks.length; i++) {
     const start = marks[i].at;
     const end = marks[i + 1]?.at ?? body.length;
@@ -64,26 +62,18 @@ const entitySpec = { window: 16, draws: 64, reseeds: 32, minArrivals: 2 };
 
 console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(body)} sections=${sections.length} propositions=${events.length}`);
 const state = openBookReading({ sourceId: 'gutenberg:84', language: 'en', entitySpec });
-const trajectory = [];
 const t0 = Date.now();
 for (let i = 0; i < events.length; i++) {
-  trajectory.push(advanceBookReading(state, events[i], { executeTopTasks: 1 }));
-  if ((i + 1) % 250 === 0 || i + 1 === events.length) {
-    console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel}`);
-  }
+  advanceBookReading(state, events[i], { executeTopTasks: 1 });
+  if ((i + 1) % 250 === 0 || i + 1 === events.length) console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel}`);
 }
 const readingElapsedMs = Date.now() - t0;
 
-// Cast membership is a consequential assertion. Ordinary proposition reading
-// has accumulated witnessed arrivals without repeatedly proving beinghood;
-// challenge the full register once here, against that already-read evidence.
 const castAuditStart = Date.now();
 const castAssertion = assertBookCast(state);
 const castEntities = castAssertion.beings;
 const castAuditElapsedMs = Date.now() - castAuditStart;
 
-// The graph already exists in the Fold. Serialize that live ontology instead
-// of running a second whole-document relation/cast extraction pass.
 const ontology = state.reader.ontology;
 const identities = [...ontology.identities.values()].map(x => ({
   id: x.id, left: x.left, right: x.right, standing: x.standing,
@@ -103,10 +93,11 @@ for (const relation of relations) for (const participant of relation.participant
 for (const identity of identities) { nodeValues.add(identity.left); nodeValues.add(identity.right); }
 for (const entity of castEntities) for (const surface of entity.surfaces ?? []) nodeValues.add(surface);
 
+const eventLog = state.eventLog;
 const parameterRows = [];
-for (let i = 0; i + 1 < trajectory.length; i++) {
-  const here = trajectory[i].transition;
-  const next = trajectory[i + 1].transition;
+for (let i = 0; i + 1 < eventLog.length; i++) {
+  const here = eventLog[i];
+  const next = eventLog[i + 1];
   parameterRows.push({
     distinctions: [
       ...(here?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
@@ -116,10 +107,7 @@ for (let i = 0; i + 1 < trajectory.length; i++) {
       ...(next?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
       ...(next?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
     ],
-    provenance: {
-      event: here?.event ?? i, section: events[i]?.sectionLabel ?? null, proposition: events[i]?.proposition ?? null,
-      byteStart: here?.surf?.admission?.byteStart ?? null, byteEnd: here?.surf?.admission?.byteEnd ?? null,
-    },
+    provenance: { event: here.event, section: here.sectionLabel, proposition: here.proposition, byteStart: here.byteStart, byteEnd: here.byteEnd },
   });
 }
 const parameterStart = Date.now();
@@ -132,35 +120,27 @@ const tasks = [...state.tasks.tasks.values()].map(x => ({
 const taskCounts = {};
 for (const task of tasks) taskCounts[`${task.kind}:${task.status}`] = (taskCounts[`${task.kind}:${task.status}`] ?? 0) + 1;
 const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {});
-const finalTransition = trajectory.at(-1)?.transition ?? null;
+const finalTransition = state.lastTransition;
 
 const report = {
-  schema: 'EOFrankensteinBookEvaluation@5',
+  schema: 'EOFrankensteinBookEvaluation@6',
   source: {
     id: 'gutenberg:84', url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
     bytes: Buffer.byteLength(body), sections: sections.length, propositions: events.length,
     sectionLabels: sections.map(s => s.label),
   },
-  runtime: {
-    readingElapsedMs, castAuditElapsedMs, parameterElapsedMs,
-    elapsedMs: Date.now() - t0,
-  },
+  runtime: { readingElapsedMs, castAuditElapsedMs, parameterElapsedMs, elapsedMs: Date.now() - t0 },
+  eventLog,
   cast: {
-    count: castEntities.length,
-    referents: castEntities,
+    count: castEntities.length, referents: castEntities,
     assertionAudit: { born: castAssertion.born, lapsed: castAssertion.lapsed },
-    refusals: castAssertion.refusals,
-    lapsed: castAssertion.lapsedEntities,
+    refusals: castAssertion.refusals, lapsed: castAssertion.lapsedEntities,
     identityAlternatives: identities,
   },
   relations: { count: relations.length, rows: relations },
   graph: {
-    source: 'live-fold-ontology',
-    nodeCount: nodeValues.size,
-    edgeCount: relations.length + identities.length,
-    nodes: [...nodeValues],
-    relations,
-    identities,
+    source: 'live-fold-ontology', nodeCount: nodeValues.size,
+    edgeCount: relations.length + identities.length, nodes: [...nodeValues], relations, identities,
   },
   hyperlexicon: {
     count: hyperlexiconEntries.length,
@@ -186,19 +166,10 @@ const report = {
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify(report, null, 2));
 console.log(JSON.stringify({
-  sourceBytes: report.source.bytes,
-  sections: report.source.sections,
-  propositions: report.source.propositions,
-  readingElapsedMs,
-  castAuditElapsedMs,
-  parameterElapsedMs,
-  elapsedMs: report.runtime.elapsedMs,
-  cast: report.cast.count,
-  relations: report.relations.count,
-  graphNodes: report.graph.nodeCount,
-  graphEdges: report.graph.edgeCount,
-  hyperlexiconCandidates: report.hyperlexicon.candidate,
-  tasks: report.tasks.count,
-  parameters: report.parameters?.parameters?.length ?? 0,
-  output,
+  sourceBytes: report.source.bytes, sections: report.source.sections, propositions: report.source.propositions,
+  readingElapsedMs, castAuditElapsedMs, parameterElapsedMs, elapsedMs: report.runtime.elapsedMs,
+  cast: report.cast.count, relations: report.relations.count,
+  graphNodes: report.graph.nodeCount, graphEdges: report.graph.edgeCount,
+  hyperlexiconCandidates: report.hyperlexicon.candidate, tasks: report.tasks.count,
+  parameters: report.parameters?.parameters?.length ?? 0, output,
 }));
