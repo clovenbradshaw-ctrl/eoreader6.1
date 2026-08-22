@@ -18,8 +18,6 @@ export function createRecursiveOntology() {
     identities: new Map(),
     relations: new Map(),
     relationCount: 0,
-    // Full snapshots are useful for small audited goldens. Book reading flips
-    // this to true and keeps history as deltas while current state remains here.
     compact: false,
   };
 }
@@ -30,6 +28,17 @@ const identityRecord = x => freeze({
   supportEvents: freeze([...x.supportEvents]),
   attackEvents: freeze([...x.attackEvents]),
   history: freeze(x.history.map(h => freeze({ ...h }))),
+});
+const identityDeltaRecord = x => freeze({
+  id: x.id,
+  left: x.left,
+  right: x.right,
+  descriptor: x.descriptor,
+  name: x.name,
+  standing: x.standing,
+  latestSupportEvent: x.supportEvents.size ? Math.max(...x.supportEvents) : null,
+  latestAttackEvent: x.attackEvents.size ? Math.max(...x.attackEvents) : null,
+  latestAct: x.history.length ? freeze({ ...x.history.at(-1) }) : null,
 });
 const formSnapshot = state => freeze([...state.forms.values()].map(formRecord));
 const identitySnapshot = state => freeze([...state.identities.values()].map(identityRecord));
@@ -173,9 +182,6 @@ const compactAdvance = (state, { eventIndex, observations }) => {
   const relationAdmissions = addRelations(state, observations, eventIndex);
   const localIds = new Set(relationAdmissions.map(x => x.relationId));
 
-  // Identity revision may alter old edges, but only edges touching the changed
-  // identity neighborhood are relevant. This scan happens only when identity
-  // evidence actually changed, not for every proposition.
   const relationRecanonicalizations = [];
   if (identity.touchedValues.size) {
     for (const relation of state.relations.values()) {
@@ -188,11 +194,13 @@ const compactAdvance = (state, { eventIndex, observations }) => {
     }
   }
 
-  const localReasoning = [];
-  for (const id of identity.touchedIds) {
-    const identityRecordNow = [...state.identities.values()].find(x => x.id === id);
-    if (identityRecordNow) localReasoning.push(identityAsRelation(identityRecordNow));
+  const touchedIdentityRecords = [];
+  for (const record of state.identities.values()) {
+    if (identity.touchedIds.has(record.id)) touchedIdentityRecords.push(record);
   }
+
+  const localReasoning = [];
+  for (const record of touchedIdentityRecords) localReasoning.push(identityAsRelation(record));
   for (const id of localIds) {
     const relation = state.relations.get(id);
     if (relation) localReasoning.push(storedAsReasoningRelation(state, relation));
@@ -204,7 +212,14 @@ const compactAdvance = (state, { eventIndex, observations }) => {
     freeze({ pass:1, phase:'after-ontology-transform', eot:freeze(localReasoning.map(roleRelationToEot)), roleRelations:freeze(localReasoning), reasoning:afterReasoning, acts:freeze([...identity.acts, ...(afterReasoning.acts ?? [])]) }),
   ];
 
-  const localForms = touchedForms.map(k => state.forms.get(k)).filter(Boolean).map(formRecord);
+  // Compact mode returns only what changed. Full current state remains in the
+  // ontology maps and is reconstructed/queryable there; it is never embedded
+  // into every proposition transition.
+  const localForms = touchedForms.map(k => state.forms.get(k)).filter(Boolean).map(x => freeze({
+    id:x.id, key:x.key, display:x.display, kind:x.kind, standing:x.standing,
+    firstEvent:x.firstEvent, giver:x.giver, latestEvent:eventIndex,
+  }));
+  const localIdentities = touchedIdentityRecords.map(identityDeltaRecord);
   const localLinks = [...localIds].map(id => state.relations.get(id)).filter(Boolean).map(x => relationRecord(state, x));
   const transformations = freeze({
     identityOpens:freeze(identity.opened.map(freeze)), identitySupports:freeze(identity.supported.map(freeze)), identitySplits:freeze(identity.splits.map(freeze)),
@@ -214,7 +229,7 @@ const compactAdvance = (state, { eventIndex, observations }) => {
     observationSchema:observations.schema ?? null,
     observationGiver:observations.giver ?? null,
     observationGaps:freeze([...(observations.gaps ?? [])]),
-    identityAlternatives:identitySnapshot(state),
+    identityAlternatives:freeze(localIdentities),
     provisionalEntities:freeze(localForms),
     provisionalLinks:freeze(localLinks),
     iterations:freeze(iterations),
