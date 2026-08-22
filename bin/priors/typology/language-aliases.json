@@ -1,0 +1,24 @@
+{
+  "schema": "SystemAliasPrior@1",
+  "about": "Addresses declared language tags into the modality-neutral order-convention systems. This file carries naming only, never grammar.",
+  "provenance": {
+    "basis": "ISO 639-1 / ISO 639-3 correspondences for the natural-language systems already present in order-conventions.json",
+    "method": "hand-entered address map; no structural claim is introduced here"
+  },
+  "aliases": {
+    "en": "nl:eng",
+    "eng": "nl:eng",
+    "eu": "nl:eus",
+    "eus": "nl:eus",
+    "ja": "nl:jpn",
+    "jpn": "nl:jpn",
+    "hi": "nl:hin",
+    "hin": "nl:hin",
+    "cy": "nl:cym",
+    "cym": "nl:cym",
+    "ar": "nl:arb",
+    "arb": "nl:arb",
+    "de": "nl:deu",
+    "deu": "nl:deu"
+  }
+}
