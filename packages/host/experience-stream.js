@@ -1,16 +1,17 @@
 // Constitutive adversarial reading: one canonical stateful pipeline.
 //
-// ExperienceStream -> Surf(t) -> prior Fold(t-1) -> tentative experience
-// -> adversarial perturbation -> witnessed admission -> Fold(t) -> surprise.
+// ExperienceStream -> Surf(t) -> prior Fold(t-1) -> provisional ontology
+// -> recursive adversarial reasoning -> witnessed admission -> Fold(t)
+// -> structural surprise.
 //
-// Surf perception is intentionally permissive: perceiving a form is not the
-// same act as admitting a being. Admission remains causal and witnessed.
+// Perception, provisional standing, and settled beinghood remain distinct.
 
 import { createSession, admitChunked } from './corpus.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
+import { createRecursiveOntology, advanceRecursiveOntology } from './recursive-ontology.js';
 import { tokenize } from '../engine/perceiver/text/material.js';
 import { splitSentences } from '../engine/perceiver/text/spans.js';
-import { extractSurfaces, diaNorm } from '../engine/perceiver/text/surfaces.js';
+import { extractSurfaces } from '../engine/perceiver/text/surfaces.js';
 import {
   openReading,
   arrive,
@@ -26,12 +27,12 @@ import { isGap } from '../../nul/index.js';
 const freeze = x => Object.freeze(x);
 const utf8 = new TextEncoder();
 const bytes = s => utf8.encode(String(s ?? '')).length;
-const key = x => JSON.stringify(x);
+const stable = x => JSON.stringify(x);
 const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@6';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@7';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -47,19 +48,36 @@ export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   return freeze(out);
 }
 
-const assertionKeys = resolution => new Set([
-  ...(resolution.cast ?? []).map(x => `E:${x.referent}:${x.disposition}`),
-  ...(resolution.links ?? []).map(x => `L:${key(x.assertion)}:${x.disposition}`),
-]);
+const structuralKeys = state => {
+  const out = new Set();
+  if (!state) return out;
+  for (const x of state.perturbation?.cast ?? []) out.add(`E:${x.referent}:${x.disposition}`);
+  for (const x of state.perturbation?.links ?? []) out.add(`L:${stable(x.assertion)}:${x.disposition}`);
+  for (const x of state.recursive?.identityAlternatives ?? []) out.add(`I:${x.id}:${x.standing}`);
+  for (const x of state.recursive?.provisionalEntities ?? []) out.add(`P:${x.id}:${x.standing}`);
+  for (const x of state.recursive?.provisionalLinks ?? []) {
+    out.add(`R:${x.id}:${stable(x.subjectAlternatives)}:${x.predicate}:${x.object}:${x.polarity}`);
+  }
+  return out;
+};
 
 const structuralDelta = (before, after) => {
-  const A = before ? assertionKeys(before) : new Set();
-  const B = assertionKeys(after);
-  let admitted = 0, withdrawn = 0;
-  for (const x of B) if (!A.has(x)) admitted++;
-  for (const x of A) if (!B.has(x)) withdrawn++;
+  const A = structuralKeys(before);
+  const B = structuralKeys(after);
+  const admittedKeys = [];
+  const withdrawnKeys = [];
+  for (const x of B) if (!A.has(x)) admittedKeys.push(x);
+  for (const x of A) if (!B.has(x)) withdrawnKeys.push(x);
+  const reorganized = admittedKeys.length + withdrawnKeys.length;
   const denominator = Math.max(1, A.size + B.size);
-  return freeze({ admitted, withdrawn, reorganized: admitted + withdrawn, surprise: (admitted + withdrawn) / denominator });
+  return freeze({
+    admitted: admittedKeys.length,
+    withdrawn: withdrawnKeys.length,
+    reorganized,
+    surprise: reorganized / denominator,
+    admittedKeys: freeze(admittedKeys),
+    withdrawnKeys: freeze(withdrawnKeys),
+  });
 };
 
 const lexicalSpans = sentence => {
@@ -77,9 +95,6 @@ const lexicalSpans = sentence => {
 const titlecaseRuns = sentence => {
   const words = [...sentence.text.matchAll(WORD)].map(m => m[0]);
   const out = [];
-  // Sentence-initial capitalisation alone is grammatical evidence. It remains
-  // perceptible through lexicalSpans; another occurrence in this event can
-  // still make the same form witnessable when the candidate records merge.
   let i = 1;
   while (i < words.length) {
     if (!TITLE_WORD.test(words[i])) { i++; continue; }
@@ -178,10 +193,6 @@ const admitExperienceCandidates = (entityReading, surf) => {
     }))
     .filter(c => c.surface && c.tokens.length);
 
-  // Entity existence is measured over the lexical stream in causal order.
-  // The outer passage and its sentences remain Surf boundaries; each token is
-  // the Figure organ's reach-unit, so `window: 8` means an eight-token present
-  // rather than eight paragraphs or eight whole sentences.
   for (const sentence of surf.sentences) {
     const tokens = tokenize(sentence.text);
     for (let at = 0; at < tokens.length; at++) {
@@ -227,15 +238,44 @@ const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
   unit: changes.unit,
 });
 
-const foldFrom = (perturbation, i, byteEnd) => freeze({
+const foldFrom = (perturbation, recursive, i, byteEnd) => freeze({
   cursor: freeze({ event: i, byteEnd }),
   cast: perturbation.cast,
   links: perturbation.links,
+  identityAlternatives: recursive.identityAlternatives,
+  provisional: freeze({
+    entities: recursive.provisionalEntities,
+    links: recursive.provisionalLinks,
+  }),
   unresolved: freeze([
     ...perturbation.cast.filter(x => String(x.disposition).startsWith('unresolved') || String(x.disposition).startsWith('needs_')),
     ...perturbation.links.filter(x => x.disposition !== 'survives' && x.disposition !== 'survives_scoped'),
+    ...recursive.identityAlternatives.filter(x => x.standing !== 'distinct'),
   ]),
 });
+
+const transformationSurprise = ({ recursive, admission, delta }) => {
+  const births = admission.bornThisEvent > 0
+    ? admission.beings.slice(-admission.bornThisEvent).map(x => ({ id:x.id, surfaces:x.surfaces }))
+    : [];
+  const lapses = admission.lapsedThisEvent > 0
+    ? admission.lapsed.slice(-admission.lapsedThisEvent).map(x => ({ surface:x.surface, at:x.at }))
+    : [];
+  const transformations = freeze({
+    ...recursive.transformations,
+    entityBirths: freeze(births.map(freeze)),
+    entityLapses: freeze(lapses.map(freeze)),
+    settledAdmissions: delta.admittedKeys,
+    settledWithdrawals: delta.withdrawnKeys,
+  });
+  return freeze({
+    transformations,
+    admitted: delta.admitted,
+    withdrawn: delta.withdrawn,
+    reorganized: delta.reorganized,
+    score: delta.surprise,
+  });
+};
 
 const validate = ({ sourceId, events, entitySpec }) => {
   if (!sourceId) throw new TypeError('readExperienceStream: sourceId is required');
@@ -252,8 +292,9 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
   validate({ sourceId, events, entitySpec });
   const horizon = createSession();
   const entityReading = openReading(entitySpec);
+  const ontology = createRecursiveOntology();
   const trajectory = [];
-  let priorFold = null;
+  let priorState = null;
   let prefixBytes = 0;
 
   for (let i = 0; i < events.length; i++) {
@@ -263,23 +304,34 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
     prefixBytes += bytes(event.value);
     horizon._cast?.delete(sourceId);
     horizon._surfaces?.delete(sourceId);
+
     const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
+    const recursive = advanceRecursiveOntology(ontology, {
+      eventIndex: i,
+      surf: surfPerception,
+      text: event.value,
+      tentative,
+    });
     const changes = admitExperienceCandidates(entityReading, surfPerception);
     const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
     const admission = admissionSnapshot(entityReading, surfPerception, tentative, changes);
-    const fold = foldFrom(perturbation, i, event.end ?? prefixBytes);
-    const delta = structuralDelta(priorFold, perturbation);
+    const currentState = { perturbation, recursive };
+    const delta = structuralDelta(priorState, currentState);
+    const fold = foldFrom(perturbation, recursive, i, event.end ?? prefixBytes);
+    const surprise = transformationSurprise({ recursive, admission, delta });
 
     trajectory.push(freeze({
       event: i,
       surf: freeze({ ...event, horizonByteEnd: prefixBytes, perception: surfPerception }),
       tentative,
       admission,
+      iterations: recursive.iterations,
       perturbation,
       fold,
       delta,
+      surprise,
     }));
-    priorFold = perturbation;
+    priorState = currentState;
   }
 
   return freeze({ schema: EXPERIENCE_TRAJECTORY_SCHEMA, sourceId, eventCount: events.length, trajectory: freeze(trajectory) });
