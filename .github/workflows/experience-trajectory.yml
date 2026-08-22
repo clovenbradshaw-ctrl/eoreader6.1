@@ -11,4 +11,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test conformance/experience-trajectory.test.js conformance/reading-semantic-golden.test.js conformance/net-new-blind-reading.test.js
+      - run: node --test conformance/experience-trajectory.test.js conformance/reading-semantic-golden.test.js conformance/net-new-blind-reading.test.js conformance/recursive-reading-golden.test.js
