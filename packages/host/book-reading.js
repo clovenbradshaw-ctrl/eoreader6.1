@@ -161,5 +161,10 @@ export function readBook({ sourceId, text, events, priors = [], entitySpec, lang
       consequences: freeze([...(x.consequences ?? [])]),
     }))),
     taskRuns: freeze([...state.taskRuns]),
+    // Host/evaluation composition handle. This is deliberately not a second
+    // reader: it is the exact live state that produced every public result
+    // above, exposed so downstream host organs can compile/query the final
+    // graph without re-reading or reconstructing the source.
+    _reader: state.reader,
   });
 }
