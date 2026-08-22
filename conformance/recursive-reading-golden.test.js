@@ -30,6 +30,22 @@ test('recursive golden: trajectory exposes identity alternatives and applied EO 
   assert.ok(acts.includes('DEF'), 'defeated Rowan=courier hypothesis was not explicitly refused');
 });
 
+test('recursive golden: a reasoner-created identity obligation accumulates tension and releases on resolution', () => {
+  const reading = read('recursive-frontier');
+  const opened = reading.trajectory[0];
+  const carried = reading.trajectory[1];
+  const collision = reading.trajectory[2];
+
+  assert.ok(opened.frontier.delta.opened.some(x => x.kind === 'identity_alternative'),
+    'live Rowan/courier identity did not open an experiential obligation');
+  assert.ok(opened.fold.tension > 0, 'open identity alternative produced no tension');
+  assert.ok(carried.fold.tension > opened.fold.tension,
+    'unresolved identity did not accumulate pressure while carried forward');
+  assert.ok(collision.frontier.delta.resolved.some(x => x.kind === 'identity_alternative'),
+    'SEG/DEF did not close the prior identity obligation');
+  assert.ok(collision.fold.release > 0, 'closing the carried identity produced no release');
+});
+
 test('recursive golden: ontology revision re-canonicalizes affected relations before Fold commit', () => {
   const reading = read('recursive-recanonicalize');
   const collision = reading.trajectory[2];
