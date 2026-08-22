@@ -9,7 +9,7 @@
 const freeze = x => Object.freeze(x);
 const stable = x => typeof x === 'string' ? x : JSON.stringify(x);
 
-export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@1';
+export const READING_TASK_LEDGER_SCHEMA = 'EOReadingTaskLedger@2';
 
 export function createReadingTaskLedger() {
   return {
@@ -124,6 +124,8 @@ const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteSta
   return out;
 };
 
+const autoClosable = new Set(['resolve_identity', 'resolve_open_structure']);
+
 export function advanceReadingTasks(ledger, {
   eventIndex,
   byteStart,
@@ -141,11 +143,24 @@ export function advanceReadingTasks(ledger, {
     ...frontierTasks({ frontier, eventIndex, byteStart, byteEnd }),
     ...hyperlexiconTasks({ candidates: hyperlexiconCandidates, withheld: withheldCompositions, eventIndex, byteStart, byteEnd }),
   ];
-  const opened = [], persisted = [];
+  const active = new Set(specs.map(spec => spec.id ?? taskId(spec.kind, spec.target)));
+  const opened = [], persisted = [], closed = [];
   for (const spec of specs) {
     const result = upsert(ledger, spec, eventIndex);
     (result.type === 'opened' ? opened : persisted).push(result.task);
   }
+
+  // Identity/frontier work mirrors current Fold standing. If it is no longer
+  // present as unresolved state, close the task now but keep its history.
+  for (const task of ledger.tasks.values()) {
+    if (task.status !== 'open' || !autoClosable.has(task.kind) || active.has(task.id)) continue;
+    const done = closeReadingTask(ledger, task.id, {
+      eventIndex,
+      reason: 'current_fold_no_longer_carries_this_unresolved_structure',
+    });
+    if (done) closed.push(done);
+  }
+
   const open = [...ledger.tasks.values()]
     .filter(x => x.status === 'open')
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.openedAt - b.openedAt)
@@ -154,6 +169,7 @@ export function advanceReadingTasks(ledger, {
     event: eventIndex,
     opened: freeze(opened.map(x => freeze({ ...x }))),
     persisted: freeze(persisted.map(x => freeze({ ...x }))),
+    closed: freeze(closed),
   });
   ledger.history.push(delta);
   return freeze({ schema: READING_TASK_LEDGER_SCHEMA, open: freeze(open), delta });
