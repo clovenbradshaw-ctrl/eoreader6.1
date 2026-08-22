@@ -4,7 +4,7 @@ import path from 'node:path';
 import { openBookReading, advanceBookReading } from '../../packages/host/book-reading.js';
 import { admitGraph, sessionGraphSnapshot } from '../../packages/host/graph.js';
 import { sessionRelations, sessionReferents } from '../../packages/host/corpus.js';
-import { discoverTrajectoryParameters } from '../../packages/engine/emergence/parameter-discovery.js';
+import { discoverParameters } from '../../packages/engine/emergence/parameter-discovery.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
@@ -52,21 +52,22 @@ const relations = sessionRelations(state.reader.horizon, { sourceId: 'gutenberg:
 const graphAdmission = admitGraph(state.reader.horizon, { sourceId: 'gutenberg:84' });
 const graph = sessionGraphSnapshot(state.reader.horizon, { limit: 100 });
 
-const parameterObservations = trajectory.map((entry, i) => ({
-  event: i,
+const parameterRows = trajectory.slice(0, -1).map((entry, i) => ({
   distinctions: [
-    ...(entry.transition?.delta?.admittedKeys ?? []).map(key => ({ id: `admit:${key}`, value: 1, provenance: { event: i } })),
-    ...(entry.transition?.delta?.withdrawnKeys ?? []).map(key => ({ id: `withdraw:${key}`, value: 1, provenance: { event: i } })),
+    ...(entry.transition?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+    ...(entry.transition?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
   ],
-  outcome: i + 1 < trajectory.length ? {
-    reorganized: trajectory[i + 1].transition?.surprise?.reorganized ?? 0,
-    identitySplits: trajectory[i + 1].transition?.surprise?.transformations?.identitySplits?.length ?? 0,
-    relationRecanonicalizations: trajectory[i + 1].transition?.surprise?.transformations?.relationRecanonicalizations?.length ?? 0,
-    frontierOpened: trajectory[i + 1].transition?.frontier?.delta?.opened?.length ?? 0,
-    frontierResolved: trajectory[i + 1].transition?.frontier?.delta?.resolved?.length ?? 0,
-  } : null,
+  outcomes: [
+    ...(trajectory[i + 1].transition?.delta?.admittedKeys ?? []).map(key => ({ change: 'admitted', key })),
+    ...(trajectory[i + 1].transition?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
+  ],
+  provenance: {
+    event: i,
+    byteStart: entry.transition?.surf?.admission?.byteStart ?? null,
+    byteEnd: entry.transition?.surf?.admission?.byteEnd ?? null,
+  },
 }));
-const parameters = discoverTrajectoryParameters(parameterObservations.filter(x => x.outcome));
+const parameters = discoverParameters(parameterRows);
 
 const tasks = [...state.tasks.tasks.values()].map(x => ({
   ...x,
