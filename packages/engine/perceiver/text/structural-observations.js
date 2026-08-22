@@ -1,7 +1,7 @@
 // Text structural observations for the constitutive reader.
 //
 // IMPORTANT: this is a perceiver adapter, not EOT. Grammatical assumptions
-// belong here and must be declared by language. The recursive ontology and
+// belong here and enter as received system priors. The recursive ontology and
 // reasoning layers consume role-neutral observations and never inspect word
 // order, capitalization, determiners, or lexical tokens.
 
@@ -17,7 +17,7 @@ const LOWER = /^\p{Ll}/u;
 const APPOSITIONAL_RUN = /^[\p{L}\p{M}'’\s]+$/u;
 const DETERMINERS = new Set([...DEFINITE_DETERMINERS, ...INDEFINITE_DETERMINERS]);
 
-export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@3';
+export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@4';
 
 const rows = text => [...String(text ?? '').matchAll(WORD)].map((m, i) => ({
   token: m[0],
@@ -33,11 +33,6 @@ const stripLeadingDeterminer = value => {
   return String(value ?? '').trim();
 };
 
-// Surf is deliberately permissive; ontology is not. Generic lexical n-grams
-// remain visible in surf.perception.candidates but do not become provisional
-// beings merely because they occurred. Only witnessable/referent-shaped forms
-// cross this boundary automatically. Descriptor/object forms can still enter
-// reasoning as participants in explicit identity/relation observations.
 const formRows = surf => (surf.candidates ?? [])
   .filter(c => c.witnessable)
   .map(c => freeze({
@@ -48,6 +43,35 @@ const formRows = surf => (surf.candidates ?? [])
     witnessable: true,
     giver: c.giver,
   }));
+
+// Grammar-free floor. Co-presence is a real Link observation and does not
+// require any language to have subject/object/verb roles at all.
+const coPresenceRelations = ({ surf, eventIndex, forms }) => {
+  const out = [];
+  let n = 0;
+  for (let sentenceIndex = 0; sentenceIndex < (surf.sentences ?? []).length; sentenceIndex++) {
+    const text = surf.sentences[sentenceIndex].text;
+    const present = forms.filter(f => ` ${norm(text)} `.includes(` ${f.key} `));
+    for (let i = 0; i < present.length; i++) {
+      for (let j = i + 1; j < present.length; j++) {
+        out.push(roleRelation({
+          id: `text-copresence:${eventIndex}:${n++}`,
+          op: 'CON',
+          grain: 'Figure',
+          relation: 'co_present_in_unit',
+          participants: [
+            { role: 'member', value: present[i].key },
+            { role: 'member', value: present[j].key },
+          ],
+          scope: { start: eventIndex, end: eventIndex + 1 },
+          witness: { event: eventIndex, sentence: sentenceIndex, source: 'text/structural-floor' },
+          meta: { giver: 'material:co-presence', grammaticalShape: null },
+        }));
+      }
+    }
+  }
+  return freeze(out);
+};
 
 const englishIdentityEvidence = (sentences, knownIdentities = []) => {
   const supports = [];
@@ -142,10 +166,6 @@ const englishRelations = ({ text, surf, eventIndex, identitySupports, forms, pos
     .filter(x => x.surface);
   if (!names.length) return freeze([]);
 
-  // Event-local relation discovery is permissive with respect to material
-  // frequency, but not with respect to received grammar. POSPrior@1 is the
-  // existing repo mechanism that refuses non-verb-dominant connectors such as
-  // "again" without hardcoding an adverb list in this adapter.
   const discovered = discoverRelationVocab(text, {
     surfaces: names,
     functionWords: null,
@@ -176,51 +196,124 @@ const englishRelations = ({ text, surf, eventIndex, identitySupports, forms, pos
     })));
 };
 
-export function observeTextStructure({ text, surf, eventIndex = 0, language, knownIdentities = [], posPrior = null } = {}) {
+// Conservative generic adapter for received POSITION-marked systems. It only
+// acts on a three-token clause whose received order has exactly one S, V and O.
+// Longer/elliptical clauses remain gaps until a richer language adapter exists.
+const positionMarkedRelations = ({ surf, eventIndex, orderConvention }) => {
+  if (!orderConvention || orderConvention.role_marking !== 'position') return freeze([]);
+  if (!Array.isArray(orderConvention.order) || orderConvention.order.length !== 3) return freeze([]);
+  const slots = orderConvention.order;
+  if ([...slots].sort().join('') !== ['O', 'S', 'V'].sort().join('')) return freeze([]);
+  const out = [];
+  let n = 0;
+  for (let sentenceIndex = 0; sentenceIndex < (surf.sentences ?? []).length; sentenceIndex++) {
+    const rs = rows(surf.sentences[sentenceIndex].text);
+    if (rs.length !== 3) continue;
+    const byRole = new Map(slots.map((role, i) => [role, rs[i]]));
+    const S = byRole.get('S');
+    const V = byRole.get('V');
+    const O = byRole.get('O');
+    if (!S || !V || !O) continue;
+    out.push(roleRelation({
+      id: `text-order-role:${eventIndex}:${n++}`,
+      op: 'CON',
+      grain: 'Figure',
+      relation: V.key,
+      participants: [
+        { role: 'actor', value: S.key, witness: { event: eventIndex, token: S.at } },
+        { role: 'undergoer', value: O.key, witness: { event: eventIndex, token: O.at } },
+      ],
+      scope: { start: eventIndex, end: eventIndex + 1 },
+      witness: { event: eventIndex, sentence: sentenceIndex, source: orderConvention.systemId },
+      meta: {
+        giver: orderConvention.giver,
+        systemId: orderConvention.systemId,
+        grammaticalShape: slots.join(''),
+        rigidity: orderConvention.rigidity,
+        roleMarking: orderConvention.role_marking,
+      },
+    }));
+  }
+  return freeze(out);
+};
+
+export function observeTextStructure({
+  text,
+  surf,
+  eventIndex = 0,
+  language,
+  knownIdentities = [],
+  posPrior = null,
+  orderConvention = null,
+} = {}) {
   if (!surf) throw new TypeError('observeTextStructure: surf is required');
   const forms = freeze(formRows(surf));
-
-  if (language !== 'en') {
-    return freeze({
-      schema: TEXT_STRUCTURE_SCHEMA,
-      language: language ?? null,
-      giver: null,
-      forms,
-      identitySupports: freeze([]),
-      identityAttacks: freeze([]),
-      relations: freeze([]),
-      gaps: freeze([freeze({
-        reason: language ? 'no_text_structure_adapter_for_language' : 'undeclared_text_language',
-        language: language ?? null,
-        detail: 'role/identity structure was not inferred; no language grammar was declared',
-      })]),
-    });
-  }
-
-  const identity = englishIdentityEvidence(surf.sentences ?? [], knownIdentities);
-  const relations = englishRelations({
-    text,
-    surf,
-    eventIndex,
-    identitySupports: identity.supports,
-    forms,
-    posPrior,
-  });
+  const floor = coPresenceRelations({ surf, eventIndex, forms });
   const gaps = [];
-  if (!posPrior) gaps.push(freeze({
-    reason: 'missing_pos_prior',
-    language: 'en',
-    detail: 'English structural observation proceeded without a received POS prior; connector ambiguity remains unresolved',
-  }));
+
+  let identity = { supports: freeze([]), attacks: freeze([]) };
+  let grammarRelations = freeze([]);
+
+  if (language === 'en') {
+    identity = englishIdentityEvidence(surf.sentences ?? [], knownIdentities);
+    grammarRelations = englishRelations({
+      text,
+      surf,
+      eventIndex,
+      identitySupports: identity.supports,
+      forms,
+      posPrior,
+    });
+    if (!posPrior) gaps.push(freeze({
+      reason: 'missing_pos_prior',
+      language: 'en',
+      detail: 'English structural observation proceeded without a received POS prior; connector ambiguity remains unresolved',
+    }));
+  } else if (orderConvention?.role_marking === 'position') {
+    grammarRelations = positionMarkedRelations({ surf, eventIndex, orderConvention });
+    if (!grammarRelations.length) gaps.push(freeze({
+      reason: 'position_adapter_no_safe_clause',
+      language: language ?? null,
+      systemId: orderConvention.systemId,
+      detail: 'received order exists, but no minimal clause was safe enough for the conservative position adapter',
+    }));
+  } else if (orderConvention?.role_marking === 'case') {
+    gaps.push(freeze({
+      reason: 'missing_case_realisation_prior',
+      language: language ?? null,
+      systemId: orderConvention.systemId,
+      detail: 'roles are received as case-marked for this system; word order was not used as a substitute for morphology',
+    }));
+  } else if (orderConvention?.rigidity === 'none') {
+    gaps.push(freeze({
+      reason: 'no_dominant_order',
+      language: language ?? null,
+      systemId: orderConvention.systemId,
+      detail: 'the received typology explicitly reports no dominant order; no positional roles were inferred',
+    }));
+  } else {
+    gaps.push(freeze({
+      reason: language ? 'no_safe_grammar_adapter' : 'undeclared_text_language',
+      language: language ?? null,
+      detail: 'language-neutral co-presence was retained; typed grammatical roles were not inferred',
+    }));
+  }
 
   return freeze({
     schema: TEXT_STRUCTURE_SCHEMA,
-    language: 'en',
-    giver: 'lang/en:text-structure@1',
+    language: language ?? null,
+    giver: orderConvention?.giver ?? (language === 'en' ? 'lang/en:text-structure@1' : 'material:co-presence'),
+    orderConvention: orderConvention ? freeze({
+      systemId: orderConvention.systemId,
+      order: orderConvention.order ? freeze([...orderConvention.order]) : null,
+      rigidity: orderConvention.rigidity,
+      roleMarking: orderConvention.role_marking,
+      giver: orderConvention.giver,
+    }) : null,
     forms,
     identitySupports: identity.supports,
     identityAttacks: identity.attacks,
-    relations,
+    relations: freeze([...floor, ...grammarRelations]),
     gaps: freeze(gaps),
   });
 }
