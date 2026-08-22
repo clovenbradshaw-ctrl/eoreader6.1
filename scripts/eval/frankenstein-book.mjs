@@ -5,6 +5,7 @@ import { openBookReading, advanceBookReading } from '../../packages/host/book-re
 import { admitGraph, sessionGraphSnapshot } from '../../packages/host/graph.js';
 import { sessionRelations, sessionReferents } from '../../packages/host/corpus.js';
 import { discoverParameters } from '../../packages/engine/emergence/parameter-discovery.js';
+import { splitSentences } from '../../packages/engine/perceiver/text/spans.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
@@ -33,9 +34,8 @@ if (endMarker) {
 }
 body = body.trim();
 
-// Read in the source's authored order and authored structural units. We do not
-// create arbitrary fixed windows: letters and chapters are the book's own
-// boundaries. Front matter before the first heading remains one initial unit.
+// Authored sections preserve nesting/order; propositions are the actual causal
+// reading ticks inside those containers.
 const heading = /^(?:LETTER\s+[IVXLC0-9]+|CHAPTER\s+[IVXLC0-9]+)\.?\s*$/gim;
 const marks = [...body.matchAll(heading)].map(m => ({ at: m.index, label: m[0].trim() }));
 const sections = [];
@@ -50,32 +50,42 @@ if (marks.length) {
     if (value) sections.push({ label: marks[i].label, value });
   }
 } else {
-  // Typed fallback: if the edition's heading typography is unrecognized, use
-  // paragraphs rather than silently inventing chapters.
-  for (const [i, value] of body.split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean).entries()) {
-    sections.push({ label: `paragraph:${i}`, value });
-  }
+  sections.push({ label: 'whole-work', value: body });
 }
 
-const events = sections.map((section, i) => ({
-  kind: 'text',
-  unit: section.label.startsWith('LETTER') || section.label.startsWith('CHAPTER') ? 'authored-section' : 'passage',
-  value: section.value + '\n\n',
-  section: i,
-  label: section.label,
-}));
+const events = [];
+for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+  const section = sections[sectionIndex];
+  const propositions = splitSentences(section.value);
+  for (let propositionIndex = 0; propositionIndex < propositions.length; propositionIndex++) {
+    const proposition = propositions[propositionIndex];
+    if (!proposition.text?.trim()) continue;
+    events.push({
+      kind: 'text',
+      unit: 'proposition',
+      value: proposition.text.trim() + '\n',
+      section: sectionIndex,
+      sectionLabel: section.label,
+      proposition: propositionIndex,
+    });
+  }
+}
 const entitySpec = { window: 16, draws: 64, reseeds: 32, minArrivals: 2 };
 
-console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(body)} sections=${events.length} headings=${marks.length}`);
+console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(body)} sections=${sections.length} propositions=${events.length}`);
 const state = openBookReading({ sourceId: 'gutenberg:84', language: 'en', entitySpec });
 const trajectory = [];
 const t0 = Date.now();
 for (let i = 0; i < events.length; i++) {
   trajectory.push(advanceBookReading(state, events[i], { executeTopTasks: 1 }));
-  console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].label}`);
+  if ((i + 1) % 250 === 0 || i + 1 === events.length) {
+    console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel}`);
+  }
 }
 const elapsedMs = Date.now() - t0;
 
+// These are final views over the already-admitted source. They are not part of
+// the causal read loop.
 const cast = sessionReferents(state.reader.horizon, { sourceId: 'gutenberg:84', limit: Infinity });
 const relations = sessionRelations(state.reader.horizon, { sourceId: 'gutenberg:84' });
 const graphAdmission = admitGraph(state.reader.horizon, { sourceId: 'gutenberg:84' });
@@ -96,7 +106,8 @@ for (let i = 0; i + 1 < trajectory.length; i++) {
     ],
     provenance: {
       event: here?.event ?? i,
-      label: events[i]?.label ?? null,
+      section: events[i]?.sectionLabel ?? null,
+      proposition: events[i]?.proposition ?? null,
       byteStart: here?.surf?.admission?.byteStart ?? null,
       byteEnd: here?.surf?.admission?.byteEnd ?? null,
     },
@@ -116,13 +127,14 @@ const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {})
 const finalTransition = trajectory.at(-1)?.transition ?? null;
 
 const report = {
-  schema: 'EOFrankensteinBookEvaluation@2',
+  schema: 'EOFrankensteinBookEvaluation@3',
   source: {
     id: 'gutenberg:84',
     url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
     bytes: Buffer.byteLength(body),
-    sections: events.length,
-    sectionLabels: events.map(e => e.label),
+    sections: sections.length,
+    propositions: events.length,
+    sectionLabels: sections.map(s => s.label),
   },
   runtime: { elapsedMs },
   cast: {
@@ -175,6 +187,7 @@ fs.writeFileSync(output, JSON.stringify(report, null, 2));
 console.log(JSON.stringify({
   sourceBytes: report.source.bytes,
   sections: report.source.sections,
+  propositions: report.source.propositions,
   elapsedMs,
   cast: report.cast.count,
   relations: report.relations.count,
