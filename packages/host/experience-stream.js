@@ -3,9 +3,8 @@
 // ExperienceStream -> Surf(t) -> prior Fold(t-1) -> tentative experience
 // -> adversarial perturbation -> witnessed admission -> Fold(t) -> surprise.
 //
-// There is intentionally no second production reader. Temporal blindness is
-// tested by changing/appending future events and proving earlier snapshots do
-// not change.
+// Surf perception is intentionally permissive: perceiving a form is not the
+// same act as admitting a being. Admission remains causal and witnessed.
 
 import { createSession, admitChunked } from './corpus.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
@@ -29,8 +28,10 @@ const utf8 = new TextEncoder();
 const bytes = s => utf8.encode(String(s ?? '')).length;
 const key = x => JSON.stringify(x);
 const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
+const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@4';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@5';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -61,20 +62,81 @@ const structuralDelta = (before, after) => {
   return freeze({ admitted, withdrawn, reorganized: admitted + withdrawn, surprise: (admitted + withdrawn) / denominator });
 };
 
+const lexicalSpans = sentence => {
+  const words = [...sentence.text.matchAll(WORD)].map(m => m[0]);
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    for (let n = 1; n <= 3 && i + n <= words.length; n++) {
+      const surface = words.slice(i, i + n).join(' ');
+      if (surface.length >= 2) out.push(surface);
+    }
+  }
+  return out;
+};
+
+const titlecaseRuns = sentence => {
+  const words = [...sentence.text.matchAll(WORD)].map(m => m[0]);
+  const out = [];
+  // Sentence-initial capitalisation is grammatical evidence only. It remains
+  // perceptible through lexicalSpans, but does not become witnessable merely
+  // because it opened a sentence.
+  let i = 1;
+  while (i < words.length) {
+    if (!TITLE_WORD.test(words[i])) { i++; continue; }
+    let j = i;
+    while (j < words.length && TITLE_WORD.test(words[j])) j++;
+    const run = words.slice(i, j);
+    for (let n = 1; n <= Math.min(4, run.length); n++) out.push(run.slice(0, n).join(' '));
+    i = j;
+  }
+  return out;
+};
+
 const perceiveEvent = event => {
   const sentences = splitSentences(event.value);
-  const surfaces = extractSurfaces(sentences);
+  const strictNames = extractSurfaces(sentences);
+  const candidates = new Map();
+
+  const add = (surface, detail = {}) => {
+    const k = norm(surface);
+    if (!k) return;
+    const current = candidates.get(k);
+    candidates.set(k, freeze({
+      id: current?.id ?? `surf:${candidates.size}:${k}`,
+      display: current?.display ?? surface,
+      surfaces: freeze([current?.display ?? surface]),
+      standing: 'candidate',
+      witnessable: Boolean(current?.witnessable || detail.witnessable),
+      giver: current?.giver === 'event-local-name-surface' || detail.giver === 'event-local-name-surface'
+        ? 'event-local-name-surface'
+        : detail.giver ?? current?.giver ?? 'event-local-lexical-form',
+      mentions: Math.max(current?.mentions ?? 0, detail.mentions ?? 0),
+      sentenceCount: Math.max(current?.sentenceCount ?? 0, detail.sentenceCount ?? 0),
+    }));
+  };
+
+  for (const s of strictNames) add(s.surface, {
+    witnessable: true,
+    giver: 'event-local-name-surface',
+    mentions: s.mentions,
+    sentenceCount: s.sentences,
+  });
+  for (const sentence of sentences) {
+    for (const surface of titlecaseRuns(sentence)) add(surface, {
+      witnessable: true,
+      giver: 'event-local-name-surface',
+      mentions: 1,
+      sentenceCount: 1,
+    });
+    for (const surface of lexicalSpans(sentence)) add(surface, {
+      witnessable: false,
+      giver: 'event-local-lexical-form',
+    });
+  }
+
   return freeze({
     sentences: freeze(sentences.map(s => freeze({ text:s.text, offset:s.offset, order:s.order }))),
-    candidates: freeze(surfaces.map((s, i) => freeze({
-      id: `surf:${i}:${diaNorm(s.surface)}`,
-      display: s.surface,
-      surfaces: freeze([s.surface]),
-      mentions: s.mentions,
-      sentenceCount: s.sentences,
-      standing: 'candidate',
-      giver: 'event-local-perception',
-    }))),
+    candidates: freeze([...candidates.values()]),
   });
 };
 
@@ -92,15 +154,26 @@ const candidateSnapshot = (surf, proposed) => {
       surfaces: freeze([...surfaces]),
       disposition: c.disposition ?? c.standing ?? 'candidate',
       giver: c.giver ?? 'document-referent-projection',
+      witnessable: c.witnessable ?? null,
     }));
   }
   return freeze(out);
 };
 
-const admitExperienceCandidates = (entityReading, surf, event) => {
-  arrive(entityReading, tokenize(event.value));
-  for (const c of surf.candidates ?? []) {
-    for (const surface of c.surfaces ?? []) witnessArrival(entityReading, norm(surface));
+const containsForm = (text, surface) => ` ${norm(text)} `.includes(` ${norm(surface)} `);
+
+const admitExperienceCandidates = (entityReading, surf) => {
+  // The material's meaningful sentence units, not the outer passage container,
+  // are the arrivals the Entity witness gate compares. This preserves order
+  // and gives recurrence an actual temporal shape.
+  for (const sentence of surf.sentences) {
+    arrive(entityReading, tokenize(sentence.text));
+    for (const c of surf.candidates ?? []) {
+      if (!c.witnessable) continue;
+      for (const surface of c.surfaces ?? []) {
+        if (containsForm(sentence.text, surface)) witnessArrival(entityReading, norm(surface));
+      }
+    }
   }
   const lapsed = reviewEntities(entityReading);
   const born = offerCandidates(entityReading);
@@ -173,7 +246,7 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
     horizon._cast?.delete(sourceId);
     horizon._surfaces?.delete(sourceId);
     const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
-    const changes = admitExperienceCandidates(entityReading, surfPerception, event);
+    const changes = admitExperienceCandidates(entityReading, surfPerception);
     const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
     const admission = admissionSnapshot(entityReading, surfPerception, tentative, changes);
     const fold = foldFrom(perturbation, i, event.end ?? prefixBytes);
