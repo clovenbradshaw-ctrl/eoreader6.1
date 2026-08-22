@@ -21,7 +21,10 @@ test('trajectory: changing future material cannot alter an earlier Fold', () => 
 test('trajectory: a perceived candidate is not silently promoted to a being', () => {
   const reading = read('candidate-not-being', [e('Inside the observatory, Mara checked the brass door.\n\n')]);
   const step = reading.trajectory[0];
-  assert.ok(step.tentative.cast.some(x => (x.surfaces ?? []).some(s => /mara/i.test(s))), 'Mara should be perceptible as a candidate');
+  assert.ok(
+    step.surf.perception.candidates.some(x => (x.surfaces ?? []).some(s => /mara/i.test(s))),
+    'Mara should be perceptible at Surf before document-scale referent projection',
+  );
   assert.equal(step.admission.beings.length, 0, 'one encounter does not earn beinghood');
   assert.equal(step.fold.cast.length, 0, 'Fold must not confuse candidate surfaces with admitted beings');
 });
