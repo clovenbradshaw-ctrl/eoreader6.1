@@ -17,7 +17,7 @@ const LOWER = /^\p{Ll}/u;
 const APPOSITIONAL_RUN = /^[\p{L}\p{M}'’\s]+$/u;
 const DETERMINERS = new Set([...DEFINITE_DETERMINERS, ...INDEFINITE_DETERMINERS]);
 
-export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@1';
+export const TEXT_STRUCTURE_SCHEMA = 'EOTextStructuralObservations@2';
 
 const rows = text => [...String(text ?? '').matchAll(WORD)].map((m, i) => ({
   token: m[0],
@@ -33,14 +33,21 @@ const stripLeadingDeterminer = value => {
   return String(value ?? '').trim();
 };
 
-const formRows = surf => (surf.candidates ?? []).map(c => freeze({
-  id: c.id,
-  display: c.display ?? c.surfaces?.[0] ?? null,
-  key: norm(c.display ?? c.surfaces?.[0]),
-  kind: c.witnessable ? 'name_candidate' : 'form_candidate',
-  witnessable: Boolean(c.witnessable),
-  giver: c.giver,
-}));
+// Surf is deliberately permissive; ontology is not. Generic lexical n-grams
+// remain visible in surf.perception.candidates but do not become provisional
+// beings merely because they occurred. Only witnessable/referent-shaped forms
+// cross this boundary automatically. Descriptor/object forms can still enter
+// reasoning as participants in explicit identity/relation observations.
+const formRows = surf => (surf.candidates ?? [])
+  .filter(c => c.witnessable)
+  .map(c => freeze({
+    id: c.id,
+    display: c.display ?? c.surfaces?.[0] ?? null,
+    key: norm(c.display ?? c.surfaces?.[0]),
+    kind: 'name_candidate',
+    witnessable: true,
+    giver: c.giver,
+  }));
 
 const englishIdentityEvidence = (sentences, knownIdentities = []) => {
   const supports = [];
@@ -50,11 +57,6 @@ const englishIdentityEvidence = (sentences, knownIdentities = []) => {
     const sentenceText = sentences[sentenceIndex].text;
     const rs = rows(sentenceText);
 
-    // Appositional/name-like shape only: determiner + 1..3 lowercase forms +
-    // capitalized name, e.g. "the courier Rowan" / "the hooded courier Rowan".
-    // Punctuation is part of the evidence: "the station, Nora" is NOT the
-    // same structural shape and must not become one merely because tokenization
-    // discarded the comma.
     for (let i = 0; i < rs.length; i++) {
       if (!DETERMINERS.has(rs[i].key)) continue;
       for (let nameAt = i + 2; nameAt <= Math.min(i + 4, rs.length - 1); nameAt++) {
