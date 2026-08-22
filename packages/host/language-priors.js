@@ -39,9 +39,7 @@ export function loadPosPrior(language) {
   if (raw.schema !== 'POSPrior@1') {
     throw new TypeError(`loadPosPrior: expected POSPrior@1, got ${raw.schema}`);
   }
-  if (!raw.provenance?.source) {
-    throw new TypeError('loadPosPrior: received prior must name its giver');
-  }
+  if (!raw.provenance?.source) throw new TypeError('loadPosPrior: received prior must name its giver');
   return raw;
 }
 
@@ -62,14 +60,28 @@ export function loadOrderConvention(language) {
   return Object.freeze({ schema: conventions.schema, systemId, ...system });
 }
 
+export function loadCaseRealisationPrior(language) {
+  if (!language) return null;
+  const path = new URL(`${language}-case-realisation.json`, TYPOLOGY_ROOT);
+  if (!fs.existsSync(path)) return null;
+  const raw = readJson(path);
+  if (raw.schema !== 'CaseRealisationPrior@1') {
+    throw new TypeError(`loadCaseRealisationPrior: expected CaseRealisationPrior@1, got ${raw.schema}`);
+  }
+  if (!raw.provenance?.source) throw new TypeError('loadCaseRealisationPrior: received prior must name its giver');
+  return Object.freeze(raw);
+}
+
 export function textStructurePriors(language) {
   const abbreviation = loadAbbreviationPrior(language);
   const loadedPos = loadPosPrior(language);
   const order = loadOrderConvention(language);
+  const caseRealisation = loadCaseRealisationPrior(language);
+  const carried = { orderConvention: order, caseRealisation };
   const pos = loadedPos
-    ? Object.freeze({ ...loadedPos, orderConvention: order })
-    : order
-      ? Object.freeze({ schema: 'POSPriorGap@1', orderConvention: order })
+    ? Object.freeze({ ...loadedPos, ...carried })
+    : (order || caseRealisation)
+      ? Object.freeze({ schema: 'POSPriorGap@1', ...carried })
       : null;
   const gaps = [];
   if (language && !abbreviation) gaps.push({
@@ -84,6 +96,10 @@ export function textStructurePriors(language) {
     reason: 'missing_order_convention_prior', language,
     detail: `declared language ${language} is not addressed by the omnimodal OrderConventionPrior@1`,
   });
+  if (order?.role_marking === 'case' && !caseRealisation) gaps.push({
+    reason: 'missing_case_realisation_prior', language,
+    detail: `received typology says roles are case-marked for ${language}, but no CaseRealisationPrior@1 is installed`,
+  });
   if (!language) gaps.push({
     reason: 'undeclared_text_language', language: null,
     detail: 'language-specific grammatical roles will not be inferred without a declared language',
@@ -94,6 +110,7 @@ export function textStructurePriors(language) {
     corpusLanguage: abbreviation ? language : null,
     pos,
     order,
+    caseRealisation,
     gaps: Object.freeze(gaps.map(Object.freeze)),
   });
 }
