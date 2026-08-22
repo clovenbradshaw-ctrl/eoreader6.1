@@ -31,8 +31,14 @@ test('net-new sample: one blind pipeline acquires beings and changes its reading
   // to become a being.
   const second = reading.trajectory[1];
   const beings = second.admission.beings.flatMap(x => x.surfaces ?? []).map(norm);
-  assert.ok(beings.some(x => x.includes('sela')), `Sela was never admitted; beings=${JSON.stringify(beings)}`);
-  assert.ok(beings.some(x => x.includes('arun')), `Arun was never admitted; beings=${JSON.stringify(beings)}`);
+  const diagnostics = {
+    beings,
+    refusals: second.admission.refusals.filter(x => /sela|arun/i.test(x.surface ?? '')),
+    candidates: second.admission.candidates.filter(x => (x.surfaces ?? []).some(s => /sela|arun/i.test(s))),
+    unit: second.admission.unit,
+  };
+  assert.ok(beings.some(x => x.includes('sela')), `Sela was never admitted: ${JSON.stringify(diagnostics)}`);
+  assert.ok(beings.some(x => x.includes('arun')), `Arun was never admitted: ${JSON.stringify(diagnostics)}`);
   assert.ok(!beings.some(x => x === 'ropes' || x === 'notebook'), 'ordinary mentioned objects were promoted into cast beings');
 
   // Event 2 is the first evidence that attacks the repeated working-beacon
