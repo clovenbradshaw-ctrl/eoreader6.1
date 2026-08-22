@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readBook } from '../../packages/host/book-reading.js';
+import { openBookReading, advanceBookReading } from '../../packages/host/book-reading.js';
 import { admitGraph, sessionGraphSnapshot } from '../../packages/host/graph.js';
-import { sessionRelations } from '../../packages/host/corpus.js';
+import { sessionRelations, sessionReferents } from '../../packages/host/corpus.js';
+import { discoverTrajectoryParameters } from '../../packages/engine/emergence/parameter-discovery.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
@@ -18,21 +19,17 @@ const endMarkers = [
   '*** END OF THIS PROJECT GUTENBERG EBOOK FRANKENSTEIN',
 ];
 
-const findMarker = (markers) => {
-  for (const marker of markers) {
-    const i = raw.toUpperCase().indexOf(marker);
-    if (i >= 0) return i;
-  }
-  return -1;
-};
-
-const startAt = findMarker(startMarkers);
-const endAt = findMarker(endMarkers);
+const upper = raw.toUpperCase();
+const startMarker = startMarkers.find(m => upper.includes(m));
+const endMarker = endMarkers.find(m => upper.includes(m));
 let body = raw;
-if (startAt >= 0) body = raw.slice(raw.indexOf('\n', startAt) + 1);
-if (endAt >= 0) {
-  const relative = body.toUpperCase().indexOf(endMarkers.find(m => body.toUpperCase().includes(m)) ?? '___NO_MARKER___');
-  if (relative >= 0) body = body.slice(0, relative);
+if (startMarker) {
+  const at = upper.indexOf(startMarker);
+  body = raw.slice(raw.indexOf('\n', at) + 1);
+}
+if (endMarker) {
+  const at = body.toUpperCase().indexOf(endMarker);
+  if (at >= 0) body = body.slice(0, at);
 }
 body = body.trim();
 
@@ -41,28 +38,46 @@ const events = paragraphs.map((value, i) => ({ kind: 'text', unit: 'paragraph', 
 const entitySpec = { window: 16, draws: 64, reseeds: 32, minArrivals: 2 };
 
 console.error(`FRANKENSTEIN_INPUT bytes=${Buffer.byteLength(body)} paragraphs=${events.length}`);
+const state = openBookReading({ sourceId: 'gutenberg:84', language: 'en', entitySpec });
+const trajectory = [];
 const t0 = Date.now();
-const book = readBook({
-  sourceId: 'gutenberg:84',
-  events,
-  language: 'en',
-  entitySpec,
-  executeTopTasks: 1,
-});
+for (let i = 0; i < events.length; i++) {
+  trajectory.push(advanceBookReading(state, events[i], { executeTopTasks: 1 }));
+  if ((i + 1) % 100 === 0) console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length}`);
+}
 const elapsedMs = Date.now() - t0;
 
-// Compile the already-admitted full source into the repository's existing
-// belief graph once, after the causal read. This avoids double-counting the
-// same document at every event while still exposing a mechanically queryable
-// graph over the final discovered cast and relation surface.
-const graphAdmission = admitGraph(book._reader?.horizon ?? book.reader?.horizon ?? null, { sourceId: 'gutenberg:84' });
-const graph = sessionGraphSnapshot(book._reader?.horizon ?? book.reader?.horizon ?? null, { limit: 100 });
-const relations = sessionRelations(book._reader?.horizon ?? book.reader?.horizon ?? null, { sourceId: 'gutenberg:84' });
+const cast = sessionReferents(state.reader.horizon, { sourceId: 'gutenberg:84', limit: Infinity });
+const relations = sessionRelations(state.reader.horizon, { sourceId: 'gutenberg:84' });
+const graphAdmission = admitGraph(state.reader.horizon, { sourceId: 'gutenberg:84' });
+const graph = sessionGraphSnapshot(state.reader.horizon, { limit: 100 });
 
+const parameterObservations = trajectory.map((entry, i) => ({
+  event: i,
+  distinctions: [
+    ...(entry.transition?.delta?.admittedKeys ?? []).map(key => ({ id: `admit:${key}`, value: 1, provenance: { event: i } })),
+    ...(entry.transition?.delta?.withdrawnKeys ?? []).map(key => ({ id: `withdraw:${key}`, value: 1, provenance: { event: i } })),
+  ],
+  outcome: i + 1 < trajectory.length ? {
+    reorganized: trajectory[i + 1].transition?.surprise?.reorganized ?? 0,
+    identitySplits: trajectory[i + 1].transition?.surprise?.transformations?.identitySplits?.length ?? 0,
+    relationRecanonicalizations: trajectory[i + 1].transition?.surprise?.transformations?.relationRecanonicalizations?.length ?? 0,
+    frontierOpened: trajectory[i + 1].transition?.frontier?.delta?.opened?.length ?? 0,
+    frontierResolved: trajectory[i + 1].transition?.frontier?.delta?.resolved?.length ?? 0,
+  } : null,
+}));
+const parameters = discoverTrajectoryParameters(parameterObservations.filter(x => x.outcome));
+
+const tasks = [...state.tasks.tasks.values()].map(x => ({
+  ...x,
+  triggers: [...(x.triggers ?? [])],
+  witnesses: [...(x.witnesses ?? [])],
+  consequences: [...(x.consequences ?? [])],
+}));
 const taskCounts = {};
-for (const task of book.tasks ?? []) taskCounts[`${task.kind}:${task.status}`] = (taskCounts[`${task.kind}:${task.status}`] ?? 0) + 1;
-const hyperlexiconEntries = Object.values(book.hyperlexicon?.composition ?? {});
-const finalTransition = book.trajectory?.at(-1)?.transition ?? null;
+for (const task of tasks) taskCounts[`${task.kind}:${task.status}`] = (taskCounts[`${task.kind}:${task.status}`] ?? 0) + 1;
+const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {});
+const finalTransition = trajectory.at(-1)?.transition ?? null;
 
 const report = {
   schema: 'EOFrankensteinBookEvaluation@1',
@@ -74,9 +89,9 @@ const report = {
   },
   runtime: { elapsedMs },
   cast: {
-    count: book.cast?.referents?.length ?? 0,
-    referents: book.cast?.referents ?? [],
-    gaps: book.cast?.gaps ?? [],
+    count: cast.referents?.length ?? 0,
+    referents: cast.referents ?? [],
+    gaps: cast.gaps ?? [],
   },
   relations: {
     count: relations.relations?.length ?? 0,
@@ -99,12 +114,12 @@ const report = {
     entries: hyperlexiconEntries,
   },
   tasks: {
-    count: book.tasks?.length ?? 0,
+    count: tasks.length,
     byKindAndStatus: taskCounts,
-    rows: book.tasks ?? [],
-    runs: book.taskRuns ?? [],
+    rows: tasks,
+    runs: state.taskRuns ?? [],
   },
-  parameters: book.parameters ?? null,
+  parameters,
   finalFold: finalTransition ? {
     event: finalTransition.event,
     horizonByteEnd: finalTransition.surf?.horizonByteEnd ?? null,
