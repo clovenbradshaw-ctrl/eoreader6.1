@@ -10,6 +10,8 @@
 import { createSession, admitChunked } from './corpus.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
 import { tokenize } from '../engine/perceiver/text/material.js';
+import { splitSentences } from '../engine/perceiver/text/spans.js';
+import { extractSurfaces, diaNorm } from '../engine/perceiver/text/surfaces.js';
 import {
   openReading,
   arrive,
@@ -28,7 +30,7 @@ const bytes = s => utf8.encode(String(s ?? '')).length;
 const key = x => JSON.stringify(x);
 const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@3';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@4';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -59,25 +61,52 @@ const structuralDelta = (before, after) => {
   return freeze({ admitted, withdrawn, reorganized: admitted + withdrawn, surprise: (admitted + withdrawn) / denominator });
 };
 
-const surfacePresent = (text, surface) => {
-  const needle = norm(surface);
-  if (!needle) return false;
-  return ` ${norm(text)} `.includes(` ${needle} `);
+// SURF perception is intentionally earlier and weaker than referent admission.
+// It answers only: what candidate forms did THIS event make available to the
+// reader? It does not say that a candidate is a being, nor that two surfaces
+// name one being. Those are later, defeasible Fold questions.
+const perceiveEvent = event => {
+  const sentences = splitSentences(event.value);
+  const surfaces = extractSurfaces(sentences);
+  return freeze({
+    sentences: freeze(sentences.map(s => freeze({ text:s.text, offset:s.offset, order:s.order }))),
+    candidates: freeze(surfaces.map((s, i) => freeze({
+      id: `surf:${i}:${diaNorm(s.surface)}`,
+      display: s.surface,
+      surfaces: freeze([s.surface]),
+      mentions: s.mentions,
+      sentenceOrders: freeze([...(s.sentences ?? [])]),
+      standing: 'candidate',
+      giver: 'event-local-perception',
+    }))),
+  });
 };
 
-const candidateSnapshot = proposed => freeze((proposed.cast ?? []).map(x => freeze({
-  referent: x.referent,
-  display: x.display,
-  surfaces: freeze([...(x.surfaces ?? [])]),
-  disposition: x.disposition,
-})));
+const candidateSnapshot = (surf, proposed) => {
+  const out = [];
+  const seen = new Set();
+  for (const c of [...(surf.candidates ?? []), ...(proposed.cast ?? [])]) {
+    const surfaces = c.surfaces ?? (c.display ? [c.display] : []);
+    const k = surfaces.map(norm).sort().join('|');
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(freeze({
+      referent: c.referent ?? null,
+      display: c.display ?? surfaces[0] ?? null,
+      surfaces: freeze([...surfaces]),
+      disposition: c.disposition ?? c.standing ?? 'candidate',
+      giver: c.giver ?? 'document-referent-projection',
+    }));
+  }
+  return freeze(out);
+};
 
-const admitExperienceCandidates = (entityReading, proposed, event) => {
+const admitExperienceCandidates = (entityReading, surf, event) => {
   arrive(entityReading, tokenize(event.value));
-  for (const c of proposed.cast ?? []) {
-    for (const surface of c.surfaces ?? []) {
-      if (surfacePresent(event.value, surface)) witnessArrival(entityReading, norm(surface));
-    }
+  // Witness what the present Surf actually exposed, independent of whether
+  // document-scale cast discovery has enough evidence to project a referent.
+  for (const c of surf.candidates ?? []) {
+    for (const surface of c.surfaces ?? []) witnessArrival(entityReading, norm(surface));
   }
   const lapsed = reviewEntities(entityReading);
   const born = offerCandidates(entityReading);
@@ -104,8 +133,8 @@ const gateThroughWitnessedBeings = (proposed, entityReading) => {
   return freeze({ schema: 'WitnessGatedAssertionResolution@1', sourceId: proposed.sourceId, cast: freeze(cast), links: freeze(links) });
 };
 
-const admissionSnapshot = (entityReading, proposed, changes) => freeze({
-  candidates: candidateSnapshot(proposed),
+const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
+  candidates: candidateSnapshot(surf, proposed),
   beings: freeze(carryEntities(entityReading).map(e => freeze({ ...e, surfaces: freeze([...(e.surfaces ?? [])]) }))),
   refusals: freeze(refusals(entityReading).map(x => freeze({ ...x }))),
   lapsed: freeze(lapsedEntities(entityReading).map(x => freeze({ ...x }))),
@@ -144,23 +173,32 @@ export function readExperienceStream({ sourceId, events, priors = [], entitySpec
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
+
+    // 1. SURF: perceive the arriving event before it is allowed to alter any
+    // document-scale referent projection. This is candidate evidence only.
+    const surfPerception = perceiveEvent(event);
+
+    // 2. Material becomes available at the information horizon.
     admitChunked(horizon, { sourceId, text: event.value });
     prefixBytes += bytes(event.value);
     horizon._cast?.delete(sourceId);
     horizon._surfaces?.delete(sourceId);
 
-    // Tentative experience is what the current horizon proposes, before the
-    // witnessed reader decides what is entitled to enter its Fold.
+    // 3. The accumulated horizon may propose referents/relations, but those
+    // proposals do not themselves earn beinghood.
     const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
-    const changes = admitExperienceCandidates(entityReading, tentative, event);
+
+    // 4. Witness the CURRENT Surf's candidate arrivals causally, then run the
+    // entity birth/lapse gate over state that contains no future material.
+    const changes = admitExperienceCandidates(entityReading, surfPerception, event);
     const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
-    const admission = admissionSnapshot(entityReading, tentative, changes);
+    const admission = admissionSnapshot(entityReading, surfPerception, tentative, changes);
     const fold = foldFrom(perturbation, i, event.end ?? prefixBytes);
     const delta = structuralDelta(priorFold, perturbation);
 
     trajectory.push(freeze({
       event: i,
-      surf: freeze({ ...event, horizonByteEnd: prefixBytes }),
+      surf: freeze({ ...event, horizonByteEnd: prefixBytes, perception: surfPerception }),
       tentative,
       admission,
       perturbation,
