@@ -104,6 +104,9 @@ const frontierTasks = ({ frontier, eventIndex, byteStart, byteEnd }) => {
 
 const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteStart, byteEnd }) => {
   const out = [];
+  // A withheld composition is evidence of non-license, not automatically a
+  // reason to spend more work. Deeper reading is earned only when a repeated
+  // candidate plus that withholding blocks a downstream derivation.
   for (const candidate of candidates) {
     const difference = hyperlexiconDifference(candidate, withheld);
     if (!difference.makesDifference) continue;
@@ -116,18 +119,6 @@ const hyperlexiconTasks = ({ candidates = [], withheld = [], eventIndex, byteSta
       consequences: difference.consequences,
       query: { composition: [candidate.left, candidate.right], seek: ['counterexample', 'scope-dependence', 'additional-paths'] },
       closure: 'affordance remains candidate, is explicitly GIVEN by a named giver, or is defeated; recurrence alone never grants it',
-    });
-  }
-  for (const item of withheld) {
-    out.push({
-      kind: 'inspect_withheld_composition',
-      terrain: 'Network',
-      target: { left: item.leftPredicate, right: item.rightPredicate, bridge: item.bridge },
-      trigger: { type: 'composition_withheld', standing: item.standing, event: eventIndex },
-      witnesses: [{ event: eventIndex, byteStart, byteEnd, tupleIds: item.tupleIds ?? [] }],
-      consequences: [{ type: 'blocked_derivation', bridge: item.bridge, from: item.from, to: item.to, tupleIds: item.tupleIds ?? [] }],
-      query: { from: item.from, bridge: item.bridge, to: item.to },
-      closure: 'a GIVEN affordance licenses the bridge, or evidence preserves the withholding',
     });
   }
   return out;
