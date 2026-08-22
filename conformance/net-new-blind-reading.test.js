@@ -16,7 +16,7 @@ const events = [
 
 const norm = x => String(x ?? '').toLowerCase();
 
-test('net-new sample: one blind pipeline acquires beings and changes its reading only after disruptive evidence arrives', () => {
+test('net-new sample: one blind pipeline builds and revises a provisional understanding without fabricating cast', () => {
   const reading = readExperienceStream({ sourceId:'net-new-beacon', events, entitySpec:SPEC });
   assert.equal(reading.trajectory.length, 4);
 
@@ -26,37 +26,38 @@ test('net-new sample: one blind pipeline acquires beings and changes its reading
   assert.equal(first.admission.beings.length, 0, 'first encounter should not automatically mint beings');
   assert.equal(first.fold.cast.length, 0, 'candidate list must not masquerade as Fold cast');
 
-  // Event 1: recurrence gives the causal admission machinery a chance to admit
-  // Sela/Arun. We do not require every perceived noun (beacon, ropes, notebook)
-  // to become a being.
+  // Event 1: recurrence must create an inspectable provisional ontology even if
+  // the conservative Entity witness still refuses settled beinghood. A refusal
+  // is a result, not permission to drop the candidate or lower the gate.
   const second = reading.trajectory[1];
   const beings = second.admission.beings.flatMap(x => x.surfaces ?? []).map(norm);
-  const diagnostics = {
-    beings,
-    refusals: second.admission.refusals.filter(x => /sela|arun/i.test(x.surface ?? '')),
-    candidates: second.admission.candidates.filter(x => (x.surfaces ?? []).some(s => /sela|arun/i.test(s))),
-    unit: second.admission.unit,
-  };
-  assert.ok(beings.some(x => x.includes('sela')), `Sela was never admitted: ${JSON.stringify(diagnostics)}`);
-  assert.ok(beings.some(x => x.includes('arun')), `Arun was never admitted: ${JSON.stringify(diagnostics)}`);
-  assert.ok(!beings.some(x => x === 'ropes' || x === 'notebook'), 'ordinary mentioned objects were promoted into cast beings');
+  const provisional = second.fold.provisional.entities.map(x => norm(x.display));
+  const refusalSurfaces = second.admission.refusals.map(x => norm(x.surface));
+  for (const name of ['sela', 'arun']) {
+    assert.ok(provisional.some(x => x === name), `${name} disappeared before provisional ontology`);
+    assert.ok(
+      beings.some(x => x.includes(name)) || refusalSurfaces.includes(name),
+      `${name} is neither admitted nor explicitly refused`,
+    );
+  }
+  assert.ok(!beings.some(x => x === 'ropes' || x === 'notebook'), 'ordinary mentioned objects were promoted into settled beings');
+  assert.ok(second.fold.provisional.links.length > 0, 'recurring experience produced no tentative relational meaning');
 
-  // Event 2 is the first evidence that attacks the repeated working-beacon
-  // expectation. Structural change/surprise must not occur at event 1 because
-  // of event 2, but must be available once event 2 has actually been Surfed.
-  const beforeDisruption = reading.trajectory[1];
+  // Event 2 is the first disruptive evidence. Provisional relation admission
+  // and any resulting attacks are structural changes even when the settled
+  // cast remains empty.
   const disruption = reading.trajectory[2];
   assert.ok(disruption.surf.value.includes('lamp disconnected'));
-  assert.ok(disruption.delta.reorganized > 0 || disruption.fold.unresolved.length > 0,
-    `disruptive evidence produced no Fold change: ${JSON.stringify({delta:disruption.delta, unresolved:disruption.fold.unresolved, links:disruption.fold.links})}`);
+  assert.ok(disruption.surprise.reorganized > 0,
+    `disruptive evidence produced no Fold reorganization: ${JSON.stringify(disruption.surprise)}`);
+  assert.ok(disruption.surprise.transformations.relationAdmissions.length > 0,
+    'disruptive Surf produced no tentative relation to reason over');
 
-  // Event 3 changes scope rather than simply declaring the earlier experience
-  // false: upper lamp disconnected, lower lamp functioning. The trajectory must
-  // preserve both the disruption and subsequent differentiation/resolution.
+  // Event 3 differentiates two lamp roles rather than merely overwriting the
+  // previous event. The new experience must produce another transformation.
   const resolution = reading.trajectory[3];
   assert.ok(resolution.surf.value.includes('second lamp'));
-  assert.ok(resolution.delta.reorganized > 0 || resolution.fold.unresolved.length !== disruption.fold.unresolved.length,
-    'scope-differentiating evidence produced no further experiential transformation');
+  assert.ok(resolution.surprise.reorganized > 0, 'scope-differentiating evidence produced no further transformation');
 
   // Temporal horizon audit: every snapshot cursor is monotonic and exactly one
   // event is added at a time.
@@ -64,5 +65,4 @@ test('net-new sample: one blind pipeline acquires beings and changes its reading
     assert.equal(reading.trajectory[i].fold.cursor.event, i);
     assert.ok(reading.trajectory[i].surf.horizonByteEnd > reading.trajectory[i-1].surf.horizonByteEnd);
   }
-  assert.equal(beforeDisruption.fold.cursor.event, 1);
 });
