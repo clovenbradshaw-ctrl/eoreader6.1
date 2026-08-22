@@ -27,7 +27,7 @@ export { attachSelf, admitSelf, sessionSelfSnapshot, sessionTestimonyHolarchy, S
 // Canonical whole-admission entrypoint retained for compatibility. New blind
 // reading work should prefer the experience-stream transition below.
 export { admitReading, READING_PIPELINE_SCHEMA, READING_ASSEMBLIES } from "./reading.js";
-export { readExperienceStream, textExperienceStream, EXPERIENCE_TRAJECTORY_SCHEMA } from "./experience-stream.js";
+export { readExperienceStream, readExperienceStreamIncremental, textExperienceStream, EXPERIENCE_TRAJECTORY_SCHEMA } from "./experience-stream.js";
 
 export { sessionTerrains, sessionKinds, kindsNullArm, foldExtract, TERRAIN_GRID } from "./terrains.js";
 export { sessionEot, reasonSession, renderSessionReasoning } from "./reasoning.js";
