@@ -6,7 +6,8 @@
 //
 // Perception, provisional standing, and settled beinghood remain distinct.
 
-import { createSession, admitChunked } from './corpus.js';
+import { createSession } from './corpus.js';
+import { admitExperienceEvent } from './experience-admission.js';
 import { adversariallyResolveAssertions } from './assertion-resolution.js';
 import { createRecursiveOntology, advanceRecursiveOntology } from './recursive-ontology.js';
 import { tokenize } from '../engine/perceiver/text/material.js';
@@ -32,7 +33,8 @@ const norm = x => String(x ?? '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu
 const WORD = /\p{L}[\p{L}\p{M}'’]*/gu;
 const TITLE_WORD = /^\p{Lu}[\p{L}\p{M}'’]*$/u;
 
-export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@7';
+export const EXPERIENCE_TRAJECTORY_SCHEMA = 'EOExperienceTrajectory@8';
+export const EXPERIENCE_READING_STATE_SCHEMA = 'EOExperienceReadingState@1';
 
 export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   const source = String(text ?? '');
@@ -43,7 +45,13 @@ export function textExperienceStream(text, { unit = 'paragraph' } = {}) {
   while ((m = re.exec(source))) {
     const value = m[0];
     if (!value.trim()) continue;
-    out.push(freeze({ kind: 'text', unit, start: bytes(source.slice(0, m.index)), end: bytes(source.slice(0, m.index + value.length)), value }));
+    out.push(freeze({
+      kind: 'text',
+      unit,
+      start: bytes(source.slice(0, m.index)),
+      end: bytes(source.slice(0, m.index + value.length)),
+      value,
+    }));
   }
   return freeze(out);
 }
@@ -150,7 +158,7 @@ const perceiveEvent = event => {
   }
 
   return freeze({
-    sentences: freeze(sentences.map(s => freeze({ text:s.text, offset:s.offset, order:s.order }))),
+    sentences: freeze(sentences.map(s => freeze({ text: s.text, offset: s.offset, order: s.order }))),
     candidates: freeze([...candidates.values()]),
   });
 };
@@ -225,7 +233,12 @@ const gateThroughWitnessedBeings = (proposed, entityReading) => {
     return [...admittedSurfaces].some(s => norm(subject) === s);
   });
 
-  return freeze({ schema: 'WitnessGatedAssertionResolution@1', sourceId: proposed.sourceId, cast: freeze(cast), links: freeze(links) });
+  return freeze({
+    schema: 'WitnessGatedAssertionResolution@1',
+    sourceId: proposed.sourceId,
+    cast: freeze(cast),
+    links: freeze(links),
+  });
 };
 
 const admissionSnapshot = (entityReading, surf, proposed, changes) => freeze({
@@ -256,10 +269,10 @@ const foldFrom = (perturbation, recursive, i, byteEnd) => freeze({
 
 const transformationSurprise = ({ recursive, admission, delta }) => {
   const births = admission.bornThisEvent > 0
-    ? admission.beings.slice(-admission.bornThisEvent).map(x => ({ id:x.id, surfaces:x.surfaces }))
+    ? admission.beings.slice(-admission.bornThisEvent).map(x => ({ id: x.id, surfaces: x.surfaces }))
     : [];
   const lapses = admission.lapsedThisEvent > 0
-    ? admission.lapsed.slice(-admission.lapsedThisEvent).map(x => ({ surface:x.surface, at:x.at }))
+    ? admission.lapsed.slice(-admission.lapsedThisEvent).map(x => ({ surface: x.surface, at: x.at }))
     : [];
   const transformations = freeze({
     ...recursive.transformations,
@@ -277,62 +290,121 @@ const transformationSurprise = ({ recursive, admission, delta }) => {
   });
 };
 
-const validate = ({ sourceId, events, entitySpec }) => {
-  if (!sourceId) throw new TypeError('readExperienceStream: sourceId is required');
-  if (!Array.isArray(events)) throw new TypeError('readExperienceStream: events must be an ordered array');
-  if (!entitySpec) throw new TypeError('readExperienceStream: entitySpec is declared, never defaulted');
-  const probe = openReading(entitySpec);
-  if (isGap(probe)) throw new TypeError(`readExperienceStream: invalid entitySpec (${probe.gap}:${probe.what ?? probe.reason ?? 'unknown'})`);
-  for (let i = 0; i < events.length; i++) {
-    if (!events[i] || events[i].kind !== 'text') throw new TypeError(`readExperienceStream: event ${i} is not a supported text experience`);
+const validateEvent = (event, index = '?') => {
+  if (!event || event.kind !== 'text') {
+    throw new TypeError(`advanceReading: event ${index} is not a supported text experience`);
   }
 };
 
-export function readExperienceStream({ sourceId, events, priors = [], entitySpec } = {}) {
-  validate({ sourceId, events, entitySpec });
-  const horizon = createSession();
-  const entityReading = openReading(entitySpec);
-  const ontology = createRecursiveOntology();
-  const trajectory = [];
-  let priorState = null;
-  let prefixBytes = 0;
-
-  for (let i = 0; i < events.length; i++) {
-    const event = events[i];
-    const surfPerception = perceiveEvent(event);
-    admitChunked(horizon, { sourceId, text: event.value });
-    prefixBytes += bytes(event.value);
-    horizon._cast?.delete(sourceId);
-    horizon._surfaces?.delete(sourceId);
-
-    const tentative = adversariallyResolveAssertions(horizon, { sourceId, priors });
-    const recursive = advanceRecursiveOntology(ontology, {
-      eventIndex: i,
-      surf: surfPerception,
-      text: event.value,
-      tentative,
-    });
-    const changes = admitExperienceCandidates(entityReading, surfPerception);
-    const perturbation = gateThroughWitnessedBeings(tentative, entityReading);
-    const admission = admissionSnapshot(entityReading, surfPerception, tentative, changes);
-    const currentState = { perturbation, recursive };
-    const delta = structuralDelta(priorState, currentState);
-    const fold = foldFrom(perturbation, recursive, i, event.end ?? prefixBytes);
-    const surprise = transformationSurprise({ recursive, admission, delta });
-
-    trajectory.push(freeze({
-      event: i,
-      surf: freeze({ ...event, horizonByteEnd: prefixBytes, perception: surfPerception }),
-      tentative,
-      admission,
-      iterations: recursive.iterations,
-      perturbation,
-      fold,
-      delta,
-      surprise,
-    }));
-    priorState = currentState;
+const validateOptions = ({ sourceId, events, entitySpec }) => {
+  if (!sourceId) throw new TypeError('readExperienceStream: sourceId is required');
+  if (events !== undefined && !Array.isArray(events)) throw new TypeError('readExperienceStream: events must be an ordered array');
+  if (!entitySpec) throw new TypeError('readExperienceStream: entitySpec is declared, never defaulted');
+  const probe = openReading(entitySpec);
+  if (isGap(probe)) {
+    throw new TypeError(`readExperienceStream: invalid entitySpec (${probe.gap}:${probe.what ?? probe.reason ?? 'unknown'})`);
   }
+  for (let i = 0; i < (events ?? []).length; i++) validateEvent(events[i], i);
+};
 
-  return freeze({ schema: EXPERIENCE_TRAJECTORY_SCHEMA, sourceId, eventCount: events.length, trajectory: freeze(trajectory) });
+export function openExperienceReading({ sourceId, priors = [], entitySpec, language } = {}) {
+  validateOptions({ sourceId, entitySpec });
+  return {
+    schema: EXPERIENCE_READING_STATE_SCHEMA,
+    sourceId,
+    priors: freeze([...priors]),
+    language: language ?? null,
+    horizon: createSession(),
+    entityReading: openReading(entitySpec),
+    ontology: createRecursiveOntology(),
+    trajectory: [],
+    priorState: null,
+    prefixBytes: 0,
+    eventIndex: 0,
+  };
+}
+
+/**
+ * Advance the one canonical reader by exactly one experience event.
+ * The supplied state is intentionally persistent and mutable; the returned
+ * transition is immutable. No future event is available to this function.
+ */
+export function advanceReading(state, event) {
+  if (!state || state.schema !== EXPERIENCE_READING_STATE_SCHEMA) {
+    throw new TypeError('advanceReading: openExperienceReading state is required');
+  }
+  const i = state.eventIndex;
+  validateEvent(event, i);
+
+  const surfPerception = perceiveEvent(event);
+  const admittedEvent = admitExperienceEvent(state.horizon, {
+    sourceId: state.sourceId,
+    text: event.value,
+    eventId: i,
+    language: state.language,
+  });
+  state.prefixBytes = admittedEvent.byteEnd;
+
+  // These are derived document projections. An arriving event changes their
+  // source material even when no storage chunk boundary was crossed.
+  state.horizon._cast?.delete(state.sourceId);
+  state.horizon._surfaces?.delete(state.sourceId);
+
+  const tentative = adversariallyResolveAssertions(state.horizon, {
+    sourceId: state.sourceId,
+    priors: state.priors,
+  });
+  const recursive = advanceRecursiveOntology(state.ontology, {
+    eventIndex: i,
+    surf: surfPerception,
+    text: event.value,
+    tentative,
+  });
+  const changes = admitExperienceCandidates(state.entityReading, surfPerception);
+  const perturbation = gateThroughWitnessedBeings(tentative, state.entityReading);
+  const admission = admissionSnapshot(state.entityReading, surfPerception, tentative, changes);
+  const currentState = { perturbation, recursive };
+  const delta = structuralDelta(state.priorState, currentState);
+  const fold = foldFrom(perturbation, recursive, i, event.end ?? state.prefixBytes);
+  const surprise = transformationSurprise({ recursive, admission, delta });
+
+  const transition = freeze({
+    event: i,
+    surf: freeze({
+      ...event,
+      horizonByteEnd: state.prefixBytes,
+      admission: freeze({
+        eventId: admittedEvent.eventId,
+        byteStart: admittedEvent.byteStart,
+        byteEnd: admittedEvent.byteEnd,
+        chunks: admittedEvent.chunks,
+      }),
+      perception: surfPerception,
+    }),
+    tentative,
+    admission,
+    iterations: recursive.iterations,
+    perturbation,
+    fold,
+    delta,
+    surprise,
+  });
+
+  state.trajectory.push(transition);
+  state.priorState = currentState;
+  state.eventIndex += 1;
+  return transition;
+}
+
+export function readExperienceStream({ sourceId, events, priors = [], entitySpec, language } = {}) {
+  validateOptions({ sourceId, events, entitySpec });
+  const state = openExperienceReading({ sourceId, priors, entitySpec, language });
+  for (const event of events) advanceReading(state, event);
+  return freeze({
+    schema: EXPERIENCE_TRAJECTORY_SCHEMA,
+    sourceId,
+    language: state.language,
+    eventCount: events.length,
+    trajectory: freeze([...state.trajectory]),
+  });
 }
