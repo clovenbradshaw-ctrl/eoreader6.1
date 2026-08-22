@@ -113,7 +113,7 @@ const titlecaseRuns = sentence => {
     let j = i;
     while (j < words.length && TITLE_WORD.test(words[j])) j++;
     const run = words.slice(i, j);
-    for (let n = 1; n <= Math.min(4, run.length); n++) out.push(run.slice(0, n).join(' '));
+    if (run.length) out.push(run.join(' '));
     i = j;
   }
   return out;
