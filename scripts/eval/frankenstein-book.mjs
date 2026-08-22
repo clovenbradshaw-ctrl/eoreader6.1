@@ -2,10 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { openBookReading, advanceBookReading } from '../../packages/host/book-reading.js';
-import { admitGraph, sessionGraphSnapshot } from '../../packages/host/graph.js';
-import { sessionRelations, sessionReferents } from '../../packages/host/corpus.js';
 import { discoverParameters } from '../../packages/engine/emergence/parameter-discovery.js';
 import { splitSentences } from '../../packages/engine/perceiver/text/spans.js';
+import { reviewEntities, offerCandidates, carryEntities, refusals, lapsedEntities } from '../../packages/engine/referents/entity.js';
 
 const input = process.argv[2] ?? 'tmp/frankenstein.txt';
 const output = process.argv[3] ?? 'artifacts/frankenstein-book-report.json';
@@ -34,8 +33,6 @@ if (endMarker) {
 }
 body = body.trim();
 
-// Authored sections preserve nesting/order; propositions are the actual causal
-// reading ticks inside those containers.
 const heading = /^(?:LETTER\s+[IVXLC0-9]+|CHAPTER\s+[IVXLC0-9]+)\.?\s*$/gim;
 const marks = [...body.matchAll(heading)].map(m => ({ at: m.index, label: m[0].trim() }));
 const sections = [];
@@ -49,9 +46,7 @@ if (marks.length) {
     const value = body.slice(start, end).trim();
     if (value) sections.push({ label: marks[i].label, value });
   }
-} else {
-  sections.push({ label: 'whole-work', value: body });
-}
+} else sections.push({ label: 'whole-work', value: body });
 
 const events = [];
 for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
@@ -61,12 +56,8 @@ for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
     const proposition = propositions[propositionIndex];
     if (!proposition.text?.trim()) continue;
     events.push({
-      kind: 'text',
-      unit: 'proposition',
-      value: proposition.text.trim() + '\n',
-      section: sectionIndex,
-      sectionLabel: section.label,
-      proposition: propositionIndex,
+      kind: 'text', unit: 'proposition', value: proposition.text.trim() + '\n',
+      section: sectionIndex, sectionLabel: section.label, proposition: propositionIndex,
     });
   }
 }
@@ -82,14 +73,38 @@ for (let i = 0; i < events.length; i++) {
     console.error(`FRANKENSTEIN_PROGRESS ${i + 1}/${events.length} ${events[i].sectionLabel}`);
   }
 }
-const elapsedMs = Date.now() - t0;
+const readingElapsedMs = Date.now() - t0;
 
-// These are final views over the already-admitted source. They are not part of
-// the causal read loop.
-const cast = sessionReferents(state.reader.horizon, { sourceId: 'gutenberg:84', limit: Infinity });
-const relations = sessionRelations(state.reader.horizon, { sourceId: 'gutenberg:84' });
-const graphAdmission = admitGraph(state.reader.horizon, { sourceId: 'gutenberg:84' });
-const graph = sessionGraphSnapshot(state.reader.horizon, { limit: 100 });
+// Cast membership is a consequential assertion, so challenge the full register
+// exactly once when we make that assertion. This is not ordinary reading and
+// therefore legitimately revisits candidates/beings against the completed
+// causal ground. It does NOT reparse the book.
+const castAuditStart = Date.now();
+const lapsedAtAssertion = reviewEntities(state.reader.entityReading);
+const bornAtAssertion = offerCandidates(state.reader.entityReading);
+const castEntities = carryEntities(state.reader.entityReading).map(x => ({ ...x, surfaces: [...(x.surfaces ?? [])] }));
+const castAuditElapsedMs = Date.now() - castAuditStart;
+
+// The graph already exists in the Fold. Serialize that live ontology instead
+// of running a second whole-document relation/cast extraction pass.
+const ontology = state.reader.ontology;
+const identities = [...ontology.identities.values()].map(x => ({
+  id: x.id, left: x.left, right: x.right, standing: x.standing,
+  supportEvents: [...x.supportEvents], attackEvents: [...x.attackEvents], history: [...x.history],
+}));
+const relations = [...ontology.relations.values()].map(x => ({
+  ...x,
+  participants: (x.participants ?? []).map(p => ({ ...p })),
+  witness: x.witness ? { ...x.witness } : null,
+  scope: x.scope ? { ...x.scope } : null,
+  meta: x.meta ? { ...x.meta } : null,
+}));
+const nodeValues = new Set();
+for (const relation of relations) for (const participant of relation.participants ?? []) {
+  if (participant?.value != null) nodeValues.add(typeof participant.value === 'string' ? participant.value : JSON.stringify(participant.value));
+}
+for (const identity of identities) { nodeValues.add(identity.left); nodeValues.add(identity.right); }
+for (const entity of castEntities) for (const surface of entity.surfaces ?? []) nodeValues.add(surface);
 
 const parameterRows = [];
 for (let i = 0; i + 1 < trajectory.length; i++) {
@@ -105,21 +120,17 @@ for (let i = 0; i + 1 < trajectory.length; i++) {
       ...(next?.delta?.withdrawnKeys ?? []).map(key => ({ change: 'withdrawn', key })),
     ],
     provenance: {
-      event: here?.event ?? i,
-      section: events[i]?.sectionLabel ?? null,
-      proposition: events[i]?.proposition ?? null,
-      byteStart: here?.surf?.admission?.byteStart ?? null,
-      byteEnd: here?.surf?.admission?.byteEnd ?? null,
+      event: here?.event ?? i, section: events[i]?.sectionLabel ?? null, proposition: events[i]?.proposition ?? null,
+      byteStart: here?.surf?.admission?.byteStart ?? null, byteEnd: here?.surf?.admission?.byteEnd ?? null,
     },
   });
 }
+const parameterStart = Date.now();
 const parameters = discoverParameters(parameterRows);
+const parameterElapsedMs = Date.now() - parameterStart;
 
 const tasks = [...state.tasks.tasks.values()].map(x => ({
-  ...x,
-  triggers: [...(x.triggers ?? [])],
-  witnesses: [...(x.witnesses ?? [])],
-  consequences: [...(x.consequences ?? [])],
+  ...x, triggers: [...(x.triggers ?? [])], witnesses: [...(x.witnesses ?? [])], consequences: [...(x.consequences ?? [])],
 }));
 const taskCounts = {};
 for (const task of tasks) taskCounts[`${task.kind}:${task.status}`] = (taskCounts[`${task.kind}:${task.status}`] ?? 0) + 1;
@@ -127,34 +138,32 @@ const hyperlexiconEntries = Object.values(state.hyperlexicon?.composition ?? {})
 const finalTransition = trajectory.at(-1)?.transition ?? null;
 
 const report = {
-  schema: 'EOFrankensteinBookEvaluation@3',
+  schema: 'EOFrankensteinBookEvaluation@4',
   source: {
-    id: 'gutenberg:84',
-    url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
-    bytes: Buffer.byteLength(body),
-    sections: sections.length,
-    propositions: events.length,
+    id: 'gutenberg:84', url: 'https://www.gutenberg.org/cache/epub/84/pg84.txt',
+    bytes: Buffer.byteLength(body), sections: sections.length, propositions: events.length,
     sectionLabels: sections.map(s => s.label),
   },
-  runtime: { elapsedMs },
+  runtime: {
+    readingElapsedMs, castAuditElapsedMs, parameterElapsedMs,
+    elapsedMs: Date.now() - t0,
+  },
   cast: {
-    count: cast.referents?.length ?? 0,
-    referents: cast.referents ?? [],
-    gaps: cast.gaps ?? [],
+    count: castEntities.length,
+    referents: castEntities,
+    assertionAudit: { born: bornAtAssertion, lapsed: lapsedAtAssertion },
+    refusals: refusals(state.reader.entityReading),
+    lapsed: lapsedEntities(state.reader.entityReading),
+    identityAlternatives: identities,
   },
-  relations: {
-    count: relations.relations?.length ?? 0,
-    rows: relations.relations ?? [],
-    gaps: relations.gaps ?? [],
-  },
+  relations: { count: relations.length, rows: relations },
   graph: {
-    admission: graphAdmission?.admitted ?? [],
-    nodeCount: graph.nodeCount,
-    edgeCount: graph.edgeCount,
-    edgeTotal: graph.edgeTotal,
-    topNodes: graph.nodes,
-    topEdges: graph.edges,
-    standings: graph.standings,
+    source: 'live-fold-ontology',
+    nodeCount: nodeValues.size,
+    edgeCount: relations.length + identities.length,
+    nodes: [...nodeValues],
+    relations,
+    identities,
   },
   hyperlexicon: {
     count: hyperlexiconEntries.length,
@@ -162,19 +171,14 @@ const report = {
     candidate: hyperlexiconEntries.filter(x => x.standing === 'candidate').length,
     entries: hyperlexiconEntries,
   },
-  tasks: {
-    count: tasks.length,
-    byKindAndStatus: taskCounts,
-    rows: tasks,
-    runs: state.taskRuns ?? [],
-  },
+  tasks: { count: tasks.length, byKindAndStatus: taskCounts, rows: tasks, runs: state.taskRuns ?? [] },
   parameters,
   finalFold: finalTransition ? {
     event: finalTransition.event,
     horizonByteEnd: finalTransition.surf?.horizonByteEnd ?? null,
-    beings: finalTransition.admission?.beings ?? [],
-    identityAlternatives: finalTransition.fold?.identityAlternatives ?? [],
-    provisionalLinks: finalTransition.fold?.provisional?.links ?? [],
+    beings: castEntities,
+    identityAlternatives: identities,
+    provisionalLinksAtLastEvent: finalTransition.fold?.provisional?.links ?? [],
     unresolved: finalTransition.fold?.unresolved ?? [],
     tension: finalTransition.fold?.tension ?? null,
     release: finalTransition.fold?.release ?? null,
@@ -188,7 +192,10 @@ console.log(JSON.stringify({
   sourceBytes: report.source.bytes,
   sections: report.source.sections,
   propositions: report.source.propositions,
-  elapsedMs,
+  readingElapsedMs,
+  castAuditElapsedMs,
+  parameterElapsedMs,
+  elapsedMs: report.runtime.elapsedMs,
   cast: report.cast.count,
   relations: report.relations.count,
   graphNodes: report.graph.nodeCount,
