@@ -69,7 +69,10 @@ const structuralKeys = state => {
   for (const x of state.recursive?.provisionalLinks ?? []) {
     out.add(`R:${x.id}:${stable(x.participants)}:${x.relation}:${x.polarity}`);
   }
-  for (const x of state.frontier?.open ?? []) out.add(`O:${x.id}:${x.standing}:${x.age}`);
+  // Persistence belongs to tension, not surprise. Age intentionally does not
+  // participate in the structural key: carrying one unchanged obligation for
+  // another event raises tension without fabricating a new reorganization.
+  for (const x of state.frontier?.open ?? []) out.add(`O:${x.id}:${x.standing}`);
   return out;
 };
 
@@ -271,7 +274,6 @@ const foldFrom = (perturbation, recursive, frontier, i, byteEnd) => freeze({
   unresolved: freeze([
     ...perturbation.cast.filter(x => String(x.disposition).startsWith('unresolved') || String(x.disposition).startsWith('needs_')),
     ...perturbation.links.filter(x => x.disposition !== 'survives' && x.disposition !== 'survives_scoped'),
-    ...recursive.identityAlternatives.filter(x => x.standing !== 'distinct'),
     ...frontier.open,
   ]),
 });
