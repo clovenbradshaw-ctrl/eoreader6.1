@@ -4,6 +4,9 @@ on:
     branches: [codex/constitutive-adversarial-reading]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: frankenstein-full-book-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   frankenstein:
     runs-on: ubuntu-latest
