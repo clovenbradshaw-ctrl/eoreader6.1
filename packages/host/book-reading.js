@@ -60,6 +60,10 @@ export function executeReadingTask(state, task, { limit = 8, maxBytes = 4000 } =
 
 export function openBookReading({ sourceId, priors = [], entitySpec, language, hyperlexicon = null } = {}) {
   const reader = openExperienceReading({ sourceId, priors, entitySpec, language });
+  // A book keeps one current Fold plus append-only deltas. Small audited readers
+  // retain complete snapshots; duplicating the entire graph at every proposition
+  // is neither required for reconstruction nor computationally lawful at scale.
+  reader.ontology.compact = true;
   return {
     schema: BOOK_READING_SCHEMA,
     reader,
@@ -92,10 +96,6 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
     withheldCompositions: derived.withheld ?? [],
   });
 
-  // Deeper reading is an escalation caused by a newly earned consequential
-  // assertion/obligation. An unresolved task that merely persists does not
-  // trigger another horizon search on every proposition. It can be retriggered
-  // later by an explicit policy if materially new evidence changes its target.
   const executed = [];
   const justOpened = taskState.delta?.opened ?? [];
   for (const task of justOpened.slice(0, Math.max(0, executeTopTasks))) {
