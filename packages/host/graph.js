@@ -69,24 +69,65 @@ export const referentFace = (r) => String(r.id);
 // different specs were never comparable).
 export function referentLookup(session, sourceId, { priors = [] } = {}) {
   const { referents } = sessionReferents(session, { sourceId, priors, limit: Infinity });
+
+  // Received narrator identity may know the being and its scope without
+  // redundantly listing every lexical face. A display token is safe to
+  // attach only when it is the prior's own canonical id (victor -> Victor,
+  // walton -> Walton). Other display components are RESERVED but unresolved:
+  // "Frankenstein" is part of Victor's display name, but the book also uses
+  // the family name for other people, so it must not become either a global
+  // alias for Victor or a second auto-minted being in the reasoning graph.
+  const priorIds = new Set(priors.map((prior) => prior.id).filter(Boolean));
+  const canonicalLexical = new Map();
+  const reservedComponents = new Set();
+  for (const prior of priors) {
+    if (!prior?.id || !Array.isArray(prior.narratorSpans) || !prior.narratorSpans.length || !prior.display) continue;
+    if (Array.isArray(prior.surfaces) && prior.surfaces.length) continue;
+    const canonicalId = diaNorm(prior.id);
+    const tokens = String(prior.display).match(/[\p{L}\p{N}'’-]+/gu) ?? [];
+    for (const token of tokens) {
+      const norm = diaNorm(token);
+      if (norm === canonicalId) canonicalLexical.set(norm, prior.id);
+      else reservedComponents.add(norm);
+    }
+  }
+
   const entries = [];
   for (const r of referents) {
     const surfaces = r.surfaces
       .map((surface) => typeof surface === "string" ? surface : surface?.surface)
       .filter(Boolean);
-    for (const surface of surfaces) entries.push({ surface: diaNorm(surface), referentId: r.id });
+    for (const surface of surfaces) {
+      const norm = diaNorm(surface);
+      if (canonicalLexical.has(norm)) {
+        entries.push({ surface: norm, referentId: canonicalLexical.get(norm), standing: "received_canonical_anchor" });
+        continue;
+      }
+      if (reservedComponents.has(norm) && String(r.id).startsWith("ref:auto:")) continue;
+      entries.push({ surface: norm, referentId: r.id });
+    }
   }
   entries.sort((a, b) => b.surface.length - a.surface.length);
 
   const doc = session.documents.get(sourceId);
   const body = doc?.text || doc?.chunks?.map((chunk) => chunk.text).join("\n") || "";
   const { resolved: narratorSpans, unresolved: narratorGaps } = resolveAllNarratorSpans(body, priors);
-  const priorIds = new Set(priors.map((prior) => prior.id).filter(Boolean));
   const lookup = new Map(entries.map((entry) => [entry.surface, entry.referentId]));
   lookup.entriesSorted = entries;
   lookup.narratorSpans = narratorSpans;
   lookup.narratorGaps = narratorGaps;
   lookup.priorIds = priorIds;
+  lookup.reservedComponents = reservedComponents;
+  lookup.canonicalLexical = canonicalLexical;
+  lookup.canonicalReferentId = (id) => {
+    const raw = String(id ?? "");
+    const auto = raw.match(/^ref:auto:(.+)$/);
+    if (!auto) return raw;
+    const norm = diaNorm(auto[1]);
+    if (canonicalLexical.has(norm)) return canonicalLexical.get(norm);
+    if (reservedComponents.has(norm)) return null;
+    return raw;
+  };
   lookup.resolve = (side, offset) => canonicalize(side, offset, lookup);
   return lookup;
 }
