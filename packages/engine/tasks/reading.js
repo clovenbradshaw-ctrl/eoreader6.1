@@ -17,31 +17,31 @@ const refsOf = (value, out = new Set()) => {
 };
 
 /**
- * A reading task is licensed only by a difference that could make a
- * difference to the Fold. Merely being unresolved is not enough.
- *
- * Concrete graph references are preferred because they identify structure
- * whose attribution/identity/scope could change. A typed consequence may
- * also license a task when it explicitly names a Fold effect. Free-floating
- * descriptive strings do not: they are notes, not consequence structure.
+ * A reading task is licensed only by a downstream difference that could make
+ * a difference to the Fold. Grounds identify where an uncertainty came from;
+ * they do not, by themselves, justify spending attention on it.
  */
 export function materialConsequencesOf(obligation = {}) {
-  const refs = refsOf([
-    obligation.distinction,
-    obligation.grounds,
-    obligation.alternatives,
-    obligation.consequences,
-  ]);
+  const consequenceRefs = refsOf(obligation.consequences);
   const typed = (obligation.consequences ?? []).filter((c) => c && typeof c === "object" && (
-    c.kind || c.ref || c.edge || c.expectation || c.obligation || c.frame || c.pattern || c.referent
+    c.kind || c.ref || c.edge || c.expectation || c.obligation || c.frame || c.pattern || c.referent || c.boundary || c.relation
   ));
-  return Object.freeze({ refs: Object.freeze([...refs]), typed: Object.freeze([...typed]) });
+  return Object.freeze({ refs: Object.freeze([...consequenceRefs]), typed: Object.freeze([...typed]) });
 }
 
 export function obligationMakesDifference(obligation = {}) {
   if (!obligation?.id || CLOSED.has(obligation.status)) return false;
   const material = materialConsequencesOf(obligation);
   return material.refs.length > 0 || material.typed.length > 0;
+}
+
+function taskTargets(obligation) {
+  return [...refsOf([
+    obligation.distinction,
+    obligation.grounds,
+    obligation.alternatives,
+    obligation.consequences,
+  ])];
 }
 
 function strategyOf(obligation) {
@@ -80,8 +80,9 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
   if (!obligationMakesDifference(obligation)) return null;
   const strategy = strategyOf(obligation);
   const material = materialConsequencesOf(obligation);
-  const targets = [...material.refs];
-  const consequenceCount = material.typed.length + new Set(refsOf(obligation.consequences)).size;
+  const targets = taskTargets(obligation);
+  if (targets.length === 0) return null;
+  const consequenceCount = material.typed.length + material.refs.length;
   const persistence = obligation.persistence ?? 0;
   const openedAt = obligation.openedAt ?? sequence;
   return Object.freeze({
