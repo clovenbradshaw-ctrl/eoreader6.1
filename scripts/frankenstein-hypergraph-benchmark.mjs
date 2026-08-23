@@ -35,7 +35,8 @@ const reader = createRecursiveReader({
   adapters: {
     retrieve: () => ({}),
     interrogate: async () => [],
-    revise: async ({ observations, fold }) => deriveGraphStructuralDelta(fold, observations, {
+    revise: async ({ observations, fold, graph }) => deriveGraphStructuralDelta(fold, observations, {
+      graph,
       id: `delta:graph:${(fold?.sequence ?? 0) + 1}`,
       minPatternInstances: 3,
       minMotifInstances: 2,
