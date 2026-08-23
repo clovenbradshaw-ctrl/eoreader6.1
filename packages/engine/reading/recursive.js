@@ -6,6 +6,7 @@ import { relevantNeighborhood, interrogateCube, deriveEOTransformations } from "
 import { deriveSurprise, deriveTension, deriveRelease } from "../dynamics/index.js";
 import {
   createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
+  executeClarificationTask,
 } from "../tasks/reading.js";
 import { projectTasks } from "../holon/task-log.js";
 
@@ -34,27 +35,26 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
 
     const awakenedTasks = wakeTasks(liveTasksBefore, observations);
     const taskEvidence = [];
-    if (adapters.executeTask) {
-      for (const task of awakenedTasks) {
-        const result = await adapters.executeTask({
-          task,
-          encounter: currentEncounter,
-          observations,
-          fold: beforeFold,
-          orientation,
-        });
-        if (!result) continue;
-        tasks = appendTaskResult(tasks, task, result);
-        taskEvidence.push(Object.freeze({
-          schema: "TaskEvidence@1",
-          id: `task-evidence:${task.task_id}:${currentEncounter.sequencePosition ?? log.length}`,
-          taskId: task.task_id,
-          disposition: result.disposition ?? "unresolved",
-          evidence: Object.freeze([...(result.evidence ?? [])]),
-          candidates: Object.freeze([...(result.candidates ?? [])]),
-          detail: result.detail ?? null,
-        }));
-      }
+    const executeTask = adapters.executeTask ?? executeClarificationTask;
+    for (const task of awakenedTasks) {
+      const result = await executeTask({
+        task,
+        encounter: currentEncounter,
+        observations,
+        fold: beforeFold,
+        orientation,
+      });
+      if (!result) continue;
+      tasks = appendTaskResult(tasks, task, result);
+      taskEvidence.push(Object.freeze({
+        schema: "TaskEvidence@1",
+        id: `task-evidence:${task.task_id}:${currentEncounter.sequencePosition ?? log.length}`,
+        taskId: task.task_id,
+        disposition: result.disposition ?? "unresolved",
+        evidence: Object.freeze([...(result.evidence ?? [])]),
+        candidates: Object.freeze([...(result.candidates ?? [])]),
+        detail: result.detail ?? null,
+      }));
     }
 
     const neighborhood = (adapters.retrieve ?? relevantNeighborhood)(beforeFold, [...observations, ...taskEvidence], {
