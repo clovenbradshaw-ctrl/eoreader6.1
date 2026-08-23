@@ -1,6 +1,11 @@
 import { cellOf } from "../operators.js";
 
 const STATES = new Set(["open", "strengthened", "weakened", "fulfilled", "violated", "reframed", "superseded"]);
+const LIST_KEYS = [
+  "witnessed", "provisional", "expectations", "obligations", "exclusions",
+  "unresolvedAlternatives", "activeFrames", "receivedPriors", "graphEntries",
+  "transformationObjects", "transformationHistoryRefs",
+];
 const emptyClasses = () => ({
   witnessed: [],
   provisional: [],
@@ -16,6 +21,12 @@ const emptyClasses = () => ({
 });
 
 const clone = (value) => value == null ? value : structuredClone(value);
+const copyFold = (fold) => {
+  const source = fold ?? receivedGround();
+  const next = { ...source };
+  for (const key of LIST_KEYS) next[key] = [...(source[key] ?? [])];
+  return next;
+};
 
 export function receivedGround(seed = {}) {
   return {
@@ -77,7 +88,7 @@ function addGraphEntry(fold, value) {
 /** Admit a witnessed observation into a reconstructed Fold without pretending it is a transformation. */
 export function applyObservation(fold, observation) {
   if (observation?.schema !== "Observation@1") throw new TypeError("applyObservation requires Observation@1");
-  const next = clone(fold ?? receivedGround());
+  const next = copyFold(fold);
   next.witnessed = upsertById(next.witnessed ?? [], observation);
   addGraphEntry(next, observation);
   for (const edge of observation.hyperedges ?? []) addGraphEntry(next, edge);
@@ -145,7 +156,7 @@ function applyPayload(fold, operation) {
 /** Apply only a DeltaFold. The Fold is a reconstruction, never a historical event. */
 export function applyDelta(fold, delta) {
   if (delta?.schema !== "DeltaFold@1") throw new TypeError("applyDelta requires DeltaFold@1");
-  const next = clone(fold ?? receivedGround());
+  const next = copyFold(fold);
   next.sequence = (next.sequence ?? 0) + 1;
   let opIndex = 0;
   for (const rawOperation of delta.operations ?? []) {
@@ -172,7 +183,7 @@ export function reconstruct(entries = [], seed = {}) {
       continue;
     }
     if (entry?.schema === "EOHyperedge@1") {
-      const next = clone(fold);
+      const next = copyFold(fold);
       addGraphEntry(next, entry);
       fold = next;
       continue;
