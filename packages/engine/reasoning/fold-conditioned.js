@@ -13,18 +13,17 @@ export function cubeAddresses() {
 }
 
 /** Retrieve the consequence-bearing structural neighborhood around new observations. */
-export function relevantNeighborhood(fold, observations, { select, maxHops = 3 } = {}) {
+export function relevantNeighborhood(fold, observations, { select, maxHops = 3, graph = null } = {}) {
   if (select) return select(fold, observations);
-  const entries = [
+  const workingGraph = graph ?? buildHypergraph([
     ...(fold?.graphEntries ?? []),
     ...(fold?.expectations ?? []),
     ...(fold?.obligations ?? []),
     ...(fold?.activeFrames ?? []),
     ...(fold?.unresolvedAlternatives ?? []),
     ...(fold?.transformationObjects ?? []),
-  ];
-  const graph = buildHypergraph(entries);
-  const graphNeighborhood = relevantHypergraphNeighborhood(graph, observations, { maxHops });
+  ]);
+  const graphNeighborhood = relevantHypergraphNeighborhood(workingGraph, observations, { maxHops });
   const ids = new Set(graphNeighborhood.ids);
   const pick = (key) => (fold?.[key] ?? []).filter((entry) => entry?.id && ids.has(entry.id));
   return {
