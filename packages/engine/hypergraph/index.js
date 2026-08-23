@@ -5,12 +5,8 @@ const addRefs = (set, values) => { for (const value of values ?? []) addRef(set,
 
 /**
  * Only index semantically declared references for each graph-object schema.
- *
- * Do NOT recursively walk an Observation's embedded hyperedges/graphEntries:
- * those objects are already first-class entries. Recursive indexing created
- * accidental shortcuts from one local encounter into every lexical surface
- * nested inside its Observation, causing local neighborhood queries to fan
- * out across the whole book.
+ * Embedded graph objects are indexed separately; recursive walking would make
+ * a local encounter an accidental shortcut into an entire corpus.
  */
 function referencesOf(entry) {
   const refs = new Set();
@@ -90,13 +86,13 @@ export function graphObject(value) {
 }
 
 const addIndex = (map, key, id) => {
-  if (!key) return;
+  if (key == null) return;
   if (!map.has(key)) map.set(key, new Set());
   map.get(key).add(id);
 };
 
 const removeIndex = (map, key, id) => {
-  if (!key) return;
+  if (key == null) return;
   const bucket = map.get(key);
   if (!bucket) return;
   bucket.delete(id);
@@ -114,18 +110,27 @@ function indexKeys(entry) {
   if (entry?.schema === "EOMention@1" && entry.referent) incident.add(entry.referent);
   if (entry?.schema === "EOLexicalOccurrence@1" && entry.surfaceKey) incident.add(entry.surfaceKey);
   const dependent = new Set([...referencesOf(entry)].filter((ref) => ref !== entry?.id));
-  return { incident, dependent };
+  return {
+    incident,
+    dependent,
+    relation: entry?.schema === "EOHyperedge@1" ? entry.relation ?? null : null,
+    sequence: entry?.schema === "EOHyperedge@1" && Number.isFinite(entry?.scope?.sequencePosition)
+      ? entry.scope.sequencePosition
+      : null,
+  };
 }
 
 /**
  * Extend an existing transient graph index in O(new entries), replacing prior
- * contributions for stable ids exactly. The index is a reader cache, never a
- * Fold event or snapshot; authoritative state remains the append-only Fold.
+ * contributions for stable ids exactly. The index is reconstructible cache,
+ * never an append-log event or Fold snapshot.
  */
 export function indexHypergraphEntries(graph, entries = []) {
   if (!graph?.byId || !graph?.incident || !graph?.dependent) throw new TypeError("indexHypergraphEntries requires an EO hypergraph index");
   const keysById = graph.keysById ?? new Map();
   graph.keysById = keysById;
+  graph.relation ??= new Map();
+  graph.sequence ??= new Map();
 
   for (const entry of entries) {
     if (!entry?.id) continue;
@@ -133,6 +138,8 @@ export function indexHypergraphEntries(graph, entries = []) {
     if (priorKeys) {
       for (const key of priorKeys.incident) removeIndex(graph.incident, key, entry.id);
       for (const key of priorKeys.dependent) removeIndex(graph.dependent, key, entry.id);
+      removeIndex(graph.relation, priorKeys.relation, entry.id);
+      removeIndex(graph.sequence, priorKeys.sequence, entry.id);
     }
 
     graph.byId.set(entry.id, entry);
@@ -140,6 +147,8 @@ export function indexHypergraphEntries(graph, entries = []) {
     keysById.set(entry.id, keys);
     for (const key of keys.incident) addIndex(graph.incident, key, entry.id);
     for (const key of keys.dependent) addIndex(graph.dependent, key, entry.id);
+    addIndex(graph.relation, keys.relation, entry.id);
+    addIndex(graph.sequence, keys.sequence, entry.id);
   }
 
   graph.entries = [...graph.byId.values()];
@@ -153,9 +162,23 @@ export function buildHypergraph(entries = []) {
     byId: new Map(),
     incident: new Map(),
     dependent: new Map(),
+    relation: new Map(),
+    sequence: new Map(),
     keysById: new Map(),
   };
   return indexHypergraphEntries(graph, entries);
+}
+
+export function graphEntriesForIds(graph, ids = []) {
+  return [...ids].map((id) => graph?.byId?.get(id)).filter(Boolean);
+}
+
+export function graphEdgesForRelation(graph, relation) {
+  return graphEntriesForIds(graph, graph?.relation?.get(relation) ?? []).filter((entry) => entry.schema === "EOHyperedge@1");
+}
+
+export function graphEdgesAtSequence(graph, sequencePosition) {
+  return graphEntriesForIds(graph, graph?.sequence?.get(sequencePosition) ?? []).filter((entry) => entry.schema === "EOHyperedge@1");
 }
 
 /**
