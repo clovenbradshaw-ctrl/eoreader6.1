@@ -81,6 +81,7 @@ export function applyObservation(fold, observation) {
   next.witnessed = upsertById(next.witnessed ?? [], observation);
   addGraphEntry(next, observation);
   for (const edge of observation.hyperedges ?? []) addGraphEntry(next, edge);
+  for (const entry of observation.graphEntries ?? []) addGraphEntry(next, entry);
   return next;
 }
 
