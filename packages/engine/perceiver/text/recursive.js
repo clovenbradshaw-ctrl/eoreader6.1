@@ -114,7 +114,13 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         meta: { polarity: rel.polarity, source: encounter.source },
       }));
       const seenReferents = currentReferents(encounter.material, cache.referents);
-      const gaps = cache.gaps.map((gap, i) => ({ schema: "EOReferentGap@1", id: `gap:referent:${sequencePosition}:${i}`, ...gap }));
+      const activeIds = new Set(seenReferents.map((ref) => ref.id));
+      for (const edge of edges) {
+        for (const participant of edge.participants ?? []) if (participant.standing === "referent") activeIds.add(participant.ref);
+      }
+      const gaps = cache.gaps
+        .filter((gap) => activeIds.has(gap.referent))
+        .map((gap) => ({ schema: "EOReferentGap@1", id: `gap:referent:${slug(gap.referent)}`, ...gap }));
 
       const currentSentence = { text: encounter.material, offset: encounter.anchor?.start ?? 0, order: priorSentences.length };
       priorSentences.push(currentSentence);
