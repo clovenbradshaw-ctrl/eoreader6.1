@@ -98,7 +98,7 @@ function pairEligible(a, b, maxSequenceGap) {
   return Boolean(pairConnection(a, b));
 }
 
-function ambiguityObligations(graph, observations) {
+function ambiguityObligations(graph, observations, foldSequence) {
   const ops = [];
   for (const observation of observations) {
     for (const edge of observation.hyperedges ?? []) {
@@ -113,7 +113,7 @@ function ambiguityObligations(graph, observations) {
           grounds: [edge.id, observation.id],
           alternatives,
           consequences: [{ kind: "relation_attribution", edge: edge.id }],
-          openedAt: null,
+          openedAt: foldSequence + 1,
           persistence: 0,
         });
         ops.push(openObligation(value, { witness: observation.id, grain: "Figure", op: "DEF" }));
@@ -328,7 +328,7 @@ export function deriveGraphStructuralDelta(fold, observations = [], options = {}
   if (options.graph) indexHypergraphEntries(graph, additions);
   const foldSequence = fold?.sequence ?? 0;
   const operations = [
-    ...ambiguityObligations(graph, observations),
+    ...ambiguityObligations(graph, observations, foldSequence),
     ...persistentUnresolvedObligations(graph, newEdges, foldSequence, options),
     ...competingValueObligations(graph, newEdges, foldSequence),
     ...patternOperations(graph, newEdges, options),
