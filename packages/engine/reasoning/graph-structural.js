@@ -109,14 +109,12 @@ function patternOperations(fold, graph, newEdgeIds, { minPatternInstances = 3 } 
   return operations;
 }
 
-/**
- * Mechanical Fold revision from explicit hypergraph structure only.
- * No lexical semantics, narrator guessing, or domain ontology is introduced.
- */
+/** Mechanical Fold revision from explicit hypergraph structure only. */
 export function deriveGraphStructuralDelta(fold, observations = [], options = {}) {
+  const newEdgeIds = new Set(observations.flatMap((obs) => (obs.hyperedges ?? []).map((edge) => edge.id)));
+  if (newEdgeIds.size === 0) return deltaFold([], options.id ? { id: options.id } : {});
   const additions = allObservationEntries(observations);
   const graph = buildHypergraph([...(fold?.graphEntries ?? []), ...additions]);
-  const newEdgeIds = new Set(observations.flatMap((obs) => (obs.hyperedges ?? []).map((edge) => edge.id)));
   const operations = [
     ...ambiguityObligations(fold, observations),
     ...competingValueObligations(fold, graph, newEdgeIds),
