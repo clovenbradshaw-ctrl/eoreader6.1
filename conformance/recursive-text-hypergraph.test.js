@@ -7,12 +7,12 @@ import {
 
 test("real text perceiver carries witnessed hyperedges into Fold graph", async () => {
   const text = [
-    "Alice greeted Bob.",
-    "Carol greeted Alice.",
-    "Alice greeted Carol.",
-    "Bob greeted Alice.",
-    "Carol greeted Bob.",
-    "Alice greeted Bob.",
+    "Today Alice greeted Bob.",
+    "Later Carol greeted Alice.",
+    "Again Alice greeted Carol.",
+    "Then Bob greeted Alice.",
+    "Soon Carol greeted Bob.",
+    "Finally Alice greeted Bob.",
   ].join(" ");
   const reader = createRecursiveReader({
     perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 1, refreshEvery: 1 })],
