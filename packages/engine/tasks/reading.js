@@ -38,7 +38,10 @@ function taskQuestions(strategy) {
     "Which witnessed referent can this relation safely be attributed to?",
     "What competing attribution remains live?",
   ];
-  return ["What additional witnessed structure bears on this unresolved distinction?", "What would defeat the current leading interpretation?"];
+  return [
+    "What additional witnessed structure bears on this unresolved distinction?",
+    "What would defeat the current leading interpretation?",
+  ];
 }
 
 export function createReadingTaskState(log = null) {
@@ -58,6 +61,7 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
   const targets = [...structuralRefs];
   const consequenceCount = (obligation.consequences ?? []).length;
   const persistence = obligation.persistence ?? 0;
+  const openedAt = obligation.openedAt ?? sequence;
   return Object.freeze({
     kind: ENTRY_KINDS.PROPOSE,
     task_id: `task:obligation:${obligation.id}`,
@@ -67,6 +71,7 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
     targets: Object.freeze(targets),
     questions: Object.freeze(taskQuestions(strategy)),
     consequences: Object.freeze([...(obligation.consequences ?? [])]),
+    openedAt,
     persistence,
     priority: Object.freeze({ consequence: consequenceCount, persistence, uncertainty: 1 }),
     scope: Object.freeze({ seenThrough: sequence, futureAllowed: false, retrospectiveAllowed: true }),
@@ -78,6 +83,29 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
     evidence: Object.freeze([...(obligation.grounds ?? [])]),
     status: "open",
   });
+}
+
+export function taskPriority(task, fold = {}) {
+  const sequence = fold?.sequence ?? 0;
+  const age = Math.max(task?.persistence ?? 0, task?.openedAt == null ? 0 : sequence - task.openedAt);
+  const consequence = task?.priority?.consequence ?? (task?.consequences ?? []).length;
+  const uncertainty = task?.priority?.uncertainty ?? 1;
+  return (1 + consequence) * (1 + age) * uncertainty;
+}
+
+/**
+ * Bounded attention: older and more consequential unresolved questions get
+ * the limited deep-reading slots first. Stable task_id tie-break keeps replay
+ * deterministic.
+ */
+export function scheduleTasks(tasks = [], fold = {}, { limit = 4 } = {}) {
+  if (!Number.isInteger(limit) || limit < 0) throw new TypeError("scheduleTasks limit must be a non-negative integer");
+  return Object.freeze([...tasks]
+    .filter((task) => !CLOSED.has(task.status))
+    .map((task) => ({ task, score: taskPriority(task, fold) }))
+    .sort((a, b) => b.score - a.score || String(a.task.task_id).localeCompare(String(b.task.task_id)))
+    .slice(0, limit)
+    .map(({ task }) => task));
 }
 
 export function reconcileObligationTasks(log, fold) {
@@ -127,12 +155,15 @@ export async function executeClarificationTask({ task, fold, observations = [], 
     ...observations.flatMap((o) => [o, ...(o?.hyperedges ?? []), ...(o?.graphEntries ?? [])]),
   ]);
   const consequence = task?.priority?.consequence ?? (task.consequences ?? []).length;
-  const persistence = task?.priority?.persistence ?? task.persistence ?? 0;
-  const hops = maxHops ?? (consequence > 1 || persistence > 3 ? 4 : 3);
+  const age = Math.max(task?.persistence ?? 0, task?.openedAt == null ? 0 : (fold?.sequence ?? 0) - task.openedAt);
+  const hops = maxHops ?? (consequence > 1 || age > 3 ? 4 : 3);
   const neighborhood = relevantHypergraphNeighborhood(graph, [...(task.targets ?? []), ...observations], { maxHops: hops });
   const candidates = neighborhood.entries.filter((entry) => entry?.id && !CLOSED.has(entry?.status));
   const evidence = candidates
-    .filter((entry) => ["Observation@1", "EOHyperedge@1", "EOOperation@1", "EOExpectation@1", "EOObligation@1", "EOMention@1", "EOLexicalOccurrence@1"].includes(entry.schema))
+    .filter((entry) => [
+      "Observation@1", "EOHyperedge@1", "EOOperation@1", "EOExpectation@1",
+      "EOObligation@1", "EOMention@1", "EOLexicalOccurrence@1", "EOTaskTargetOccurrence@1",
+    ].includes(entry.schema))
     .map((entry) => entry.id);
   return Object.freeze({
     disposition: evidence.length ? "evidence_found" : "unresolved",
@@ -140,6 +171,7 @@ export async function executeClarificationTask({ task, fold, observations = [], 
     candidates: Object.freeze(candidates),
     questions: Object.freeze([...(task.questions ?? [])]),
     strategy: task.strategy ?? "clarify",
+    depth: hops,
     detail: evidence.length
       ? `reopened ${candidates.length} graph objects within ${hops} structural hops; EO interrogation must decide consequence`
       : `no additional witnessed graph structure found within ${hops} structural hops`,
@@ -169,6 +201,7 @@ export function appendTaskResult(log, task, result = {}) {
       candidates: Object.freeze([...(result.candidates ?? [])]),
       questions: Object.freeze([...(result.questions ?? task.questions ?? [])]),
       strategy: result.strategy ?? task.strategy ?? "clarify",
+      depth: result.depth ?? null,
       detail: result.detail ?? null,
     }),
     evidence,
