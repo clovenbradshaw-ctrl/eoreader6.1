@@ -44,8 +44,16 @@ const reader = createRecursiveReader({
     revise: async () => deltaFold([]),
   },
 });
-const out = await reader.read(encounters);
-const graph = buildHypergraph(out.fold.graphEntries);
+
+// Stream the authored-order encounters. reader.read() intentionally retains
+// each Turn for callers that need a full trace; a novel benchmark only needs
+// the append-only reader state and final Fold. Retaining every historical Fold
+// array makes memory grow quadratically with book length and tests snapshot
+// retention rather than reading.
+for (const item of encounters) await reader.step(item);
+const fold = reader.getFold();
+
+const graph = buildHypergraph(fold.graphEntries);
 const referents = graph.entries.filter((entry) => entry.schema === "EOReferent@1");
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
@@ -84,7 +92,7 @@ const report = {
   source,
   sourceFailures: failures,
   sentences: encounters.length,
-  observations: out.fold.witnessed.length,
+  observations: fold.witnessed.length,
   graphEntries: graph.entries.length,
   referents: referents.length,
   hyperedges: edges.length,
