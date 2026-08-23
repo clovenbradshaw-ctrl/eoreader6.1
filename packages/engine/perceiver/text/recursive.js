@@ -121,6 +121,43 @@ function lexicalNounOccurrences(text, sequencePosition, encounterRef, posPrior) 
   return out;
 }
 
+function taskTargetSurfaceKeys(orientation = {}) {
+  const out = new Set();
+  for (const task of orientation.activeTasks ?? []) {
+    for (const target of task.targets ?? []) {
+      if (typeof target === "string" && target.startsWith("surface:")) out.add(target);
+    }
+  }
+  return out;
+}
+
+/**
+ * A Fold task may make a previously unremarkable surface worth checking for.
+ * This emits only occurrence evidence. It does NOT promote the surface to a
+ * referent or assert that two occurrences corefer.
+ */
+function taskTargetOccurrences(text, sequencePosition, encounterRef, orientation, alreadySeen = new Set()) {
+  const out = [];
+  let ordinal = 0;
+  for (const surfaceKey of taskTargetSurfaceKeys(orientation)) {
+    if (alreadySeen.has(surfaceKey)) continue;
+    const surface = surfaceKey.slice("surface:".length).replace(/_/g, " ");
+    if (!surface || !containsSurface(text, surface)) continue;
+    out.push(Object.freeze({
+      schema: "EOTaskTargetOccurrence@1",
+      id: `task-target:${sequencePosition}:${ordinal}`,
+      surfaceKey,
+      surface,
+      standing: "task_nominated_occurrence",
+      encounterRef,
+      witness: `text:${sequencePosition}:task-target:${ordinal}`,
+      provenance: Object.freeze({ giver: "active-reading-task", basis: "targeted recurrence check" }),
+    }));
+    ordinal += 1;
+  }
+  return out;
+}
+
 export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
   if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) throw new TypeError("posPrior must be a giver-named POSPrior@1");
@@ -146,7 +183,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
 
   return Object.freeze({
     id: "text/recursive",
-    async perceive(encounter) {
+    async perceive(encounter, orientation = {}) {
       if (encounter?.modality !== "text" || typeof encounter.material !== "string") return [];
       const sequencePosition = encounter.sequencePosition ?? priorSentences.length;
       const encounterRef = `encounter:${sequencePosition}`;
@@ -177,6 +214,8 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         source: encounter.source,
       }));
       const lexicalOccurrences = lexicalNounOccurrences(encounter.material, sequencePosition, encounterRef, posPrior);
+      const lexicalKeys = new Set(lexicalOccurrences.map((occ) => occ.surfaceKey));
+      const targetedOccurrences = taskTargetOccurrences(encounter.material, sequencePosition, encounterRef, orientation, lexicalKeys);
       const activeIds = new Set(seenReferents.map((ref) => ref.id));
       for (const edge of edges) for (const participant of edge.participants ?? []) if (participant.standing === "referent") activeIds.add(participant.ref);
       const gaps = cache.gaps
@@ -187,20 +226,21 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
       priorSentences.push(currentSentence);
       priorText += `${priorText ? "\n" : ""}${encounter.material}`;
 
-      if (edges.length === 0 && seenReferents.length === 0 && lexicalOccurrences.length === 0) return [];
+      if (edges.length === 0 && seenReferents.length === 0 && lexicalOccurrences.length === 0 && targetedOccurrences.length === 0) return [];
       return [{
         candidate: {
           distinctions: [
             ...seenReferents.map((ref) => ({ referent: ref.id, surfaces: ref.surfaces })),
             ...edges.map((edge) => ({ relation: edge.relation, participants: edge.participants })),
             ...lexicalOccurrences.map((occ) => ({ occurrence: occ.id, surfaceKey: occ.surfaceKey, upos: occ.upos })),
+            ...targetedOccurrences.map((occ) => ({ occurrence: occ.id, surfaceKey: occ.surfaceKey, taskNominated: true })),
           ],
           hyperedges: edges,
-          graphEntries: [...seenReferents, ...mentions, ...lexicalOccurrences, ...gaps],
+          graphEntries: [...seenReferents, ...mentions, ...lexicalOccurrences, ...targetedOccurrences, ...gaps],
         },
         anchor: encounter.anchor,
         evidence: encounter.material,
-        nominationCause: "bottom_up_difference",
+        nominationCause: targetedOccurrences.length ? ["bottom_up_difference", "active_task"] : "bottom_up_difference",
       }];
     },
   });
