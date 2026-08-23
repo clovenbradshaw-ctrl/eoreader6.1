@@ -24,7 +24,7 @@ export { obligation, openObligation, resolveObligation, carryObligations } from 
 export { deriveSurprise, deriveTension, deriveRelease } from "./dynamics/index.js";
 export {
   createReadingTaskState, taskForObligation, proposeObligationTasks,
-  wakeTasks, appendTaskResult, typeTask,
+  wakeTasks, executeClarificationTask, appendTaskResult, typeTask,
 } from "./tasks/reading.js";
 export { encounter, createRecursiveReader } from "./reading/recursive.js";
 export { createCausalTextPerceiver, textEncounters } from "./perceiver/text/recursive.js";
