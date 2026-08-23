@@ -5,6 +5,7 @@ import { discoverRelationVocab, extractRelations } from "./relations.js";
 import { hyperedge } from "../../hypergraph/index.js";
 
 const slug = (value) => diaNorm(value).replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "");
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function surfaceMap(events = []) {
   const map = new Map();
@@ -27,18 +28,43 @@ function referentObjects(events = []) {
   return [...byId.values()].map((value) => Object.freeze({ ...value, surfaces: Object.freeze(value.surfaces), provenance: Object.freeze(value.provenance) }));
 }
 
+function containsSurface(text, surface) {
+  const hay = diaNorm(text);
+  const needle = diaNorm(surface);
+  if (!needle) return false;
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(needle)}([^\\p{L}\\p{N}]|$)`, "u").test(hay);
+}
+
 function currentReferents(text, refs = []) {
-  const lowered = diaNorm(text);
-  return refs.filter((ref) => ref.surfaces.some((surface) => {
-    const s = diaNorm(surface);
-    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "u").test(lowered);
-  }));
+  return refs.filter((ref) => ref.surfaces.some((surface) => containsSurface(text, surface)));
+}
+
+function referentsInSpan(span, map) {
+  const matches = new Map();
+  for (const [surface, ref] of map) {
+    if (containsSurface(span, surface)) {
+      if (!matches.has(ref)) matches.set(ref, []);
+      matches.get(ref).push(surface);
+    }
+  }
+  return matches;
 }
 
 function resolveParticipant(surface, map, sequencePosition, relationIndex, role) {
   const exact = map.get(diaNorm(surface));
-  if (exact) return { ref: exact, role, standing: "referent", surface };
+  if (exact) return { ref: exact, role, standing: "referent", surface, resolution: "exact_surface" };
+
+  // Wider parser spans frequently contain a determiner, epithet, or title
+  // around an already-earned referent ("dear Elizabeth", "my friend Clerval").
+  // Bind only when every known surface inside the span converges on ONE
+  // referent. Multiple candidate referents remain unresolved rather than
+  // turning parser width into an identity decision.
+  const candidates = referentsInSpan(surface, map);
+  if (candidates.size === 1) {
+    const [[ref, matchedSurfaces]] = candidates;
+    return { ref, role, standing: "referent", surface, resolution: "unique_surface_in_span", matchedSurfaces };
+  }
+
   const lexical = slug(surface) || "unknown";
   const occurrence = `occ:${sequencePosition}:${relationIndex}:${role}`;
   return {
@@ -48,6 +74,7 @@ function resolveParticipant(surface, map, sequencePosition, relationIndex, role)
     role,
     standing: "unresolved_surface",
     surface,
+    candidateReferents: [...candidates.keys()],
   };
 }
 
@@ -63,10 +90,7 @@ function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
   for (const candidate of result.candidates ?? []) {
     if (candidate.surfaces < minSurfaces) continue;
     const counts = candidate.upos;
-    if (!counts) {
-      verbs.add(candidate.verb);
-      continue;
-    }
+    if (!counts) { verbs.add(candidate.verb); continue; }
     const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
     const lexicalShare = total ? (counts.VERB ?? 0) / total : 0;
     if (lexicalShare > 0.5) verbs.add(candidate.verb);
@@ -74,23 +98,9 @@ function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
   return verbs;
 }
 
-/**
- * Causal text organ for createRecursiveReader.
- *
- * Candidate vocabulary is refreshed from the prefix only. The current sentence
- * never contributes to the referent/relation model used to perceive itself.
- * A giver-named POS prior may reject function/preposition/auxiliary forms as
- * lexical relations; unattested forms remain material-derived gaps.
- *
- * An unresolved mention is occurrence-local. `surfaceKey` is only a lexical
- * retrieval index: two occurrences of "monster" share surface:monster but do
- * NOT share identity until a witnessed coreference transformation connects them.
- */
 export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
-  if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) {
-    throw new TypeError("posPrior must be a giver-named POSPrior@1");
-  }
+  if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) throw new TypeError("posPrior must be a giver-named POSPrior@1");
   const priorSentences = [];
   let priorText = "";
   let cache = { closed: new Set(), refs: new Map(), referents: [], gaps: [], verbs: new Set() };
@@ -101,12 +111,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
     const closed = earnedClosedClass(table);
     const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
     const discovered = discoverReferents(surfaces);
-    const relationResult = discoverRelationVocab(priorText, {
-      surfaces,
-      functionWords: closed,
-      minSurfaces: minRelationSurfaces,
-      posPrior,
-    });
+    const relationResult = discoverRelationVocab(priorText, { surfaces, functionWords: closed, minSurfaces: minRelationSurfaces, posPrior });
     cache = {
       closed,
       refs: surfaceMap(discovered.events),
@@ -136,11 +141,18 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         eo: { op: "CON", grain: "Figure" },
         meta: { polarity: rel.polarity, source: encounter.source },
       }));
+
       const seenReferents = currentReferents(encounter.material, cache.referents);
+      const mentions = seenReferents.map((ref) => Object.freeze({
+        schema: "EOMention@1",
+        id: `mention:${sequencePosition}:${slug(ref.id)}`,
+        referent: ref.id,
+        anchor: encounter.anchor,
+        witness: `text:${sequencePosition}`,
+        source: encounter.source,
+      }));
       const activeIds = new Set(seenReferents.map((ref) => ref.id));
-      for (const edge of edges) {
-        for (const participant of edge.participants ?? []) if (participant.standing === "referent") activeIds.add(participant.ref);
-      }
+      for (const edge of edges) for (const participant of edge.participants ?? []) if (participant.standing === "referent") activeIds.add(participant.ref);
       const gaps = cache.gaps
         .filter((gap) => activeIds.has(gap.referent))
         .map((gap) => ({ schema: "EOReferentGap@1", id: `gap:referent:${slug(gap.referent)}`, ...gap }));
@@ -157,7 +169,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
             ...edges.map((edge) => ({ relation: edge.relation, participants: edge.participants })),
           ],
           hyperedges: edges,
-          graphEntries: [...seenReferents, ...gaps],
+          graphEntries: [...seenReferents, ...mentions, ...gaps],
         },
         anchor: encounter.anchor,
         evidence: encounter.material,
