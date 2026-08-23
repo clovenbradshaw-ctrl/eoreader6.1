@@ -4,13 +4,37 @@ import {
   buildHypergraph, relevantHypergraphNeighborhood, deltaFold,
 } from "../packages/engine/index.js";
 
-const URL = "https://www.gutenberg.org/cache/epub/84/pg84.txt";
-const response = await fetch(URL);
-if (!response.ok) throw new Error(`failed to fetch Frankenstein: ${response.status}`);
-const raw = await response.text();
-const work = stripContainer(raw);
-if (!work.looks_like_material) throw new Error("fetched Frankenstein did not look like material");
+const SOURCES = [
+  "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+  "https://raw.githubusercontent.com/aibolem/Frankenstein_84/master/84.txt",
+];
 
+let source = null;
+let raw = null;
+const failures = [];
+for (const url of SOURCES) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      failures.push(`${url} -> ${response.status}`);
+      continue;
+    }
+    const candidate = await response.text();
+    const probe = stripContainer(candidate);
+    if (!probe.looks_like_material) {
+      failures.push(`${url} -> response did not look like material`);
+      continue;
+    }
+    source = url;
+    raw = candidate;
+    break;
+  } catch (error) {
+    failures.push(`${url} -> ${error?.message ?? error}`);
+  }
+}
+if (!raw) throw new Error(`failed to fetch Frankenstein from all sources: ${failures.join("; ")}`);
+
+const work = stripContainer(raw);
 const encounters = textEncounters(work.text, { source: "gutenberg:84", offset: work.offset });
 const reader = createRecursiveReader({
   perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 2, refreshEvery: 25 })],
@@ -57,7 +81,8 @@ const creatureEdges = creatureNeighborhood.entries
   }));
 
 const report = {
-  source: URL,
+  source,
+  sourceFailures: failures,
   sentences: encounters.length,
   observations: out.fold.witnessed.length,
   graphEntries: graph.entries.length,
