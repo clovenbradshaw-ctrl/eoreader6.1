@@ -98,6 +98,27 @@ const report = {
   },
 };
 
+console.log("FRANKENSTEIN_HYPERGRAPH_SUMMARY", JSON.stringify({
+  sentences: report.sentences,
+  observations: report.observations,
+  graphEntries: report.graphEntries,
+  referents: report.referents,
+  mentions: report.mentions,
+  lexicalOccurrences: report.lexicalOccurrences,
+  hyperedges: report.hyperedges,
+  referentGaps: report.referentGaps,
+  participantBinding: report.participantBinding,
+  unresolvedFirstPersonEdges: report.unresolvedFirstPersonEdges,
+  topRelations: report.topRelations.slice(0, 12),
+  topReferents: report.referentRanking.slice(0, 12),
+  creature: {
+    descriptorKeys: report.creature.descriptorKeys,
+    occurrenceCount: report.creature.occurrenceCount,
+    neighborhoodEntries: report.creature.neighborhoodEntries,
+    contextualSemanticEdgeCount: report.creature.contextualSemanticEdges.length,
+    contextualNamedMentionCount: report.creature.contextualNamedMentions.length,
+  },
+}));
 console.log("FRANKENSTEIN_HYPERGRAPH_REPORT_START");
 console.log(JSON.stringify(report, null, 2));
 console.log("FRANKENSTEIN_HYPERGRAPH_REPORT_END");
