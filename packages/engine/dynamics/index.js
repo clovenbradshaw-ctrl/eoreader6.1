@@ -3,14 +3,23 @@ const OPEN = new Set([undefined, null, "open", "strengthened", "weakened"]);
 export function deriveSurprise(delta) {
   const operations = (delta?.operations ?? []).filter((operation) => operation.operator !== "NUL");
   const affectedAddresses = [...new Set(operations.map((o) => `${o.mode}/${o.domain}/${o.grain}`))];
+  const touched = new Set();
+  for (const operation of operations) {
+    for (const id of operation.inputs ?? []) touched.add(id);
+    for (const id of operation.outputs ?? []) touched.add(id);
+    if (operation.payload?.value?.id) touched.add(operation.payload.value.id);
+    if (operation.payload?.id) touched.add(operation.payload.id);
+  }
   return Object.freeze({
     schema: "SurpriseProfile@1",
     operations,
     affectedAddresses,
+    touchedGraphObjects: Object.freeze([...touched]),
     downstreamConsequences: operations.flatMap((o) => o.consequence == null ? [] : [o.consequence]),
     recanonicalizations: operations.filter((o) => o.operator === "REC"),
     expectationEffects: operations.filter((o) => o.payload?.action === "expectation"),
     obligationEffects: operations.filter((o) => ["obligation", "resolve-obligation"].includes(o.payload?.action)),
+    patternEffects: operations.filter((o) => o.payload?.value?.schema === "EOPatternCandidate@1"),
   });
 }
 
@@ -26,11 +35,15 @@ export function deriveTension(fold) {
       if (shared.length) interactionNetwork.push({ from: a.id, to: b.id, shared });
     }
   }
+  const sequence = fold?.sequence ?? 0;
   return Object.freeze({
     schema: "TensionProfile@1",
     obligations,
     interactionNetwork,
-    persistence: obligations.map((o) => ({ id: o.id, value: o.persistence ?? 0 })),
+    persistence: obligations.map((o) => ({
+      id: o.id,
+      value: o.openedAt == null ? (o.persistence ?? 0) : Math.max(o.persistence ?? 0, sequence - o.openedAt + 1),
+    })),
     consequences: obligations.map((o) => ({ id: o.id, value: o.consequences ?? [] })),
   });
 }
