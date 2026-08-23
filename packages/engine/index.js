@@ -21,3 +21,4 @@ export { expectation, expectationTransition, EXPECTATION_STATES } from "./expect
 export { obligation, openObligation, resolveObligation, carryObligations } from "./obligations/index.js";
 export { deriveSurprise, deriveTension, deriveRelease } from "./dynamics/index.js";
 export { encounter, createRecursiveReader } from "./reading/recursive.js";
+export { createCausalTextPerceiver, textEncounters } from "./perceiver/text/recursive.js";
