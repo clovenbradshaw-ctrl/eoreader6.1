@@ -11,7 +11,7 @@ export {
   falsificationEnvelope, falsificationEnvelopes, renderFalsificationEnvelope,
 } from "./reasoning/falsification.js";
 export { hyperedge, graphObject, buildHypergraph, relevantHypergraphNeighborhood } from "./hypergraph/index.js";
-export { discoverPatternCandidates } from "./patterns/index.js";
+export { discoverPatternCandidates, discoverMotifCandidates } from "./patterns/index.js";
 
 export { receivedGround, eoOperation, deltaFold, applyObservation, applyDelta, reconstruct } from "./fold/index.js";
 export { deriveOrientation } from "./orientation/index.js";
