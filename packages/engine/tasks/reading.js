@@ -16,6 +16,34 @@ const refsOf = (value, out = new Set()) => {
   return out;
 };
 
+/**
+ * A reading task is licensed only by a difference that could make a
+ * difference to the Fold. Merely being unresolved is not enough.
+ *
+ * Concrete graph references are preferred because they identify structure
+ * whose attribution/identity/scope could change. A typed consequence may
+ * also license a task when it explicitly names a Fold effect. Free-floating
+ * descriptive strings do not: they are notes, not consequence structure.
+ */
+export function materialConsequencesOf(obligation = {}) {
+  const refs = refsOf([
+    obligation.distinction,
+    obligation.grounds,
+    obligation.alternatives,
+    obligation.consequences,
+  ]);
+  const typed = (obligation.consequences ?? []).filter((c) => c && typeof c === "object" && (
+    c.kind || c.ref || c.edge || c.expectation || c.obligation || c.frame || c.pattern || c.referent
+  ));
+  return Object.freeze({ refs: Object.freeze([...refs]), typed: Object.freeze([...typed]) });
+}
+
+export function obligationMakesDifference(obligation = {}) {
+  if (!obligation?.id || CLOSED.has(obligation.status)) return false;
+  const material = materialConsequencesOf(obligation);
+  return material.refs.length > 0 || material.typed.length > 0;
+}
+
 function strategyOf(obligation) {
   const id = obligation?.id ?? "";
   const consequenceKinds = new Set((obligation?.consequences ?? []).map((c) => c?.kind).filter(Boolean));
@@ -49,17 +77,11 @@ export function createReadingTaskState(log = null) {
 }
 
 export function taskForObligation(obligation, { sequence = 0 } = {}) {
-  if (!obligation?.id || CLOSED.has(obligation.status)) return null;
+  if (!obligationMakesDifference(obligation)) return null;
   const strategy = strategyOf(obligation);
-  const structuralRefs = refsOf([
-    obligation.id,
-    obligation.distinction,
-    obligation.grounds,
-    obligation.alternatives,
-    obligation.consequences,
-  ]);
-  const targets = [...structuralRefs];
-  const consequenceCount = (obligation.consequences ?? []).length;
+  const material = materialConsequencesOf(obligation);
+  const targets = [...material.refs];
+  const consequenceCount = material.typed.length + new Set(refsOf(obligation.consequences)).size;
   const persistence = obligation.persistence ?? 0;
   const openedAt = obligation.openedAt ?? sequence;
   return Object.freeze({
@@ -73,7 +95,7 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
     consequences: Object.freeze([...(obligation.consequences ?? [])]),
     openedAt,
     persistence,
-    priority: Object.freeze({ consequence: consequenceCount, persistence, uncertainty: 1 }),
+    priority: Object.freeze({ consequence: Math.max(1, consequenceCount), persistence, uncertainty: 1 }),
     scope: Object.freeze({ seenThrough: sequence, futureAllowed: false, retrospectiveAllowed: true }),
     strategy,
     successCondition: "new witnessed evidence changes the addressed unresolved structure through EO interrogation",
@@ -88,21 +110,21 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
 export function taskPriority(task, fold = {}) {
   const sequence = fold?.sequence ?? 0;
   const age = Math.max(task?.persistence ?? 0, task?.openedAt == null ? 0 : sequence - task.openedAt);
-  const consequence = task?.priority?.consequence ?? (task?.consequences ?? []).length;
+  const consequence = task?.priority?.consequence ?? 0;
   const uncertainty = task?.priority?.uncertainty ?? 1;
-  return (1 + consequence) * (1 + age) * uncertainty;
+  return consequence * (1 + age) * uncertainty;
 }
 
 /**
- * Bounded attention: older and more consequential unresolved questions get
- * the limited deep-reading slots first. Stable task_id tie-break keeps replay
- * deterministic.
+ * Bounded attention: only consequence-bearing questions enter scheduling;
+ * older and more consequential ones get the limited deep-reading slots first.
  */
 export function scheduleTasks(tasks = [], fold = {}, { limit = 4 } = {}) {
   if (!Number.isInteger(limit) || limit < 0) throw new TypeError("scheduleTasks limit must be a non-negative integer");
   return Object.freeze([...tasks]
-    .filter((task) => !CLOSED.has(task.status))
+    .filter((task) => !CLOSED.has(task.status) && (task?.priority?.consequence ?? 0) > 0 && (task?.targets?.length ?? 0) > 0)
     .map((task) => ({ task, score: taskPriority(task, fold) }))
+    .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || String(a.task.task_id).localeCompare(String(b.task.task_id)))
     .slice(0, limit)
     .map(({ task }) => task));
@@ -114,12 +136,14 @@ export function reconcileObligationTasks(log, fold) {
   for (const task of projectTasks(next)) {
     if (!task?.obligation_id) continue;
     const obligation = byObligation.get(task.obligation_id);
-    if (!obligation || !CLOSED.has(obligation.status)) continue;
+    if (obligation && !CLOSED.has(obligation.status) && obligationMakesDifference(obligation)) continue;
     next = append(next, {
       kind: ENTRY_KINDS.RETRACT,
       task_id: task.task_id,
-      description: `Underlying obligation ${task.obligation_id} is ${obligation.status}`,
-      evidence: [...(obligation.resolutionRefs ?? [])],
+      description: obligation
+        ? `Underlying obligation ${task.obligation_id} no longer has a material downstream consequence`
+        : `Underlying obligation ${task.obligation_id} no longer exists`,
+      evidence: [...(obligation?.resolutionRefs ?? [])],
     });
   }
   return next;
@@ -142,22 +166,31 @@ export function proposeObligationTasks(log, fold) {
 export function wakeTasks(tasks = [], observations = []) {
   const encountered = refsOf(observations);
   return Object.freeze(tasks.filter((task) => {
-    if (CLOSED.has(task.status)) return false;
+    if (CLOSED.has(task.status) || (task?.priority?.consequence ?? 0) <= 0) return false;
     const refs = task?.wake?.refs ?? task?.targets ?? [];
     return refs.some((ref) => encountered.has(ref));
   }));
 }
 
-export async function executeClarificationTask({ task, fold, observations = [], maxHops = null } = {}) {
+export async function executeClarificationTask({ task, fold, observations = [], maxHops = null, graph = null } = {}) {
   if (!task?.task_id) throw new TypeError("executeClarificationTask requires a task");
-  const graph = buildHypergraph([
+  const workingGraph = graph ?? buildHypergraph([
     ...(fold?.graphEntries ?? []),
     ...observations.flatMap((o) => [o, ...(o?.hyperedges ?? []), ...(o?.graphEntries ?? [])]),
   ]);
-  const consequence = task?.priority?.consequence ?? (task.consequences ?? []).length;
+  const consequence = task?.priority?.consequence ?? 0;
+  if (consequence <= 0) return Object.freeze({
+    disposition: "irrelevant",
+    evidence: Object.freeze([]),
+    candidates: Object.freeze([]),
+    questions: Object.freeze([...(task.questions ?? [])]),
+    strategy: task.strategy ?? "clarify",
+    depth: 0,
+    detail: "task has no material consequence in the current Fold",
+  });
   const age = Math.max(task?.persistence ?? 0, task?.openedAt == null ? 0 : (fold?.sequence ?? 0) - task.openedAt);
   const hops = maxHops ?? (consequence > 1 || age > 3 ? 4 : 3);
-  const neighborhood = relevantHypergraphNeighborhood(graph, [...(task.targets ?? []), ...observations], { maxHops: hops });
+  const neighborhood = relevantHypergraphNeighborhood(workingGraph, [...(task.targets ?? []), ...observations], { maxHops: hops });
   const candidates = neighborhood.entries.filter((entry) => entry?.id && !CLOSED.has(entry?.status));
   const evidence = candidates
     .filter((entry) => [
