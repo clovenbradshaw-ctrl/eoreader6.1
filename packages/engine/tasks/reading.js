@@ -4,6 +4,7 @@ import {
 import { buildHypergraph, relevantHypergraphNeighborhood } from "../hypergraph/index.js";
 
 const CLOSED = new Set(["resolved", "closed", "superseded", "retracted"]);
+const EO_OPS = new Set(["NUL", "SIG", "INS", "SEG", "CON", "SYN", "DEF", "EVA", "REC"]);
 
 const refsOf = (value, out = new Set()) => {
   if (value == null) return out;
@@ -16,16 +17,31 @@ const refsOf = (value, out = new Set()) => {
   return out;
 };
 
+const eoAddressed = (consequence) => {
+  if (!consequence || typeof consequence !== "object") return false;
+  if (EO_OPS.has(consequence.op) || EO_OPS.has(consequence.operator)) return true;
+  const address = consequence.address ?? consequence.eo;
+  return Boolean(address && typeof address === "object" && (
+    EO_OPS.has(address.op) || EO_OPS.has(address.operator) ||
+    (address.mode && address.domain && address.grain)
+  ));
+};
+
+const structurallyTargeted = (consequence) => Boolean(consequence && typeof consequence === "object" && (
+  consequence.ref || consequence.edge || consequence.expectation || consequence.obligation || consequence.frame ||
+  consequence.pattern || consequence.referent || consequence.boundary || consequence.relation
+));
+
 /**
  * A reading task is licensed only by a downstream difference that could make
  * a difference to the Fold. Grounds identify where an uncertainty came from;
- * they do not, by themselves, justify spending attention on it.
+ * they do not, by themselves, justify spending attention on it. Likewise a
+ * descriptive `kind` label is metadata, not consequence: the consequence must
+ * address actual Fold structure or an EO transformation address.
  */
 export function materialConsequencesOf(obligation = {}) {
   const consequenceRefs = refsOf(obligation.consequences);
-  const typed = (obligation.consequences ?? []).filter((c) => c && typeof c === "object" && (
-    c.kind || c.ref || c.edge || c.expectation || c.obligation || c.frame || c.pattern || c.referent || c.boundary || c.relation
-  ));
+  const typed = (obligation.consequences ?? []).filter((c) => structurallyTargeted(c) || eoAddressed(c));
   return Object.freeze({ refs: Object.freeze([...consequenceRefs]), typed: Object.freeze([...typed]) });
 }
 
