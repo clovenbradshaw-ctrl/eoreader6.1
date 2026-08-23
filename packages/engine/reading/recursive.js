@@ -4,19 +4,25 @@ import { perceive as defaultPerceive } from "../perception/index.js";
 import { witness as defaultWitness } from "../witness/index.js";
 import { relevantNeighborhood, interrogateCube, deriveEOTransformations } from "../reasoning/fold-conditioned.js";
 import { deriveSurprise, deriveTension, deriveRelease } from "../dynamics/index.js";
+import {
+  createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
+} from "../tasks/reading.js";
+import { projectTasks } from "../holon/task-log.js";
 
 export function encounter(value) {
   return Object.freeze({ schema: "Encounter@1", ...value });
 }
 
-export function createRecursiveReader({ seed = {}, priors = [], perceivers = [], adapters = {} } = {}) {
+export function createRecursiveReader({ seed = {}, priors = [], perceivers = [], adapters = {}, taskLog = null } = {}) {
   let fold = receivedGround(seed);
+  let tasks = createReadingTaskState(taskLog);
   const log = [];
 
   async function step(input) {
     const currentEncounter = input?.schema === "Encounter@1" ? input : encounter(input);
     const beforeFold = fold;
-    const orientation = deriveOrientation(beforeFold);
+    const liveTasksBefore = projectTasks(tasks);
+    const orientation = deriveOrientation(beforeFold, { tasks: liveTasksBefore });
 
     const candidates = await (adapters.perceive ?? defaultPerceive)(currentEncounter, orientation, {
       perceivers,
@@ -26,28 +32,61 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
       admit: adapters.admit,
     });
 
-    const neighborhood = (adapters.retrieve ?? relevantNeighborhood)(beforeFold, observations, {
+    const awakenedTasks = wakeTasks(liveTasksBefore, observations);
+    const taskEvidence = [];
+    if (adapters.executeTask) {
+      for (const task of awakenedTasks) {
+        const result = await adapters.executeTask({
+          task,
+          encounter: currentEncounter,
+          observations,
+          fold: beforeFold,
+          orientation,
+        });
+        if (!result) continue;
+        tasks = appendTaskResult(tasks, task, result);
+        taskEvidence.push(Object.freeze({
+          schema: "TaskEvidence@1",
+          id: `task-evidence:${task.task_id}:${currentEncounter.sequencePosition ?? log.length}`,
+          taskId: task.task_id,
+          disposition: result.disposition ?? "unresolved",
+          evidence: Object.freeze([...(result.evidence ?? [])]),
+          candidates: Object.freeze([...(result.candidates ?? [])]),
+          detail: result.detail ?? null,
+        }));
+      }
+    }
+
+    const neighborhood = (adapters.retrieve ?? relevantNeighborhood)(beforeFold, [...observations, ...taskEvidence], {
       select: adapters.selectNeighborhood,
     });
-    const interrogation = await (adapters.interrogate ?? interrogateCube)(observations, neighborhood, {
+    const interrogation = await (adapters.interrogate ?? interrogateCube)([...observations, ...taskEvidence], neighborhood, {
       ask: adapters.ask,
     });
     const delta = adapters.revise
-      ? await adapters.revise({ observations, neighborhood, interrogation, fold: beforeFold })
+      ? await adapters.revise({ observations, taskEvidence, neighborhood, interrogation, fold: beforeFold, tasks: projectTasks(tasks) })
       : deriveEOTransformations(interrogation, { id: `delta:${currentEncounter.sequencePosition ?? log.length}` });
     const canonicalDelta = delta?.schema === "DeltaFold@1" ? delta : deltaFold([]);
 
-    log.push(currentEncounter, ...observations, canonicalDelta);
+    log.push(currentEncounter, ...observations, ...taskEvidence, canonicalDelta);
     let nextFold = beforeFold;
     for (const observation of observations) nextFold = applyObservation(nextFold, observation);
     nextFold = applyDelta(nextFold, canonicalDelta);
     fold = nextFold;
+
+    const taskUpdate = proposeObligationTasks(tasks, fold);
+    tasks = taskUpdate.log;
+    const liveTasksAfter = projectTasks(tasks);
 
     return Object.freeze({
       encounter: currentEncounter,
       orientation,
       candidates,
       observations,
+      awakenedTasks,
+      taskEvidence,
+      proposedTasks: taskUpdate.proposed,
+      tasks: Object.freeze(liveTasksAfter),
       relevantFold: neighborhood,
       interrogation,
       deltaFold: canonicalDelta,
@@ -61,13 +100,15 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
   async function read(encounters = []) {
     const turns = [];
     for (const item of encounters) turns.push(await step(item));
-    return Object.freeze({ turns, fold, log: [...log] });
+    return Object.freeze({ turns, fold, tasks: Object.freeze(projectTasks(tasks)), taskLog: tasks, log: [...log] });
   }
 
   return Object.freeze({
     step,
     read,
     getFold: () => fold,
+    getTasks: () => Object.freeze(projectTasks(tasks)),
+    getTaskLog: () => tasks,
     getLog: () => [...log],
   });
 }
