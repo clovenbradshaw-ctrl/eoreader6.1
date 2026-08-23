@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { stripContainer } from "../packages/engine/perceiver/text/spans.js";
 import {
   createRecursiveReader, createCausalTextPerceiver, textEncounters,
-  buildHypergraph, relevantHypergraphNeighborhood, deltaFold,
+  buildHypergraph, relevantHypergraphNeighborhood, deriveGraphStructuralDelta,
+  deriveTension,
 } from "../packages/engine/index.js";
 
 const SOURCES = [
@@ -29,9 +30,29 @@ const work = stripContainer(raw);
 const encounters = textEncounters(work.text, { source: "gutenberg:84", offset: work.offset });
 const reader = createRecursiveReader({
   perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 2, refreshEvery: 25, posPrior })],
-  adapters: { retrieve: () => ({}), interrogate: async () => [], revise: async () => deltaFold([]) },
+  adapters: {
+    retrieve: () => ({}),
+    interrogate: async () => [],
+    revise: async ({ observations, fold }) => deriveGraphStructuralDelta(fold, observations, {
+      id: `delta:graph:${(fold?.sequence ?? 0) + 1}`,
+      minPatternInstances: 3,
+    }),
+  },
 });
-for (const item of encounters) await reader.step(item);
+let maxSurprise = { sequencePosition: null, operations: 0, operators: [] };
+let transformingTurns = 0;
+for (const item of encounters) {
+  const turn = await reader.step(item);
+  const operationCount = turn.surprise.operations.length;
+  if (operationCount) transformingTurns += 1;
+  if (operationCount > maxSurprise.operations) {
+    maxSurprise = {
+      sequencePosition: item.sequencePosition,
+      operations: operationCount,
+      operators: turn.surprise.operations.map((op) => op.operator),
+    };
+  }
+}
 const fold = reader.getFold();
 const graph = buildHypergraph(fold.graphEntries);
 const referents = graph.entries.filter((entry) => entry.schema === "EOReferent@1");
@@ -39,6 +60,8 @@ const mentions = graph.entries.filter((entry) => entry.schema === "EOMention@1")
 const lexicalOccurrences = graph.entries.filter((entry) => entry.schema === "EOLexicalOccurrence@1");
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
+const patterns = graph.entries.filter((entry) => entry.schema === "EOPatternCandidate@1");
+const tension = deriveTension(fold);
 
 const relationIncidentCount = (id) => edges.filter((edge) => (edge.participants ?? []).some((p) => p.ref === id)).length;
 const mentionCounts = new Map();
@@ -70,6 +93,12 @@ const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) =>
 const participants = edges.flatMap((edge) => edge.participants ?? []);
 const boundParticipants = participants.filter((p) => p.standing === "referent").length;
 const unresolvedParticipants = participants.filter((p) => p.standing === "unresolved_surface").length;
+const transformationCounts = new Map();
+for (const op of fold.transformationObjects ?? []) transformationCounts.set(op.operator, (transformationCounts.get(op.operator) ?? 0) + 1);
+const strongestPatterns = [...patterns]
+  .sort((a, b) => b.support - a.support)
+  .slice(0, 12)
+  .map((pattern) => ({ id: pattern.id, relation: pattern.relation, support: pattern.support, structuralMapping: pattern.structuralMapping }));
 
 const report = {
   source,
@@ -85,6 +114,13 @@ const report = {
   referentGaps: gaps.length,
   participantBinding: { bound: boundParticipants, unresolved: unresolvedParticipants },
   unresolvedFirstPersonEdges: unresolvedI,
+  transformations: Object.fromEntries(transformationCounts),
+  transformingTurns,
+  maxSurprise,
+  obligations: tension.obligations.length,
+  tensionInteractions: tension.interactionNetwork.length,
+  patterns: patterns.length,
+  strongestPatterns,
   topRelations,
   referentRanking,
   creature: {
@@ -109,6 +145,13 @@ console.log("FRANKENSTEIN_HYPERGRAPH_SUMMARY", JSON.stringify({
   referentGaps: report.referentGaps,
   participantBinding: report.participantBinding,
   unresolvedFirstPersonEdges: report.unresolvedFirstPersonEdges,
+  transformations: report.transformations,
+  transformingTurns: report.transformingTurns,
+  maxSurprise: report.maxSurprise,
+  obligations: report.obligations,
+  tensionInteractions: report.tensionInteractions,
+  patterns: report.patterns,
+  strongestPatterns: report.strongestPatterns.slice(0, 6),
   topRelations: report.topRelations.slice(0, 12),
   topReferents: report.referentRanking.slice(0, 12),
   creature: {
