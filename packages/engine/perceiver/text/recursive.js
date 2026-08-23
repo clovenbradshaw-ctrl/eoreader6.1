@@ -48,6 +48,18 @@ function resolveParticipant(surface, map, sequencePosition, role) {
   };
 }
 
+function earnedClosedClass(table) {
+  if (!table?.total || table.freq.size === 0) return new Set();
+  const candidate = functionWordSet(table);
+  // On a tiny/flat prefix the Zipf gate can label nearly the whole observed
+  // vocabulary "closed class" simply because every token is frequent. That
+  // is not evidence of function-word structure; it is evidence that the
+  // ground has not differentiated yet. Refuse the classification until the
+  // derived closed class is a minority of the vocabulary it purports to
+  // distinguish.
+  return candidate.size * 2 < table.freq.size ? candidate : new Set();
+}
+
 /**
  * Causal text organ for createRecursiveReader.
  *
@@ -65,7 +77,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
   const refresh = () => {
     const priorWords = tokenize(priorText);
     const table = buildFrequencyTable(priorWords);
-    const closed = priorWords.length ? functionWordSet(table) : new Set();
+    const closed = earnedClosedClass(table);
     const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
     const discovered = discoverReferents(surfaces);
     cache = {
