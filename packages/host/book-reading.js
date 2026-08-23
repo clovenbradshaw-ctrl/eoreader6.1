@@ -137,6 +137,8 @@ export function advanceBookReading(state, event, { executeTopTasks = 0 } = {}) {
     recursive: {
       identityAlternatives: transition.fold?.identityAlternatives ?? [],
       provisionalLinks: transition.fold?.provisional?.links ?? [],
+      transformations: transition.surprise?.transformations ?? {},
+      compact: Boolean(state.reader.ontology?.compact),
     },
     frontier: transition.frontier,
     hyperlexiconCandidates: candidates,
