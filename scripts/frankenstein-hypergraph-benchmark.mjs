@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { stripContainer } from "../packages/engine/perceiver/text/spans.js";
 import {
   createRecursiveReader, createCausalTextPerceiver, textEncounters,
@@ -134,7 +134,7 @@ const report = {
   },
 };
 
-console.log("FRANKENSTEIN_HYPERGRAPH_SUMMARY", JSON.stringify({
+const summary = {
   sentences: report.sentences,
   observations: report.observations,
   graphEntries: report.graphEntries,
@@ -161,7 +161,10 @@ console.log("FRANKENSTEIN_HYPERGRAPH_SUMMARY", JSON.stringify({
     contextualSemanticEdgeCount: report.creature.contextualSemanticEdges.length,
     contextualNamedMentionCount: report.creature.contextualNamedMentions.length,
   },
-}));
+};
+await writeFile("frankenstein-hypergraph-summary.json", JSON.stringify(summary, null, 2));
+await writeFile("frankenstein-hypergraph-report.json", JSON.stringify(report, null, 2));
+console.log("FRANKENSTEIN_HYPERGRAPH_SUMMARY", JSON.stringify(summary));
 console.log("FRANKENSTEIN_HYPERGRAPH_REPORT_START");
 console.log(JSON.stringify(report, null, 2));
 console.log("FRANKENSTEIN_HYPERGRAPH_REPORT_END");
