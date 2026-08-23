@@ -51,13 +51,27 @@ function resolveParticipant(surface, map, sequencePosition, role) {
 function earnedClosedClass(table) {
   if (!table?.total || table.freq.size === 0) return new Set();
   const candidate = functionWordSet(table);
-  // On a tiny/flat prefix the Zipf gate can label nearly the whole observed
-  // vocabulary "closed class" simply because every token is frequent. That
-  // is not evidence of function-word structure; it is evidence that the
-  // ground has not differentiated yet. Refuse the classification until the
-  // derived closed class is a minority of the vocabulary it purports to
-  // distinguish.
   return candidate.size * 2 < table.freq.size ? candidate : new Set();
+}
+
+function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
+  if (!posPrior) return result.verbs;
+  const verbs = new Set();
+  for (const candidate of result.candidates ?? []) {
+    if (candidate.surfaces < minSurfaces) continue;
+    const counts = candidate.upos;
+    if (!counts) {
+      // The received prior has no testimony about this form. Preserve the
+      // material-derived candidate as a gap rather than turning absence in
+      // the prior into negative evidence.
+      verbs.add(candidate.verb);
+      continue;
+    }
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const lexicalShare = total ? (counts.VERB ?? 0) / total : 0;
+    if (lexicalShare > 0.5) verbs.add(candidate.verb);
+  }
+  return verbs;
 }
 
 /**
@@ -65,11 +79,14 @@ function earnedClosedClass(table) {
  *
  * Candidate vocabulary is refreshed from the prefix only. The current sentence
  * never contributes to the referent/relation model used to perceive itself.
- * refreshEvery is an efficiency aperture, not a look-ahead: larger values only
- * delay what the reader can notice; they can never expose future material.
+ * A giver-named POS prior may reject function/preposition/auxiliary forms as
+ * lexical relations; unattested forms remain material-derived gaps.
  */
-export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25 } = {}) {
+export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
+  if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) {
+    throw new TypeError("posPrior must be a giver-named POSPrior@1");
+  }
   const priorSentences = [];
   let priorText = "";
   let cache = { closed: new Set(), refs: new Map(), referents: [], gaps: [], verbs: new Set() };
@@ -80,16 +97,18 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
     const closed = earnedClosedClass(table);
     const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
     const discovered = discoverReferents(surfaces);
+    const relationResult = discoverRelationVocab(priorText, {
+      surfaces,
+      functionWords: closed,
+      minSurfaces: minRelationSurfaces,
+      posPrior,
+    });
     cache = {
       closed,
       refs: surfaceMap(discovered.events),
       referents: referentObjects(discovered.events),
       gaps: discovered.gaps,
-      verbs: discoverRelationVocab(priorText, {
-        surfaces,
-        functionWords: closed,
-        minSurfaces: minRelationSurfaces,
-      }).verbs,
+      verbs: lexicalVerbVocabulary(relationResult, minRelationSurfaces, posPrior),
     };
   };
 
@@ -144,7 +163,6 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
   });
 }
 
-/** Turn contiguous text into authored-order sentence Encounters. */
 export function textEncounters(text, { source = "text", offset = 0 } = {}) {
   return splitSentences(text).map((sentence) => ({
     schema: "Encounter@1",
