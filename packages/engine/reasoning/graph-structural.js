@@ -44,6 +44,56 @@ function ambiguityObligations(fold, observations) {
   return ops;
 }
 
+/**
+ * A repeated unresolved surface in consequence-bearing relation positions is
+ * itself an unresolved Fold structure. This does NOT assert that its
+ * occurrences corefer. It opens the question of whether/how their scopes and
+ * referents relate, preserving the occurrences as alternatives to be resolved
+ * or segmented later.
+ */
+function persistentUnresolvedObligations(fold, graph, newEdgeIds, { minUnresolvedRecurrence = 3 } = {}) {
+  const open = existingObligationIds(fold);
+  const groups = new Map();
+  for (const edge of graph.entries ?? []) {
+    if (edge?.schema !== "EOHyperedge@1") continue;
+    for (const participant of edge.participants ?? []) {
+      if (participant.standing !== "unresolved_surface" || !participant.surfaceKey) continue;
+      if (!groups.has(participant.surfaceKey)) groups.set(participant.surfaceKey, []);
+      groups.get(participant.surfaceKey).push({ edge, participant });
+    }
+  }
+
+  const ops = [];
+  for (const [surfaceKey, instances] of groups) {
+    const uniqueEdges = [...new Map(instances.map((item) => [item.edge.id, item.edge])).values()];
+    if (uniqueEdges.length < minUnresolvedRecurrence) continue;
+    if (!uniqueEdges.some((edge) => newEdgeIds.has(edge.id))) continue;
+    const id = `obligation:unresolved:${surfaceKey}`;
+    if (open.has(id)) continue;
+    open.add(id);
+    const alternatives = [...new Set(instances.flatMap((item) => item.participant.candidateReferents ?? []))];
+    const value = obligation({
+      id,
+      distinction: {
+        surfaceKey,
+        occurrences: instances.map((item) => item.participant.ref),
+        addressedRelationPositions: instances.map((item) => ({ edge: item.edge.id, role: item.participant.role })),
+      },
+      grounds: uniqueEdges.map((edge) => edge.id),
+      alternatives,
+      consequences: uniqueEdges.map((edge) => ({ kind: "relation_attribution", edge: edge.id })),
+      openedAt: (fold?.sequence ?? 0) + 1,
+      persistence: 0,
+    });
+    ops.push(openObligation(value, {
+      witness: uniqueEdges.map((edge) => edge.witness).filter(Boolean),
+      grain: "Pattern",
+      op: "DEF",
+    }));
+  }
+  return ops;
+}
+
 function competingValueObligations(fold, graph, newEdgeIds) {
   const open = existingObligationIds(fold);
   const groups = new Map();
@@ -117,6 +167,7 @@ export function deriveGraphStructuralDelta(fold, observations = [], options = {}
   const graph = buildHypergraph([...(fold?.graphEntries ?? []), ...additions]);
   const operations = [
     ...ambiguityObligations(fold, observations),
+    ...persistentUnresolvedObligations(fold, graph, newEdgeIds, options),
     ...competingValueObligations(fold, graph, newEdgeIds),
     ...patternOperations(fold, graph, newEdgeIds, options),
   ];
