@@ -52,6 +52,21 @@ test("unresolved structure without a downstream consequence does not become a re
   assert.equal(state.tasks.length, 0);
 });
 
+test("a descriptive consequence kind without structural or EO address does not license attention", () => {
+  const fold = receivedGround({
+    obligations: [obligation({
+      id: "obligation:identity:labeled-only",
+      distinction: "a labeled ambiguity with no addressed effect",
+      grounds: ["ref:labeled"],
+      alternatives: ["ref:a", "ref:b"],
+      consequences: [{ kind: "interesting_identity_question" }],
+    })],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  assert.deepEqual(state.proposed, []);
+  assert.equal(state.tasks.length, 0);
+});
+
 test("task strategy and wake refs are derived from unresolved Fold structure", () => {
   const fold = receivedGround({
     obligations: [obligation({
