@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   receivedGround, obligation, openObligation, deltaFold, createRecursiveReader,
-  createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
-  deriveOrientation, eoOperation,
+  createReadingTaskState, proposeObligationTasks, wakeTasks,
+  createCausalTextPerceiver,
 } from "../packages/engine/index.js";
 
 const fixturePerceiver = {
@@ -31,7 +31,28 @@ test("open Fold obligations propose append-only clarification tasks without asse
   assert.equal(state.tasks.length, 1);
   assert.equal(state.tasks[0].operator, null);
   assert.equal(state.tasks[0].scope.futureAllowed, false);
+  assert.equal(state.tasks[0].scope.retrospectiveAllowed, true);
   assert.equal(fold.witnessed.length, 0);
+});
+
+test("task strategy and wake refs are derived from unresolved Fold structure", () => {
+  const fold = receivedGround({
+    obligations: [obligation({
+      id: "obligation:unresolved:surface:creature",
+      distinction: {
+        surfaceKey: "surface:creature",
+        occurrences: ["occ:1:0:subject", "occ:4:0:object"],
+      },
+      grounds: ["edge:text:1:0", "edge:text:4:0"],
+      consequences: [{ kind: "relation_attribution", edge: "edge:text:4:0" }],
+    })],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  const task = state.tasks[0];
+  assert.equal(task.strategy, "identity_clarification");
+  assert.equal(task.targets.includes("surface:creature"), true);
+  assert.equal(task.targets.includes("occ:1:0:subject"), true);
+  assert.equal(task.questions.length >= 2, true);
 });
 
 test("reading tasks wake by graph reference rather than lexical similarity", () => {
@@ -51,6 +72,24 @@ test("reading tasks wake by graph reference rather than lexical similarity", () 
   const awake = wakeTasks(state.tasks, observations);
   assert.equal(awake.length, 1);
   assert.equal(awake[0].task_id, "task:obligation:obligation:identity:alice");
+});
+
+test("active task can nominate a targeted surface occurrence without asserting coreference", async () => {
+  const organ = createCausalTextPerceiver();
+  const output = await organ.perceive({
+    modality: "text",
+    material: "The creature stirred in the darkness.",
+    anchor: { start: 0, end: 36 },
+    sequencePosition: 0,
+    source: "fixture",
+  }, {
+    activeTasks: [{ task_id: "task:x", targets: ["surface:creature"] }],
+  });
+  assert.equal(output.length, 1);
+  const occurrence = output[0].candidate.graphEntries.find((entry) => entry.schema === "EOTaskTargetOccurrence@1");
+  assert.equal(occurrence.surfaceKey, "surface:creature");
+  assert.equal(occurrence.standing, "task_nominated_occurrence");
+  assert.equal(output[0].nominationCause.includes("active_task"), true);
 });
 
 test("task results remain evidence and cannot mutate the Fold without EO interrogation", async () => {
@@ -87,6 +126,7 @@ test("task results remain evidence and cannot mutate the Fold without EO interro
   assert.equal(turn.taskEvidence.length, 1);
   assert.equal(turn.taskEvidence[0].disposition, "resolved");
   assert.equal(reader.getFold().obligations[0].status, "open");
+  assert.equal(reader.getTasks().length, 1);
 });
 
 test("task evidence may change Fold only through an earned EO transformation", async () => {
@@ -134,6 +174,7 @@ test("task evidence may change Fold only through an earned EO transformation", a
 
   assert.equal(turn.deltaFold.operations.some((op) => op.operator === "DEF"), true);
   assert.equal(reader.getFold().obligations[0].status, "resolved");
+  assert.equal(reader.getTasks().length, 0);
 });
 
 test("tasks created after revision condition the next Orientation", async () => {
