@@ -8,6 +8,11 @@ function sameAnchor(a, b) {
 /**
  * Candidate nomination is not admission. By default a candidate needs explicit
  * evidence anchored to the encounter; a modality may supply a stricter gate.
+ *
+ * Graph structure nominated by the perceiver is carried only when the candidate
+ * itself passes this witness gate. This keeps the key invariant intact:
+ * orientation/priors may nominate a relation, but cannot place an unwitnessed
+ * hyperedge into the Fold.
  */
 export async function witness(encounter, candidates = [], { admit } = {}) {
   const observations = [];
@@ -21,12 +26,15 @@ export async function witness(encounter, candidates = [], { admit } = {}) {
     if (!admitted) continue;
     const warrant = typeof decision === "object" ? (decision.witness ?? decision.evidence ?? candidate.evidence) : candidate.evidence;
     if (!warrant) continue;
+    const nominated = candidate.candidate ?? candidate;
     observations.push(Object.freeze({
       schema: "Observation@1",
       id: candidate.id ?? `observation:${encounter.sequencePosition ?? "?"}:${index}`,
       witness: warrant,
       anchor: candidate.anchor ?? encounter.anchor,
-      distinctions: asArray(candidate.candidate?.distinctions ?? candidate.candidate),
+      distinctions: asArray(nominated?.distinctions ?? nominated),
+      hyperedges: Object.freeze([...(candidate.hyperedges ?? nominated?.hyperedges ?? [])]),
+      graphEntries: Object.freeze([...(candidate.graphEntries ?? nominated?.graphEntries ?? [])]),
       provenance: {
         source: encounter.source,
         modality: encounter.modality,
