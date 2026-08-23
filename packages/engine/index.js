@@ -10,6 +10,7 @@ export {
 export {
   falsificationEnvelope, falsificationEnvelopes, renderFalsificationEnvelope,
 } from "./reasoning/falsification.js";
+export { hyperedge, graphObject, buildHypergraph, relevantHypergraphNeighborhood } from "./hypergraph/index.js";
 
 export { receivedGround, eoOperation, deltaFold, applyObservation, applyDelta, reconstruct } from "./fold/index.js";
 export { deriveOrientation } from "./orientation/index.js";
