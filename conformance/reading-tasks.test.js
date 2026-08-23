@@ -16,6 +16,8 @@ const fixturePerceiver = {
   }),
 };
 
+const attributionConsequence = (edge = "edge:alice") => ({ kind: "relation_attribution", edge });
+
 test("open Fold obligations propose append-only clarification tasks without asserting truth", () => {
   const fold = receivedGround({
     sequence: 4,
@@ -23,7 +25,7 @@ test("open Fold obligations propose append-only clarification tasks without asse
       id: "obligation:identity:alice",
       distinction: "which identity does this surface denote?",
       grounds: ["ref:alice"],
-      consequences: ["later attribution"],
+      consequences: [attributionConsequence()],
     })],
   });
   const state = proposeObligationTasks(createReadingTaskState(), fold);
@@ -33,6 +35,21 @@ test("open Fold obligations propose append-only clarification tasks without asse
   assert.equal(state.tasks[0].scope.futureAllowed, false);
   assert.equal(state.tasks[0].scope.retrospectiveAllowed, true);
   assert.equal(fold.witnessed.length, 0);
+});
+
+test("unresolved structure without a downstream consequence does not become a reading task", () => {
+  const fold = receivedGround({
+    obligations: [obligation({
+      id: "obligation:identity:idle",
+      distinction: "ambiguity exists but changes nothing downstream",
+      grounds: ["ref:idle"],
+      alternatives: ["ref:a", "ref:b"],
+      consequences: [],
+    })],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  assert.deepEqual(state.proposed, []);
+  assert.equal(state.tasks.length, 0);
 });
 
 test("task strategy and wake refs are derived from unresolved Fold structure", () => {
@@ -59,8 +76,8 @@ test("bounded task scheduling prefers consequential persistent uncertainty", () 
   const fold = receivedGround({
     sequence: 12,
     obligations: [
-      obligation({ id: "obligation:identity:low", distinction: "low", openedAt: 11, grounds: ["ref:low"], consequences: [] }),
-      obligation({ id: "obligation:identity:high", distinction: "high", openedAt: 2, grounds: ["ref:high"], consequences: [{ kind: "a" }, { kind: "b" }] }),
+      obligation({ id: "obligation:identity:low", distinction: "low", openedAt: 11, grounds: ["ref:low"], consequences: [{ kind: "relation_attribution", edge: "edge:low" }] }),
+      obligation({ id: "obligation:identity:high", distinction: "high", openedAt: 2, grounds: ["ref:high"], consequences: [{ kind: "a", ref: "ref:x" }, { kind: "b", ref: "ref:y" }] }),
     ],
   });
   const state = proposeObligationTasks(createReadingTaskState(), fold);
@@ -75,6 +92,7 @@ test("reading tasks wake by graph reference rather than lexical similarity", () 
       id: "obligation:identity:alice",
       distinction: "identity unresolved",
       grounds: ["ref:alice"],
+      consequences: [attributionConsequence()],
     })],
   });
   const state = proposeObligationTasks(createReadingTaskState(), fold);
@@ -112,6 +130,7 @@ test("task results remain evidence and cannot mutate the Fold without EO interro
       id: "obligation:identity:alice",
       distinction: "identity unresolved",
       grounds: ["ref:alice"],
+      consequences: [attributionConsequence()],
     })],
   });
   const reader = createRecursiveReader({
@@ -149,6 +168,7 @@ test("task evidence may change Fold only through an earned EO transformation", a
       id: "obligation:identity:alice",
       distinction: "identity unresolved",
       grounds: ["ref:alice"],
+      consequences: [attributionConsequence()],
     })],
   });
   const reader = createRecursiveReader({
@@ -201,7 +221,7 @@ test("tasks created after revision condition the next Orientation", async () => 
           id: "obligation:identity:alice",
           distinction: "who is Alice here?",
           grounds: ["ref:alice"],
-          consequences: ["attribution"],
+          consequences: [{ kind: "relation_attribution", edge: "edge:alice" }],
         });
         return deltaFold([openObligation(o, { witness: observations[0]?.id ?? "obs:1" })], { id: "delta:open" });
       },
