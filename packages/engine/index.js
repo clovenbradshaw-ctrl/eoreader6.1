@@ -22,5 +22,9 @@ export { deriveGraphStructuralDelta } from "./reasoning/graph-structural.js";
 export { expectation, expectationTransition, EXPECTATION_STATES } from "./expectations/index.js";
 export { obligation, openObligation, resolveObligation, carryObligations } from "./obligations/index.js";
 export { deriveSurprise, deriveTension, deriveRelease } from "./dynamics/index.js";
+export {
+  createReadingTaskState, taskForObligation, proposeObligationTasks,
+  wakeTasks, appendTaskResult, typeTask,
+} from "./tasks/reading.js";
 export { encounter, createRecursiveReader } from "./reading/recursive.js";
 export { createCausalTextPerceiver, textEncounters } from "./perceiver/text/recursive.js";
