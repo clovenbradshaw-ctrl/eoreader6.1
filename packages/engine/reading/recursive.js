@@ -17,6 +17,7 @@ export function encounter(value) {
 export function createRecursiveReader({ seed = {}, priors = [], perceivers = [], adapters = {}, taskLog = null } = {}) {
   let fold = receivedGround(seed);
   let tasks = createReadingTaskState(taskLog);
+  tasks = proposeObligationTasks(tasks, fold).log;
   const log = [];
 
   async function step(input) {
