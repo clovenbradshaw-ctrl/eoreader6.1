@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { stripContainer } from "../packages/engine/perceiver/text/spans.js";
 import {
   createRecursiveReader, createCausalTextPerceiver, textEncounters,
@@ -8,6 +9,7 @@ const SOURCES = [
   "https://www.gutenberg.org/cache/epub/84/pg84.txt",
   "https://raw.githubusercontent.com/aibolem/Frankenstein_84/master/84.txt",
 ];
+const posPrior = JSON.parse(await readFile(new URL("../bin/priors/pos/en-ud-ewt.json", import.meta.url), "utf8"));
 
 let source = null;
 let raw = null;
@@ -37,19 +39,13 @@ if (!raw) throw new Error(`failed to fetch Frankenstein from all sources: ${fail
 const work = stripContainer(raw);
 const encounters = textEncounters(work.text, { source: "gutenberg:84", offset: work.offset });
 const reader = createRecursiveReader({
-  perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 2, refreshEvery: 25 })],
+  perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 2, refreshEvery: 25, posPrior })],
   adapters: {
     retrieve: () => ({}),
     interrogate: async () => [],
     revise: async () => deltaFold([]),
   },
 });
-
-// Stream the authored-order encounters. reader.read() intentionally retains
-// each Turn for callers that need a full trace; a novel benchmark only needs
-// the append-only reader state and final Fold. Retaining every historical Fold
-// array makes memory grow quadratically with book length and tests snapshot
-// retention rather than reading.
 for (const item of encounters) await reader.step(item);
 const fold = reader.getFold();
 
@@ -59,18 +55,21 @@ const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
 
 const incidentCount = (id) => graph.incident.get(id)?.size ?? 0;
-const cast = referents
+const referentRanking = referents
   .map((ref) => ({ id: ref.id, surfaces: ref.surfaces, incidentEdges: incidentCount(ref.id) }))
   .sort((a, b) => b.incidentEdges - a.incidentEdges || a.id.localeCompare(b.id))
   .slice(0, 30);
 
-const descriptorTerms = ["creature", "monster", "daemon", "demon", "wretch", "being"];
+// Deliberately narrow: this probes obvious singular creature-designators only.
+// It does not pretend every use of "being" or plural "creatures" denotes the
+// Creature; those ambiguous lexical neighborhoods belong in a later coref test.
+const descriptorTerms = new Set(["creature", "monster", "daemon", "demon", "wretch", "fiend"]);
 const descriptorRefs = new Set();
 for (const edge of edges) {
   for (const participant of edge.participants ?? []) {
     if (participant.standing !== "unresolved_surface") continue;
-    const surface = String(participant.surface ?? "").toLowerCase();
-    if (descriptorTerms.some((term) => surface.includes(term))) descriptorRefs.add(participant.ref);
+    const surface = String(participant.surface ?? "").toLowerCase().trim();
+    if (descriptorTerms.has(surface)) descriptorRefs.add(participant.ref);
   }
 }
 const creatureFragments = [...descriptorRefs]
@@ -80,30 +79,32 @@ const creatureNeighborhood = relevantHypergraphNeighborhood(graph, [...descripto
 const creatureEdges = creatureNeighborhood.entries
   .filter((entry) => entry.schema === "EOHyperedge@1")
   .slice(0, 80)
-  .map((edge) => ({
-    id: edge.id,
-    relation: edge.relation,
-    participants: edge.participants,
-    scope: edge.scope,
-    polarity: edge.meta?.polarity ?? null,
-  }));
+  .map((edge) => ({ id: edge.id, relation: edge.relation, participants: edge.participants, scope: edge.scope, polarity: edge.meta?.polarity ?? null }));
+
+const relationCounts = new Map();
+for (const edge of edges) relationCounts.set(edge.relation, (relationCounts.get(edge.relation) ?? 0) + 1);
+const topRelations = [...relationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([relation, count]) => ({ relation, count }));
+const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) => p.ref === "surface:i")).length;
 
 const report = {
   source,
   sourceFailures: failures,
+  priors: [{ schema: posPrior.schema, giver: posPrior.provenance?.source }],
   sentences: encounters.length,
   observations: fold.witnessed.length,
   graphEntries: graph.entries.length,
   referents: referents.length,
   hyperedges: edges.length,
   referentGaps: gaps.length,
-  cast,
+  unresolvedFirstPersonEdges: unresolvedI,
+  topRelations,
+  referentRanking,
   creature: {
     fragmentCount: creatureFragments.length,
     fragments: creatureFragments,
     neighborhoodEntries: creatureNeighborhood.entries.length,
     sampleEdges: creatureEdges,
-    note: "descriptor fragments are surface nodes, not asserted coreferent referents; fragmentation is a measured gap",
+    note: "singular descriptor fragments remain surface nodes; no cross-descriptor coreference is asserted without witness",
   },
 };
 
