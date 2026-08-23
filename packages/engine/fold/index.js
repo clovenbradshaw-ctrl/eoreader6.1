@@ -27,6 +27,9 @@ export function receivedGround(seed = {}) {
 export function eoOperation({ op, grain, witness = null, consequence = null, payload = null }) {
   const cell = cellOf(op, grain);
   if (cell.gap) throw new TypeError(cell.reason);
+  if (op === "NUL" && payload?.action) {
+    throw new TypeError("NUL records no transformation and cannot carry a mutating payload");
+  }
   return Object.freeze({
     schema: "EOOperation@1",
     mode: cell.mode,
@@ -61,12 +64,18 @@ function removeById(list, id) {
   return id == null ? [...list] : list.filter((item) => item?.id !== id);
 }
 
+/** Admit a witnessed observation into a reconstructed Fold without pretending it is a transformation. */
+export function applyObservation(fold, observation) {
+  if (observation?.schema !== "Observation@1") throw new TypeError("applyObservation requires Observation@1");
+  const next = clone(fold ?? receivedGround());
+  next.witnessed = upsertById(next.witnessed ?? [], observation);
+  return next;
+}
+
 function applyPayload(fold, operation) {
+  if (operation.operator === "NUL") return;
   const payload = operation.payload ?? {};
   switch (payload.action) {
-    case "witness":
-      fold.witnessed = upsertById(fold.witnessed, payload.value);
-      break;
     case "provisional":
       fold.provisional = upsertById(fold.provisional, payload.value);
       break;
@@ -111,6 +120,9 @@ export function applyDelta(fold, delta) {
   next.sequence = (next.sequence ?? 0) + 1;
   for (const operation of delta.operations ?? []) {
     if (operation?.schema !== "EOOperation@1") throw new TypeError("DeltaFold contains a non-EO operation");
+    if (operation.operator === "NUL" && operation.payload?.action) {
+      throw new TypeError("NUL cannot mutate Fold state");
+    }
     applyPayload(next, operation);
   }
   const ref = delta.id ?? `delta:${next.sequence}`;
@@ -127,7 +139,7 @@ export function reconstruct(entries = [], seed = {}) {
   for (const entry of entries) {
     if (entry?.schema === "EOFold@1") throw new TypeError("Fold snapshots are not append-log events");
     if (entry?.schema === "Observation@1") {
-      fold.witnessed = upsertById(fold.witnessed, entry);
+      fold = applyObservation(fold, entry);
       continue;
     }
     if (entry?.schema === "DeltaFold@1") fold = applyDelta(fold, entry);
