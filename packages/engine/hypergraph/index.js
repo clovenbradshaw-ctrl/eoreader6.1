@@ -4,7 +4,7 @@ const refsOf = (value) => {
   const visit = (v) => {
     if (v == null) return;
     if (typeof v === "string") {
-      if (/^(ref|obs|edge|expectation|obligation|frame|pattern|delta|op|occ|surface):/.test(v)) refs.add(v);
+      if (/^(ref|obs|edge|expectation|obligation|frame|pattern|delta|op|occ|surface|mention):/.test(v)) refs.add(v);
       return;
     }
     if (Array.isArray(v)) return v.forEach(visit);
@@ -41,11 +41,11 @@ export function buildHypergraph(entries = []) {
     if (entry.schema === "EOHyperedge@1") {
       for (const p of entry.participants ?? []) {
         addIndex(incident, p.ref, entry.id);
-        // A lexical surface key is an index over occurrences, never their
-        // identity. Querying surface:monster can therefore find every
-        // occurrence without collapsing those occurrences into one being.
         if (p.surfaceKey) addIndex(incident, p.surfaceKey, entry.id);
       }
+    }
+    if (entry.schema === "EOMention@1" && entry.referent) {
+      addIndex(incident, entry.referent, entry.id);
     }
     for (const ref of refsOf(entry)) if (ref !== entry.id) addIndex(dependent, ref, entry.id);
   }
