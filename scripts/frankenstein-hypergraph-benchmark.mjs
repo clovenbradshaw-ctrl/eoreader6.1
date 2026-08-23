@@ -36,6 +36,9 @@ const reader = createRecursiveReader({
     revise: async ({ observations, fold }) => deriveGraphStructuralDelta(fold, observations, {
       id: `delta:graph:${(fold?.sequence ?? 0) + 1}`,
       minPatternInstances: 3,
+      minMotifInstances: 2,
+      maxMotifSequenceGap: 4,
+      minUnresolvedRecurrence: 3,
     }),
   },
 });
@@ -46,11 +49,7 @@ for (const item of encounters) {
   const operationCount = turn.surprise.operations.length;
   if (operationCount) transformingTurns += 1;
   if (operationCount > maxSurprise.operations) {
-    maxSurprise = {
-      sequencePosition: item.sequencePosition,
-      operations: operationCount,
-      operators: turn.surprise.operations.map((op) => op.operator),
-    };
+    maxSurprise = { sequencePosition: item.sequencePosition, operations: operationCount, operators: turn.surprise.operations.map((op) => op.operator) };
   }
 }
 const fold = reader.getFold();
@@ -61,6 +60,7 @@ const lexicalOccurrences = graph.entries.filter((entry) => entry.schema === "EOL
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
 const patterns = graph.entries.filter((entry) => entry.schema === "EOPatternCandidate@1");
+const motifs = graph.entries.filter((entry) => entry.schema === "EOMotifCandidate@1");
 const tension = deriveTension(fold);
 
 const relationIncidentCount = (id) => edges.filter((edge) => (edge.participants ?? []).some((p) => p.ref === id)).length;
@@ -76,7 +76,7 @@ const descriptorKeys = descriptorTerms.map((term) => `surface:${term}`).filter((
 const descriptorOccurrences = lexicalOccurrences
   .filter((occ) => descriptorKeys.includes(occ.surfaceKey))
   .map((occ) => ({ occurrence: occ.id, surfaceKey: occ.surfaceKey, encounterRef: occ.encounterRef, offset: occ.offset }));
-const creatureNeighborhood = relevantHypergraphNeighborhood(graph, descriptorKeys, { maxHops: 3 });
+const creatureNeighborhood = relevantHypergraphNeighborhood(graph, descriptorKeys, { maxHops: 3, maxEntries: 400 });
 const creatureEdges = creatureNeighborhood.entries
   .filter((entry) => entry.schema === "EOHyperedge@1")
   .slice(0, 80)
@@ -95,69 +95,50 @@ const boundParticipants = participants.filter((p) => p.standing === "referent").
 const unresolvedParticipants = participants.filter((p) => p.standing === "unresolved_surface").length;
 const transformationCounts = new Map();
 for (const op of fold.transformationObjects ?? []) transformationCounts.set(op.operator, (transformationCounts.get(op.operator) ?? 0) + 1);
-const strongestPatterns = [...patterns]
-  .sort((a, b) => b.support - a.support)
-  .slice(0, 12)
+const strongestPatterns = [...patterns].sort((a, b) => b.support - a.support).slice(0, 12)
   .map((pattern) => ({ id: pattern.id, relation: pattern.relation, support: pattern.support, structuralMapping: pattern.structuralMapping }));
+const strongestMotifs = [...motifs].sort((a, b) => b.support - a.support).slice(0, 12)
+  .map((motif) => ({ id: motif.id, relations: motif.relations, connection: motif.connection, support: motif.support }));
+const strongestObligations = [...tension.obligations]
+  .map((item) => ({ id: item.id, grounds: item.grounds?.length ?? 0, consequences: item.consequences?.length ?? 0, openedAt: item.openedAt }))
+  .sort((a, b) => b.consequences - a.consequences || a.openedAt - b.openedAt)
+  .slice(0, 12);
 
 const report = {
-  source,
-  sourceFailures: failures,
+  source, sourceFailures: failures,
   priors: [{ schema: posPrior.schema, giver: posPrior.provenance?.source }],
-  sentences: encounters.length,
-  observations: fold.witnessed.length,
-  graphEntries: graph.entries.length,
-  referents: referents.length,
-  mentions: mentions.length,
-  lexicalOccurrences: lexicalOccurrences.length,
-  hyperedges: edges.length,
-  referentGaps: gaps.length,
+  sentences: encounters.length, observations: fold.witnessed.length, graphEntries: graph.entries.length,
+  referents: referents.length, mentions: mentions.length, lexicalOccurrences: lexicalOccurrences.length,
+  hyperedges: edges.length, referentGaps: gaps.length,
   participantBinding: { bound: boundParticipants, unresolved: unresolvedParticipants },
   unresolvedFirstPersonEdges: unresolvedI,
-  transformations: Object.fromEntries(transformationCounts),
-  transformingTurns,
-  maxSurprise,
-  obligations: tension.obligations.length,
-  tensionInteractions: tension.interactionNetwork.length,
-  patterns: patterns.length,
-  strongestPatterns,
-  topRelations,
-  referentRanking,
+  transformations: Object.fromEntries(transformationCounts), transformingTurns, maxSurprise,
+  obligations: tension.obligations.length, tensionInteractions: tension.interactionNetwork.length, strongestObligations,
+  patterns: patterns.length, strongestPatterns,
+  motifs: motifs.length, strongestMotifs,
+  topRelations, referentRanking,
   creature: {
-    descriptorKeys,
-    occurrenceCount: descriptorOccurrences.length,
-    occurrences: descriptorOccurrences,
-    neighborhoodEntries: creatureNeighborhood.entries.length,
-    contextualSemanticEdges: creatureEdges,
-    contextualNamedMentions: creatureMentions,
+    descriptorKeys, occurrenceCount: descriptorOccurrences.length, occurrences: descriptorOccurrences,
+    neighborhoodEntries: creatureNeighborhood.entries.length, neighborhoodTruncated: creatureNeighborhood.truncated,
+    contextualSemanticEdges: creatureEdges, contextualNamedMentions: creatureMentions,
     note: "descriptor occurrences remain occurrence-local; encounter context retrieves co-present witnessed structure without asserting descriptor coreference",
   },
 };
 
 const summary = {
-  sentences: report.sentences,
-  observations: report.observations,
-  graphEntries: report.graphEntries,
-  referents: report.referents,
-  mentions: report.mentions,
-  lexicalOccurrences: report.lexicalOccurrences,
-  hyperedges: report.hyperedges,
-  referentGaps: report.referentGaps,
-  participantBinding: report.participantBinding,
-  unresolvedFirstPersonEdges: report.unresolvedFirstPersonEdges,
-  transformations: report.transformations,
-  transformingTurns: report.transformingTurns,
-  maxSurprise: report.maxSurprise,
-  obligations: report.obligations,
-  tensionInteractions: report.tensionInteractions,
-  patterns: report.patterns,
-  strongestPatterns: report.strongestPatterns.slice(0, 6),
-  topRelations: report.topRelations.slice(0, 12),
-  topReferents: report.referentRanking.slice(0, 12),
+  sentences: report.sentences, observations: report.observations, graphEntries: report.graphEntries,
+  referents: report.referents, mentions: report.mentions, lexicalOccurrences: report.lexicalOccurrences,
+  hyperedges: report.hyperedges, referentGaps: report.referentGaps, participantBinding: report.participantBinding,
+  unresolvedFirstPersonEdges: report.unresolvedFirstPersonEdges, transformations: report.transformations,
+  transformingTurns: report.transformingTurns, maxSurprise: report.maxSurprise,
+  obligations: report.obligations, tensionInteractions: report.tensionInteractions,
+  strongestObligations: report.strongestObligations.slice(0, 6),
+  patterns: report.patterns, strongestPatterns: report.strongestPatterns.slice(0, 6),
+  motifs: report.motifs, strongestMotifs: report.strongestMotifs.slice(0, 6),
+  topRelations: report.topRelations.slice(0, 12), topReferents: report.referentRanking.slice(0, 12),
   creature: {
-    descriptorKeys: report.creature.descriptorKeys,
-    occurrenceCount: report.creature.occurrenceCount,
-    neighborhoodEntries: report.creature.neighborhoodEntries,
+    descriptorKeys: report.creature.descriptorKeys, occurrenceCount: report.creature.occurrenceCount,
+    neighborhoodEntries: report.creature.neighborhoodEntries, neighborhoodTruncated: report.creature.neighborhoodTruncated,
     contextualSemanticEdgeCount: report.creature.contextualSemanticEdges.length,
     contextualNamedMentionCount: report.creature.contextualNamedMentions.length,
   },
