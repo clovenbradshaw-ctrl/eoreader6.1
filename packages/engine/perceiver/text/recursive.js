@@ -15,6 +15,27 @@ function surfaceMap(events = []) {
   return map;
 }
 
+function referentObjects(events = []) {
+  const byId = new Map();
+  for (const event of events) {
+    if (event?.type !== "DEF.admit") continue;
+    if (!byId.has(event.referent_id)) byId.set(event.referent_id, { schema: "EOReferent@1", id: event.referent_id, surfaces: [], provenance: [] });
+    const ref = byId.get(event.referent_id);
+    if (!ref.surfaces.includes(event.surface)) ref.surfaces.push(event.surface);
+    ref.provenance.push(event.provenance);
+  }
+  return [...byId.values()].map((value) => Object.freeze({ ...value, surfaces: Object.freeze(value.surfaces), provenance: Object.freeze(value.provenance) }));
+}
+
+function currentReferents(text, refs = []) {
+  const lowered = diaNorm(text);
+  return refs.filter((ref) => ref.surfaces.some((surface) => {
+    const s = diaNorm(surface);
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "u").test(lowered);
+  }));
+}
+
 function resolveParticipant(surface, map, sequencePosition, role) {
   const exact = map.get(diaNorm(surface));
   if (exact) return { ref: exact, role, standing: "referent" };
@@ -28,59 +49,74 @@ function resolveParticipant(surface, map, sequencePosition, role) {
 }
 
 /**
- * A causal text organ for createRecursiveReader.
+ * Causal text organ for createRecursiveReader.
  *
- * It recomputes candidate referents and relation vocabulary from material that
- * has already been encountered. The current sentence can supply witness for a
- * relation, but cannot teach the vocabulary used to perceive that same
- * relation. This deliberately trades recall for authored-order honesty.
+ * Candidate vocabulary is refreshed from the prefix only. The current sentence
+ * never contributes to the referent/relation model used to perceive itself.
+ * refreshEvery is an efficiency aperture, not a look-ahead: larger values only
+ * delay what the reader can notice; they can never expose future material.
  */
-export function createCausalTextPerceiver({ minRelationSurfaces = 2 } = {}) {
+export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25 } = {}) {
+  if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
   const priorSentences = [];
   let priorText = "";
+  let cache = { closed: new Set(), refs: new Map(), referents: [], gaps: [], verbs: new Set() };
+
+  const refresh = () => {
+    const priorWords = tokenize(priorText);
+    const table = buildFrequencyTable(priorWords);
+    const closed = priorWords.length ? functionWordSet(table) : new Set();
+    const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
+    const discovered = discoverReferents(surfaces);
+    cache = {
+      closed,
+      refs: surfaceMap(discovered.events),
+      referents: referentObjects(discovered.events),
+      gaps: discovered.gaps,
+      verbs: discoverRelationVocab(priorText, {
+        surfaces,
+        functionWords: closed,
+        minSurfaces: minRelationSurfaces,
+      }).verbs,
+    };
+  };
 
   return Object.freeze({
     id: "text/recursive",
     async perceive(encounter) {
       if (encounter?.modality !== "text" || typeof encounter.material !== "string") return [];
       const sequencePosition = encounter.sequencePosition ?? priorSentences.length;
+      if (priorSentences.length === 0 || priorSentences.length % refreshEvery === 0) refresh();
 
-      const priorWords = tokenize(priorText);
-      const table = buildFrequencyTable(priorWords);
-      const closed = priorWords.length ? functionWordSet(table) : new Set();
-      const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
-      const { events: referentEvents, gaps: referentGaps } = discoverReferents(surfaces);
-      const refs = surfaceMap(referentEvents);
-      const relationVocab = discoverRelationVocab(priorText, {
-        surfaces,
-        functionWords: closed,
-        minSurfaces: minRelationSurfaces,
-      }).verbs;
-
-      const relations = extractRelations(encounter.material, { verbs: relationVocab, functionWords: closed });
-      const hyperedges = relations.map((rel, index) => hyperedge({
+      const relations = extractRelations(encounter.material, { verbs: cache.verbs, functionWords: cache.closed });
+      const edges = relations.map((rel, index) => hyperedge({
         id: `edge:text:${sequencePosition}:${index}`,
         relation: rel.verb,
         participants: [
-          resolveParticipant(rel.subject, refs, sequencePosition, "subject"),
-          resolveParticipant(rel.object, refs, sequencePosition, "object"),
+          resolveParticipant(rel.subject, cache.refs, sequencePosition, "subject"),
+          resolveParticipant(rel.object, cache.refs, sequencePosition, "object"),
         ],
         witness: `text:${sequencePosition}:${rel.offset}`,
         scope: { sequencePosition, offset: rel.offset },
         eo: { op: "CON", grain: "Figure" },
         meta: { polarity: rel.polarity, source: encounter.source },
       }));
+      const seenReferents = currentReferents(encounter.material, cache.referents);
+      const gaps = cache.gaps.map((gap, i) => ({ schema: "EOReferentGap@1", id: `gap:referent:${sequencePosition}:${i}`, ...gap }));
 
       const currentSentence = { text: encounter.material, offset: encounter.anchor?.start ?? 0, order: priorSentences.length };
       priorSentences.push(currentSentence);
       priorText += `${priorText ? "\n" : ""}${encounter.material}`;
 
-      if (hyperedges.length === 0) return [];
+      if (edges.length === 0 && seenReferents.length === 0) return [];
       return [{
         candidate: {
-          distinctions: hyperedges.map((edge) => ({ relation: edge.relation, participants: edge.participants })),
-          hyperedges,
-          graphEntries: referentGaps.map((gap, i) => ({ schema: "EOReferentGap@1", id: `gap:referent:${sequencePosition}:${i}`, ...gap })),
+          distinctions: [
+            ...seenReferents.map((ref) => ({ referent: ref.id, surfaces: ref.surfaces })),
+            ...edges.map((edge) => ({ relation: edge.relation, participants: edge.participants })),
+          ],
+          hyperedges: edges,
+          graphEntries: [...seenReferents, ...gaps],
         },
         anchor: encounter.anchor,
         evidence: encounter.material,
