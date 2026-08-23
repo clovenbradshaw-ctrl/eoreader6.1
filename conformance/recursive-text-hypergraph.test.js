@@ -49,3 +49,16 @@ test("same unresolved surface is searchable without asserting same identity", ()
   assert.ok(hood.ids.includes("edge:m1"));
   assert.ok(hood.ids.includes("edge:m2"));
 });
+
+test("lexical occurrence can retrieve encounter context without coreference", () => {
+  const entries = [
+    { schema: "EOLexicalOccurrence@1", id: "lex:7:0", surfaceKey: "surface:creature", surface: "creature", encounterRef: "encounter:7" },
+    { schema: "EOMention@1", id: "mention:7:victor", referent: "ref:victor", encounterRef: "encounter:7" },
+    { schema: "EOHyperedge@1", id: "edge:7", relation: "fled", participants: [{ role: "subject", ref: "occ:7:0:subject", surfaceKey: "surface:he" }], meta: { encounterRef: "encounter:7" } },
+  ];
+  const graph = buildHypergraph(entries);
+  const hood = relevantHypergraphNeighborhood(graph, ["surface:creature"], { maxHops: 3 });
+  assert.ok(hood.ids.includes("lex:7:0"));
+  assert.ok(hood.ids.includes("mention:7:victor"));
+  assert.ok(hood.ids.includes("edge:7"));
+});
