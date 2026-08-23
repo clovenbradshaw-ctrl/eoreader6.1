@@ -19,6 +19,8 @@ test('English identity perception abstains on ordinary determiner phrases', () =
     'They remembered the pleasant climate of Italy.',
     'After a long time I returned home.',
     'The result was that Elizabeth remained with us.',
+    'At the river station, Nora inspected the pump.',
+    'Near the west arch, Nera watched a hooded courier.',
   ];
 
   for (const text of negatives) {
