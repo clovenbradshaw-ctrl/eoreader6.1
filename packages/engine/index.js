@@ -23,7 +23,8 @@ export { expectation, expectationTransition, EXPECTATION_STATES } from "./expect
 export { obligation, openObligation, resolveObligation, carryObligations } from "./obligations/index.js";
 export { deriveSurprise, deriveTension, deriveRelease } from "./dynamics/index.js";
 export {
-  createReadingTaskState, taskForObligation, proposeObligationTasks, reconcileObligationTasks,
+  createReadingTaskState, taskForObligation, taskPriority, scheduleTasks,
+  proposeObligationTasks, reconcileObligationTasks,
   wakeTasks, executeClarificationTask, appendTaskResult, typeTask,
 } from "./tasks/reading.js";
 export { encounter, createRecursiveReader } from "./reading/recursive.js";
