@@ -17,22 +17,12 @@ const failures = [];
 for (const url of SOURCES) {
   try {
     const response = await fetch(url);
-    if (!response.ok) {
-      failures.push(`${url} -> ${response.status}`);
-      continue;
-    }
+    if (!response.ok) { failures.push(`${url} -> ${response.status}`); continue; }
     const candidate = await response.text();
     const probe = stripContainer(candidate);
-    if (!probe.looks_like_material) {
-      failures.push(`${url} -> response did not look like material`);
-      continue;
-    }
-    source = url;
-    raw = candidate;
-    break;
-  } catch (error) {
-    failures.push(`${url} -> ${error?.message ?? error}`);
-  }
+    if (!probe.looks_like_material) { failures.push(`${url} -> response did not look like material`); continue; }
+    source = url; raw = candidate; break;
+  } catch (error) { failures.push(`${url} -> ${error?.message ?? error}`); }
 }
 if (!raw) throw new Error(`failed to fetch Frankenstein from all sources: ${failures.join("; ")}`);
 
@@ -40,15 +30,10 @@ const work = stripContainer(raw);
 const encounters = textEncounters(work.text, { source: "gutenberg:84", offset: work.offset });
 const reader = createRecursiveReader({
   perceivers: [createCausalTextPerceiver({ minRelationSurfaces: 2, refreshEvery: 25, posPrior })],
-  adapters: {
-    retrieve: () => ({}),
-    interrogate: async () => [],
-    revise: async () => deltaFold([]),
-  },
+  adapters: { retrieve: () => ({}), interrogate: async () => [], revise: async () => deltaFold([]) },
 });
 for (const item of encounters) await reader.step(item);
 const fold = reader.getFold();
-
 const graph = buildHypergraph(fold.graphEntries);
 const referents = graph.entries.filter((entry) => entry.schema === "EOReferent@1");
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
@@ -60,22 +45,15 @@ const referentRanking = referents
   .sort((a, b) => b.incidentEdges - a.incidentEdges || a.id.localeCompare(b.id))
   .slice(0, 30);
 
-// Deliberately narrow: this probes obvious singular creature-designators only.
-// It does not pretend every use of "being" or plural "creatures" denotes the
-// Creature; those ambiguous lexical neighborhoods belong in a later coref test.
-const descriptorTerms = new Set(["creature", "monster", "daemon", "demon", "wretch", "fiend"]);
-const descriptorRefs = new Set();
-for (const edge of edges) {
-  for (const participant of edge.participants ?? []) {
-    if (participant.standing !== "unresolved_surface") continue;
-    const surface = String(participant.surface ?? "").toLowerCase().trim();
-    if (descriptorTerms.has(surface)) descriptorRefs.add(participant.ref);
+const descriptorTerms = ["creature", "monster", "daemon", "demon", "wretch", "fiend"];
+const descriptorKeys = descriptorTerms.map((term) => `surface:${term}`).filter((key) => incidentCount(key) > 0);
+const descriptorOccurrences = [];
+for (const edge of edges) for (const participant of edge.participants ?? []) {
+  if (participant.standing === "unresolved_surface" && descriptorKeys.includes(participant.surfaceKey)) {
+    descriptorOccurrences.push({ occurrence: participant.ref, surfaceKey: participant.surfaceKey, edge: edge.id });
   }
 }
-const creatureFragments = [...descriptorRefs]
-  .map((id) => ({ id, incidentEdges: incidentCount(id) }))
-  .sort((a, b) => b.incidentEdges - a.incidentEdges);
-const creatureNeighborhood = relevantHypergraphNeighborhood(graph, [...descriptorRefs], { maxHops: 2 });
+const creatureNeighborhood = relevantHypergraphNeighborhood(graph, descriptorKeys, { maxHops: 2 });
 const creatureEdges = creatureNeighborhood.entries
   .filter((entry) => entry.schema === "EOHyperedge@1")
   .slice(0, 80)
@@ -84,7 +62,7 @@ const creatureEdges = creatureNeighborhood.entries
 const relationCounts = new Map();
 for (const edge of edges) relationCounts.set(edge.relation, (relationCounts.get(edge.relation) ?? 0) + 1);
 const topRelations = [...relationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([relation, count]) => ({ relation, count }));
-const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) => p.ref === "surface:i")).length;
+const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) => p.surfaceKey === "surface:i")).length;
 
 const report = {
   source,
@@ -100,11 +78,12 @@ const report = {
   topRelations,
   referentRanking,
   creature: {
-    fragmentCount: creatureFragments.length,
-    fragments: creatureFragments,
+    descriptorKeys,
+    occurrenceCount: descriptorOccurrences.length,
+    occurrences: descriptorOccurrences,
     neighborhoodEntries: creatureNeighborhood.entries.length,
     sampleEdges: creatureEdges,
-    note: "singular descriptor fragments remain surface nodes; no cross-descriptor coreference is asserted without witness",
+    note: "surface keys retrieve occurrence-local mentions; they do not assert cross-occurrence or cross-descriptor coreference",
   },
 };
 
