@@ -36,17 +36,25 @@ for (const item of encounters) await reader.step(item);
 const fold = reader.getFold();
 const graph = buildHypergraph(fold.graphEntries);
 const referents = graph.entries.filter((entry) => entry.schema === "EOReferent@1");
+const mentions = graph.entries.filter((entry) => entry.schema === "EOMention@1");
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
 
-const incidentCount = (id) => graph.incident.get(id)?.size ?? 0;
+const relationIncidentCount = (id) => edges.filter((edge) => (edge.participants ?? []).some((p) => p.ref === id)).length;
+const mentionCounts = new Map();
+for (const mention of mentions) mentionCounts.set(mention.referent, (mentionCounts.get(mention.referent) ?? 0) + 1);
 const referentRanking = referents
-  .map((ref) => ({ id: ref.id, surfaces: ref.surfaces, incidentEdges: incidentCount(ref.id) }))
-  .sort((a, b) => b.incidentEdges - a.incidentEdges || a.id.localeCompare(b.id))
+  .map((ref) => ({
+    id: ref.id,
+    surfaces: ref.surfaces,
+    mentions: mentionCounts.get(ref.id) ?? 0,
+    semanticEdges: relationIncidentCount(ref.id),
+  }))
+  .sort((a, b) => b.mentions - a.mentions || b.semanticEdges - a.semanticEdges || a.id.localeCompare(b.id))
   .slice(0, 30);
 
 const descriptorTerms = ["creature", "monster", "daemon", "demon", "wretch", "fiend"];
-const descriptorKeys = descriptorTerms.map((term) => `surface:${term}`).filter((key) => incidentCount(key) > 0);
+const descriptorKeys = descriptorTerms.map((term) => `surface:${term}`).filter((key) => (graph.incident.get(key)?.size ?? 0) > 0);
 const descriptorOccurrences = [];
 for (const edge of edges) for (const participant of edge.participants ?? []) {
   if (participant.standing === "unresolved_surface" && descriptorKeys.includes(participant.surfaceKey)) {
@@ -63,6 +71,8 @@ const relationCounts = new Map();
 for (const edge of edges) relationCounts.set(edge.relation, (relationCounts.get(edge.relation) ?? 0) + 1);
 const topRelations = [...relationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([relation, count]) => ({ relation, count }));
 const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) => p.surfaceKey === "surface:i")).length;
+const boundParticipants = edges.flatMap((edge) => edge.participants ?? []).filter((p) => p.standing === "referent").length;
+const unresolvedParticipants = edges.flatMap((edge) => edge.participants ?? []).filter((p) => p.standing === "unresolved_surface").length;
 
 const report = {
   source,
@@ -72,8 +82,10 @@ const report = {
   observations: fold.witnessed.length,
   graphEntries: graph.entries.length,
   referents: referents.length,
+  mentions: mentions.length,
   hyperedges: edges.length,
   referentGaps: gaps.length,
+  participantBinding: { bound: boundParticipants, unresolved: unresolvedParticipants },
   unresolvedFirstPersonEdges: unresolvedI,
   topRelations,
   referentRanking,
