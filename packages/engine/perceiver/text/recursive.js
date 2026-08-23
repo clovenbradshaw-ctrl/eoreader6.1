@@ -6,6 +6,7 @@ import { hyperedge } from "../../hypergraph/index.js";
 
 const slug = (value) => diaNorm(value).replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "");
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const WORD_RE = /[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu;
 
 function surfaceMap(events = []) {
   const map = new Map();
@@ -53,18 +54,11 @@ function referentsInSpan(span, map) {
 function resolveParticipant(surface, map, sequencePosition, relationIndex, role) {
   const exact = map.get(diaNorm(surface));
   if (exact) return { ref: exact, role, standing: "referent", surface, resolution: "exact_surface" };
-
-  // Wider parser spans frequently contain a determiner, epithet, or title
-  // around an already-earned referent ("dear Elizabeth", "my friend Clerval").
-  // Bind only when every known surface inside the span converges on ONE
-  // referent. Multiple candidate referents remain unresolved rather than
-  // turning parser width into an identity decision.
   const candidates = referentsInSpan(surface, map);
   if (candidates.size === 1) {
     const [[ref, matchedSurfaces]] = candidates;
     return { ref, role, standing: "referent", surface, resolution: "unique_surface_in_span", matchedSurfaces };
   }
-
   const lexical = slug(surface) || "unknown";
   const occurrence = `occ:${sequencePosition}:${relationIndex}:${role}`;
   return {
@@ -98,6 +92,35 @@ function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
   return verbs;
 }
 
+function lexicalNounOccurrences(text, sequencePosition, encounterRef, posPrior) {
+  if (!posPrior?.forms) return [];
+  const out = [];
+  let ordinal = 0;
+  for (const match of text.matchAll(WORD_RE)) {
+    const raw = match[0];
+    const form = diaNorm(raw);
+    const counts = posPrior.forms[form];
+    if (!counts) continue;
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const nounShare = total ? (counts.NOUN ?? 0) / total : 0;
+    if (nounShare <= 0.5) continue;
+    const surfaceKey = `surface:${slug(raw) || "unknown"}`;
+    out.push(Object.freeze({
+      schema: "EOLexicalOccurrence@1",
+      id: `lex:${sequencePosition}:${ordinal}`,
+      surfaceKey,
+      surface: raw,
+      upos: "NOUN",
+      standing: "occurrence",
+      encounterRef,
+      offset: match.index,
+      witness: `text:${sequencePosition}:${match.index}`,
+    }));
+    ordinal += 1;
+  }
+  return out;
+}
+
 export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
   if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) throw new TypeError("posPrior must be a giver-named POSPrior@1");
@@ -126,6 +149,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
     async perceive(encounter) {
       if (encounter?.modality !== "text" || typeof encounter.material !== "string") return [];
       const sequencePosition = encounter.sequencePosition ?? priorSentences.length;
+      const encounterRef = `encounter:${sequencePosition}`;
       if (priorSentences.length === 0 || priorSentences.length % refreshEvery === 0) refresh();
 
       const relations = extractRelations(encounter.material, { verbs: cache.verbs, functionWords: cache.closed });
@@ -139,7 +163,7 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         witness: `text:${sequencePosition}:${rel.offset}`,
         scope: { sequencePosition, offset: rel.offset },
         eo: { op: "CON", grain: "Figure" },
-        meta: { polarity: rel.polarity, source: encounter.source },
+        meta: { polarity: rel.polarity, source: encounter.source, encounterRef },
       }));
 
       const seenReferents = currentReferents(encounter.material, cache.referents);
@@ -147,10 +171,12 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         schema: "EOMention@1",
         id: `mention:${sequencePosition}:${slug(ref.id)}`,
         referent: ref.id,
+        encounterRef,
         anchor: encounter.anchor,
         witness: `text:${sequencePosition}`,
         source: encounter.source,
       }));
+      const lexicalOccurrences = lexicalNounOccurrences(encounter.material, sequencePosition, encounterRef, posPrior);
       const activeIds = new Set(seenReferents.map((ref) => ref.id));
       for (const edge of edges) for (const participant of edge.participants ?? []) if (participant.standing === "referent") activeIds.add(participant.ref);
       const gaps = cache.gaps
@@ -161,15 +187,16 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
       priorSentences.push(currentSentence);
       priorText += `${priorText ? "\n" : ""}${encounter.material}`;
 
-      if (edges.length === 0 && seenReferents.length === 0) return [];
+      if (edges.length === 0 && seenReferents.length === 0 && lexicalOccurrences.length === 0) return [];
       return [{
         candidate: {
           distinctions: [
             ...seenReferents.map((ref) => ({ referent: ref.id, surfaces: ref.surfaces })),
             ...edges.map((edge) => ({ relation: edge.relation, participants: edge.participants })),
+            ...lexicalOccurrences.map((occ) => ({ occurrence: occ.id, surfaceKey: occ.surfaceKey, upos: occ.upos })),
           ],
           hyperedges: edges,
-          graphEntries: [...seenReferents, ...mentions, ...gaps],
+          graphEntries: [...seenReferents, ...mentions, ...lexicalOccurrences, ...gaps],
         },
         anchor: encounter.anchor,
         evidence: encounter.material,
