@@ -4,7 +4,7 @@ const refsOf = (value) => {
   const visit = (v) => {
     if (v == null) return;
     if (typeof v === "string") {
-      if (/^(ref|obs|edge|expectation|obligation|frame|pattern|delta|op|occ|surface|mention):/.test(v)) refs.add(v);
+      if (/^(ref|obs|edge|expectation|obligation|frame|pattern|delta|op|occ|surface|mention|encounter|lex):/.test(v)) refs.add(v);
       return;
     }
     if (Array.isArray(v)) return v.forEach(visit);
@@ -44,9 +44,8 @@ export function buildHypergraph(entries = []) {
         if (p.surfaceKey) addIndex(incident, p.surfaceKey, entry.id);
       }
     }
-    if (entry.schema === "EOMention@1" && entry.referent) {
-      addIndex(incident, entry.referent, entry.id);
-    }
+    if (entry.schema === "EOMention@1" && entry.referent) addIndex(incident, entry.referent, entry.id);
+    if (entry.schema === "EOLexicalOccurrence@1" && entry.surfaceKey) addIndex(incident, entry.surfaceKey, entry.id);
     for (const ref of refsOf(entry)) if (ref !== entry.id) addIndex(dependent, ref, entry.id);
   }
   return freeze({ schema: "EOHypergraph@1", entries: freeze([...byId.values()]), byId, incident, dependent });
