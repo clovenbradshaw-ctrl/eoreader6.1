@@ -1,5 +1,6 @@
 import { DOMAINS, GRAINS, MODES, OPERATORS, cellOf } from "../operators.js";
 import { deltaFold, eoOperation } from "../fold/index.js";
+import { buildHypergraph, relevantHypergraphNeighborhood } from "../hypergraph/index.js";
 
 export function addressOf(mode, domain, grain) {
   const operator = Object.values(OPERATORS).find((entry) => entry.mode === mode && entry.domain === domain)?.op;
@@ -11,24 +12,32 @@ export function cubeAddresses() {
   return MODES.flatMap((mode) => DOMAINS.flatMap((domain) => GRAINS.map((grain) => addressOf(mode, domain, grain))));
 }
 
-function tokens(value) {
-  return new Set(JSON.stringify(value ?? "").toLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? []);
-}
-
-/** Retrieve only structures sharing consequence-bearing material with the observation. */
-export function relevantNeighborhood(fold, observations, { select } = {}) {
+/** Retrieve the consequence-bearing structural neighborhood around new observations. */
+export function relevantNeighborhood(fold, observations, { select, maxHops = 3 } = {}) {
   if (select) return select(fold, observations);
-  const needle = tokens(observations);
-  const classes = ["witnessed", "provisional", "expectations", "obligations", "exclusions", "unresolvedAlternatives", "activeFrames", "receivedPriors"];
-  const neighborhood = {};
-  for (const key of classes) {
-    neighborhood[key] = (fold?.[key] ?? []).filter((entry) => {
-      const hay = tokens(entry);
-      for (const token of needle) if (token.length > 2 && hay.has(token)) return true;
-      return false;
-    });
-  }
-  return neighborhood;
+  const entries = [
+    ...(fold?.graphEntries ?? []),
+    ...(fold?.expectations ?? []),
+    ...(fold?.obligations ?? []),
+    ...(fold?.activeFrames ?? []),
+    ...(fold?.unresolvedAlternatives ?? []),
+    ...(fold?.transformationObjects ?? []),
+  ];
+  const graph = buildHypergraph(entries);
+  const graphNeighborhood = relevantHypergraphNeighborhood(graph, observations, { maxHops });
+  const ids = new Set(graphNeighborhood.ids);
+  const pick = (key) => (fold?.[key] ?? []).filter((entry) => entry?.id && ids.has(entry.id));
+  return {
+    graph: graphNeighborhood,
+    witnessed: pick("witnessed"),
+    provisional: pick("provisional"),
+    expectations: pick("expectations"),
+    obligations: pick("obligations"),
+    exclusions: pick("exclusions"),
+    unresolvedAlternatives: pick("unresolvedAlternatives"),
+    activeFrames: pick("activeFrames"),
+    receivedPriors: pick("receivedPriors"),
+  };
 }
 
 /**
