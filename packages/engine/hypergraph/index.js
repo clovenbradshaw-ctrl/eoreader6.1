@@ -89,29 +89,73 @@ export function graphObject(value) {
   return freeze({ ...value });
 }
 
-export function buildHypergraph(entries = []) {
-  const byId = new Map();
-  const incident = new Map();
-  const dependent = new Map();
-  const addIndex = (map, key, id) => {
-    if (!key) return;
-    if (!map.has(key)) map.set(key, new Set());
-    map.get(key).add(id);
-  };
+const addIndex = (map, key, id) => {
+  if (!key) return;
+  if (!map.has(key)) map.set(key, new Set());
+  map.get(key).add(id);
+};
+
+const removeIndex = (map, key, id) => {
+  if (!key) return;
+  const bucket = map.get(key);
+  if (!bucket) return;
+  bucket.delete(id);
+  if (bucket.size === 0) map.delete(key);
+};
+
+function indexKeys(entry) {
+  const incident = new Set();
+  if (entry?.schema === "EOHyperedge@1") {
+    for (const p of entry.participants ?? []) {
+      if (p.ref) incident.add(p.ref);
+      if (p.surfaceKey) incident.add(p.surfaceKey);
+    }
+  }
+  if (entry?.schema === "EOMention@1" && entry.referent) incident.add(entry.referent);
+  if (entry?.schema === "EOLexicalOccurrence@1" && entry.surfaceKey) incident.add(entry.surfaceKey);
+  const dependent = new Set([...referencesOf(entry)].filter((ref) => ref !== entry?.id));
+  return { incident, dependent };
+}
+
+/**
+ * Extend an existing transient graph index in O(new entries), replacing prior
+ * contributions for stable ids exactly. The index is a reader cache, never a
+ * Fold event or snapshot; authoritative state remains the append-only Fold.
+ */
+export function indexHypergraphEntries(graph, entries = []) {
+  if (!graph?.byId || !graph?.incident || !graph?.dependent) throw new TypeError("indexHypergraphEntries requires an EO hypergraph index");
+  const keysById = graph.keysById ?? new Map();
+  graph.keysById = keysById;
+
   for (const entry of entries) {
     if (!entry?.id) continue;
-    byId.set(entry.id, entry);
-    if (entry.schema === "EOHyperedge@1") {
-      for (const p of entry.participants ?? []) {
-        addIndex(incident, p.ref, entry.id);
-        if (p.surfaceKey) addIndex(incident, p.surfaceKey, entry.id);
-      }
+    const priorKeys = keysById.get(entry.id);
+    if (priorKeys) {
+      for (const key of priorKeys.incident) removeIndex(graph.incident, key, entry.id);
+      for (const key of priorKeys.dependent) removeIndex(graph.dependent, key, entry.id);
     }
-    if (entry.schema === "EOMention@1" && entry.referent) addIndex(incident, entry.referent, entry.id);
-    if (entry.schema === "EOLexicalOccurrence@1" && entry.surfaceKey) addIndex(incident, entry.surfaceKey, entry.id);
-    for (const ref of referencesOf(entry)) if (ref !== entry.id) addIndex(dependent, ref, entry.id);
+
+    graph.byId.set(entry.id, entry);
+    const keys = indexKeys(entry);
+    keysById.set(entry.id, keys);
+    for (const key of keys.incident) addIndex(graph.incident, key, entry.id);
+    for (const key of keys.dependent) addIndex(graph.dependent, key, entry.id);
   }
-  return freeze({ schema: "EOHypergraph@1", entries: freeze([...byId.values()]), byId, incident, dependent });
+
+  graph.entries = [...graph.byId.values()];
+  return graph;
+}
+
+export function buildHypergraph(entries = []) {
+  const graph = {
+    schema: "EOHypergraph@1",
+    entries: [],
+    byId: new Map(),
+    incident: new Map(),
+    dependent: new Map(),
+    keysById: new Map(),
+  };
+  return indexHypergraphEntries(graph, entries);
 }
 
 /**
