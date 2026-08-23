@@ -7,6 +7,7 @@
     "./referents": "./referents/index.js",
     "./replay": "./replay/index.js",
     "./search": "./search/index.js",
+    "./hypergraph": "./hypergraph/index.js",
     "./fold": "./fold/index.js",
     "./orientation": "./orientation/index.js",
     "./perception": "./perception/index.js",
