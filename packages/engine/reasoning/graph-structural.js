@@ -1,5 +1,5 @@
 import { buildHypergraph } from "../hypergraph/index.js";
-import { discoverPatternCandidates } from "../patterns/index.js";
+import { discoverPatternCandidates, discoverMotifCandidates } from "../patterns/index.js";
 import { deltaFold, eoOperation } from "../fold/index.js";
 import { obligation, openObligation } from "../obligations/index.js";
 
@@ -44,13 +44,6 @@ function ambiguityObligations(fold, observations) {
   return ops;
 }
 
-/**
- * A repeated unresolved surface in consequence-bearing relation positions is
- * itself an unresolved Fold structure. This does NOT assert that its
- * occurrences corefer. It opens the question of whether/how their scopes and
- * referents relate, preserving the occurrences as alternatives to be resolved
- * or segmented later.
- */
 function persistentUnresolvedObligations(fold, graph, newEdgeIds, { minUnresolvedRecurrence = 3 } = {}) {
   const open = existingObligationIds(fold);
   const groups = new Map();
@@ -134,6 +127,23 @@ function competingValueObligations(fold, graph, newEdgeIds) {
   return ops;
 }
 
+function recurrenceOperation(prior, candidate, kind) {
+  return eoOperation({
+    op: "SYN",
+    grain: "Pattern",
+    witness: candidate.witnessRefs,
+    consequence: {
+      kind: prior ? `${kind}_strengthened` : kind,
+      pattern: candidate.id,
+      beforeSupport: prior?.support ?? 0,
+      support: candidate.support,
+    },
+    inputs: candidate.instances,
+    outputs: [candidate.id],
+    payload: { action: "graph-object", value: candidate },
+  });
+}
+
 function patternOperations(fold, graph, newEdgeIds, { minPatternInstances = 3 } = {}) {
   const known = existingEntries(fold);
   const operations = [];
@@ -141,20 +151,22 @@ function patternOperations(fold, graph, newEdgeIds, { minPatternInstances = 3 } 
     if (!pattern.instances.some((id) => newEdgeIds.has(id))) continue;
     const prior = known.get(pattern.id);
     if (prior?.schema === "EOPatternCandidate@1" && (prior.support ?? 0) >= pattern.support) continue;
-    operations.push(eoOperation({
-      op: "SYN",
-      grain: "Pattern",
-      witness: pattern.witnessRefs,
-      consequence: {
-        kind: prior ? "structural_recurrence_strengthened" : "structural_recurrence",
-        pattern: pattern.id,
-        beforeSupport: prior?.support ?? 0,
-        support: pattern.support,
-      },
-      inputs: pattern.instances,
-      outputs: [pattern.id],
-      payload: { action: "graph-object", value: pattern },
-    }));
+    operations.push(recurrenceOperation(prior, pattern, "structural_recurrence"));
+  }
+  return operations;
+}
+
+function motifOperations(fold, graph, newEdgeIds, { minMotifInstances = 2, maxMotifSequenceGap = 4 } = {}) {
+  const known = existingEntries(fold);
+  const operations = [];
+  for (const motif of discoverMotifCandidates(graph.entries, {
+    minInstances: minMotifInstances,
+    maxSequenceGap: maxMotifSequenceGap,
+  })) {
+    if (!motif.instances.some((id) => newEdgeIds.has(id))) continue;
+    const prior = known.get(motif.id);
+    if (prior?.schema === "EOMotifCandidate@1" && (prior.support ?? 0) >= motif.support) continue;
+    operations.push(recurrenceOperation(prior, motif, "connected_motif_recurrence"));
   }
   return operations;
 }
@@ -170,6 +182,7 @@ export function deriveGraphStructuralDelta(fold, observations = [], options = {}
     ...persistentUnresolvedObligations(fold, graph, newEdgeIds, options),
     ...competingValueObligations(fold, graph, newEdgeIds),
     ...patternOperations(fold, graph, newEdgeIds, options),
+    ...motifOperations(fold, graph, newEdgeIds, options),
   ];
   return deltaFold(operations, options.id ? { id: options.id } : {});
 }
