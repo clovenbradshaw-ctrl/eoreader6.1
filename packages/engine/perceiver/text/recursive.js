@@ -36,14 +36,17 @@ function currentReferents(text, refs = []) {
   }));
 }
 
-function resolveParticipant(surface, map, sequencePosition, role) {
+function resolveParticipant(surface, map, sequencePosition, relationIndex, role) {
   const exact = map.get(diaNorm(surface));
-  if (exact) return { ref: exact, role, standing: "referent" };
+  if (exact) return { ref: exact, role, standing: "referent", surface };
+  const lexical = slug(surface) || "unknown";
+  const occurrence = `occ:${sequencePosition}:${relationIndex}:${role}`;
   return {
-    ref: `surface:${slug(surface) || "unknown"}`,
+    ref: occurrence,
+    occurrence,
+    surfaceKey: `surface:${lexical}`,
     role,
     standing: "unresolved_surface",
-    occurrence: `occ:${sequencePosition}:${role}`,
     surface,
   };
 }
@@ -61,9 +64,6 @@ function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
     if (candidate.surfaces < minSurfaces) continue;
     const counts = candidate.upos;
     if (!counts) {
-      // The received prior has no testimony about this form. Preserve the
-      // material-derived candidate as a gap rather than turning absence in
-      // the prior into negative evidence.
       verbs.add(candidate.verb);
       continue;
     }
@@ -81,6 +81,10 @@ function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
  * never contributes to the referent/relation model used to perceive itself.
  * A giver-named POS prior may reject function/preposition/auxiliary forms as
  * lexical relations; unattested forms remain material-derived gaps.
+ *
+ * An unresolved mention is occurrence-local. `surfaceKey` is only a lexical
+ * retrieval index: two occurrences of "monster" share surface:monster but do
+ * NOT share identity until a witnessed coreference transformation connects them.
  */
 export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
@@ -124,8 +128,8 @@ export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEver
         id: `edge:text:${sequencePosition}:${index}`,
         relation: rel.verb,
         participants: [
-          resolveParticipant(rel.subject, cache.refs, sequencePosition, "subject"),
-          resolveParticipant(rel.object, cache.refs, sequencePosition, "object"),
+          resolveParticipant(rel.subject, cache.refs, sequencePosition, index, "subject"),
+          resolveParticipant(rel.object, cache.refs, sequencePosition, index, "object"),
         ],
         witness: `text:${sequencePosition}:${rel.offset}`,
         scope: { sequencePosition, offset: rel.offset },
