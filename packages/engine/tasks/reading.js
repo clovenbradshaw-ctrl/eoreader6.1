@@ -9,10 +9,6 @@ export function createReadingTaskState(log = null) {
   return log ?? createTaskLog();
 }
 
-/**
- * An obligation may propose a clarification task; the task is not a fact and
- * carries no operator until an actual structural act has been earned.
- */
 export function taskForObligation(obligation, { sequence = 0 } = {}) {
   if (!obligation?.id || CLOSED.has(obligation.status)) return null;
   return Object.freeze({
@@ -21,31 +17,39 @@ export function taskForObligation(obligation, { sequence = 0 } = {}) {
     description: `Clarify unresolved distinction: ${String(obligation.distinction ?? obligation.id)}`,
     obligation_id: obligation.id,
     grounds: Object.freeze([...(obligation.grounds ?? [])]),
-    targets: Object.freeze([
-      obligation.id,
-      ...(obligation.grounds ?? []),
-      ...(obligation.alternatives ?? []),
-    ]),
+    targets: Object.freeze([obligation.id, ...(obligation.grounds ?? []), ...(obligation.alternatives ?? [])]),
     consequences: Object.freeze([...(obligation.consequences ?? [])]),
     persistence: obligation.persistence ?? 0,
     scope: Object.freeze({ seenThrough: sequence, futureAllowed: false }),
     strategy: "clarify",
     successCondition: "new witnessed evidence changes the addressed unresolved structure",
     failureCondition: "available witnessed history leaves the distinction unresolved",
-    wake: Object.freeze({ refs: Object.freeze([
-      obligation.id,
-      ...(obligation.grounds ?? []),
-      ...(obligation.alternatives ?? []),
-    ]) }),
+    wake: Object.freeze({ refs: Object.freeze([obligation.id, ...(obligation.grounds ?? []), ...(obligation.alternatives ?? [])]) }),
     depends_on: [],
     evidence: Object.freeze([...(obligation.grounds ?? [])]),
     status: "open",
   });
 }
 
-/** Add tasks only for open obligations that do not already have an active task. */
-export function proposeObligationTasks(log, fold) {
+export function reconcileObligationTasks(log, fold) {
   let next = log;
+  const byObligation = new Map((fold?.obligations ?? []).map((o) => [o.id, o]));
+  for (const task of projectTasks(next)) {
+    if (!task?.obligation_id) continue;
+    const obligation = byObligation.get(task.obligation_id);
+    if (!obligation || !CLOSED.has(obligation.status)) continue;
+    next = append(next, {
+      kind: ENTRY_KINDS.RETRACT,
+      task_id: task.task_id,
+      description: `Underlying obligation ${task.obligation_id} is ${obligation.status}`,
+      evidence: [...(obligation.resolutionRefs ?? [])],
+    });
+  }
+  return next;
+}
+
+export function proposeObligationTasks(log, fold) {
+  let next = reconcileObligationTasks(log, fold);
   const active = new Set(projectTasks(next).filter((t) => !CLOSED.has(t.status)).map((t) => t.task_id));
   const proposed = [];
   for (const obligation of fold?.obligations ?? []) {
@@ -69,10 +73,6 @@ const refsOf = (value, out = new Set()) => {
   return out;
 };
 
-/**
- * Wake tasks by graph reference, never by prose similarity. A task can cause
- * inspection of a relevant encounter; it cannot admit an observation.
- */
 export function wakeTasks(tasks = [], observations = []) {
   const encountered = refsOf(observations);
   return Object.freeze(tasks.filter((task) => {
@@ -82,13 +82,6 @@ export function wakeTasks(tasks = [], observations = []) {
   }));
 }
 
-/**
- * Generic deep-reading executor: reopen only the already witnessed graph
- * neighborhood around the task's targets plus the current observation. It
- * returns inspectable evidence, never a Fold mutation and never a fabricated
- * resolution. A modality/domain adapter may replace this with a stronger
- * strategy while keeping the same epistemic contract.
- */
 export async function executeClarificationTask({ task, fold, observations = [], maxHops = null } = {}) {
   if (!task?.task_id) throw new TypeError("executeClarificationTask requires a task");
   const graph = buildHypergraph([
@@ -98,16 +91,11 @@ export async function executeClarificationTask({ task, fold, observations = [], 
   const consequence = (task.consequences ?? []).length;
   const persistence = task.persistence ?? 0;
   const hops = maxHops ?? (consequence > 1 || persistence > 3 ? 4 : 3);
-  const neighborhood = relevantHypergraphNeighborhood(graph, [
-    ...(task.targets ?? []),
-    ...observations,
-  ], { maxHops: hops });
-
+  const neighborhood = relevantHypergraphNeighborhood(graph, [...(task.targets ?? []), ...observations], { maxHops: hops });
   const candidates = neighborhood.entries.filter((entry) => entry?.id && !CLOSED.has(entry?.status));
   const evidence = candidates
     .filter((entry) => ["Observation@1", "EOHyperedge@1", "EOOperation@1", "EOExpectation@1", "EOObligation@1"].includes(entry.schema))
     .map((entry) => entry.id);
-
   return Object.freeze({
     disposition: evidence.length ? "evidence_found" : "unresolved",
     evidence: Object.freeze([...new Set(evidence)]),
@@ -118,15 +106,10 @@ export async function executeClarificationTask({ task, fold, observations = [], 
   });
 }
 
-/**
- * Append task evidence/results. The result remains evidence for subsequent EO
- * interrogation; it never mutates Fold state by itself.
- */
 export function appendTaskResult(log, task, result = {}) {
   if (!task?.task_id) throw new TypeError("appendTaskResult requires a task");
   const evidence = [...(result.evidence ?? [])];
   const disposition = result.disposition ?? "unresolved";
-  const terminal = ["resolved", "fulfilled", "superseded"].includes(disposition);
   let next = log;
   if (evidence.length) {
     next = append(next, {
@@ -139,7 +122,7 @@ export function appendTaskResult(log, task, result = {}) {
   next = append(next, {
     kind: ENTRY_KINDS.RESULT,
     task_id: task.task_id,
-    status: terminal ? "resolved" : "open",
+    status: "open",
     result: Object.freeze({
       disposition,
       evidence: Object.freeze(evidence),
@@ -152,7 +135,6 @@ export function appendTaskResult(log, task, result = {}) {
   return next;
 }
 
-/** Explicitly type a task only when an EO act has actually been earned. */
 export function typeTask(log, task, { operator, grain, evidence = [], description = null } = {}) {
   return append(log, {
     kind: ENTRY_KINDS.EVIDENCE,
