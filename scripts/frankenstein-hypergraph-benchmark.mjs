@@ -10,7 +10,6 @@ const SOURCES = [
   "https://raw.githubusercontent.com/aibolem/Frankenstein_84/master/84.txt",
 ];
 const posPrior = JSON.parse(await readFile(new URL("../bin/priors/pos/en-ud-ewt.json", import.meta.url), "utf8"));
-
 let source = null;
 let raw = null;
 const failures = [];
@@ -37,6 +36,7 @@ const fold = reader.getFold();
 const graph = buildHypergraph(fold.graphEntries);
 const referents = graph.entries.filter((entry) => entry.schema === "EOReferent@1");
 const mentions = graph.entries.filter((entry) => entry.schema === "EOMention@1");
+const lexicalOccurrences = graph.entries.filter((entry) => entry.schema === "EOLexicalOccurrence@1");
 const edges = graph.entries.filter((entry) => entry.schema === "EOHyperedge@1");
 const gaps = graph.entries.filter((entry) => entry.schema === "EOReferentGap@1");
 
@@ -44,35 +44,32 @@ const relationIncidentCount = (id) => edges.filter((edge) => (edge.participants 
 const mentionCounts = new Map();
 for (const mention of mentions) mentionCounts.set(mention.referent, (mentionCounts.get(mention.referent) ?? 0) + 1);
 const referentRanking = referents
-  .map((ref) => ({
-    id: ref.id,
-    surfaces: ref.surfaces,
-    mentions: mentionCounts.get(ref.id) ?? 0,
-    semanticEdges: relationIncidentCount(ref.id),
-  }))
+  .map((ref) => ({ id: ref.id, surfaces: ref.surfaces, mentions: mentionCounts.get(ref.id) ?? 0, semanticEdges: relationIncidentCount(ref.id) }))
   .sort((a, b) => b.mentions - a.mentions || b.semanticEdges - a.semanticEdges || a.id.localeCompare(b.id))
   .slice(0, 30);
 
 const descriptorTerms = ["creature", "monster", "daemon", "demon", "wretch", "fiend"];
 const descriptorKeys = descriptorTerms.map((term) => `surface:${term}`).filter((key) => (graph.incident.get(key)?.size ?? 0) > 0);
-const descriptorOccurrences = [];
-for (const edge of edges) for (const participant of edge.participants ?? []) {
-  if (participant.standing === "unresolved_surface" && descriptorKeys.includes(participant.surfaceKey)) {
-    descriptorOccurrences.push({ occurrence: participant.ref, surfaceKey: participant.surfaceKey, edge: edge.id });
-  }
-}
-const creatureNeighborhood = relevantHypergraphNeighborhood(graph, descriptorKeys, { maxHops: 2 });
+const descriptorOccurrences = lexicalOccurrences
+  .filter((occ) => descriptorKeys.includes(occ.surfaceKey))
+  .map((occ) => ({ occurrence: occ.id, surfaceKey: occ.surfaceKey, encounterRef: occ.encounterRef, offset: occ.offset }));
+const creatureNeighborhood = relevantHypergraphNeighborhood(graph, descriptorKeys, { maxHops: 3 });
 const creatureEdges = creatureNeighborhood.entries
   .filter((entry) => entry.schema === "EOHyperedge@1")
   .slice(0, 80)
   .map((edge) => ({ id: edge.id, relation: edge.relation, participants: edge.participants, scope: edge.scope, polarity: edge.meta?.polarity ?? null }));
+const creatureMentions = creatureNeighborhood.entries
+  .filter((entry) => entry.schema === "EOMention@1")
+  .slice(0, 80)
+  .map((mention) => ({ id: mention.id, referent: mention.referent, encounterRef: mention.encounterRef }));
 
 const relationCounts = new Map();
 for (const edge of edges) relationCounts.set(edge.relation, (relationCounts.get(edge.relation) ?? 0) + 1);
 const topRelations = [...relationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([relation, count]) => ({ relation, count }));
 const unresolvedI = edges.filter((edge) => (edge.participants ?? []).some((p) => p.surfaceKey === "surface:i")).length;
-const boundParticipants = edges.flatMap((edge) => edge.participants ?? []).filter((p) => p.standing === "referent").length;
-const unresolvedParticipants = edges.flatMap((edge) => edge.participants ?? []).filter((p) => p.standing === "unresolved_surface").length;
+const participants = edges.flatMap((edge) => edge.participants ?? []);
+const boundParticipants = participants.filter((p) => p.standing === "referent").length;
+const unresolvedParticipants = participants.filter((p) => p.standing === "unresolved_surface").length;
 
 const report = {
   source,
@@ -83,6 +80,7 @@ const report = {
   graphEntries: graph.entries.length,
   referents: referents.length,
   mentions: mentions.length,
+  lexicalOccurrences: lexicalOccurrences.length,
   hyperedges: edges.length,
   referentGaps: gaps.length,
   participantBinding: { bound: boundParticipants, unresolved: unresolvedParticipants },
@@ -94,8 +92,9 @@ const report = {
     occurrenceCount: descriptorOccurrences.length,
     occurrences: descriptorOccurrences,
     neighborhoodEntries: creatureNeighborhood.entries.length,
-    sampleEdges: creatureEdges,
-    note: "surface keys retrieve occurrence-local mentions; they do not assert cross-occurrence or cross-descriptor coreference",
+    contextualSemanticEdges: creatureEdges,
+    contextualNamedMentions: creatureMentions,
+    note: "descriptor occurrences remain occurrence-local; encounter context retrieves co-present witnessed structure without asserting descriptor coreference",
   },
 };
 
