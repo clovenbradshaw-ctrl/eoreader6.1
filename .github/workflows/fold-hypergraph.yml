@@ -18,3 +18,10 @@ jobs:
         run: node --test conformance/fold-conditioned-reading.test.js conformance/fold-native-hypergraph.test.js conformance/recursive-text-hypergraph.test.js
       - name: Frankenstein full-book hypergraph benchmark
         run: node scripts/frankenstein-hypergraph-benchmark.mjs
+      - name: Upload Frankenstein benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frankenstein-hypergraph-benchmark
+          path: |
+            frankenstein-hypergraph-summary.json
+            frankenstein-hypergraph-report.json
