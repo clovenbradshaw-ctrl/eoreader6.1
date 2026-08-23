@@ -17,6 +17,7 @@
     "./dynamics": "./dynamics/index.js",
     "./reading/recursive": "./reading/recursive.js",
     "./reasoning/fold-conditioned": "./reasoning/fold-conditioned.js",
+    "./perceiver/text/recursive": "./perceiver/text/recursive.js",
     "./emergence/fold": "./emergence/fold.js",
     "./emergence/graph": "./emergence/graph.js",
     "./perceiver/text/relations": "./perceiver/text/relations.js",
