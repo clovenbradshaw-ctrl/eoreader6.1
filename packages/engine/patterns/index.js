@@ -1,8 +1,14 @@
 const stable = (value) => JSON.stringify(value, Object.keys(value ?? {}).sort());
+const slug = (value) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
 function edgeSignature(edge) {
   const roles = (edge.participants ?? []).map((p) => ({ role: p.role ?? null, standing: p.standing ?? null }));
   return stable({ relation: edge.relation, roles });
+}
+
+function patternId(edge) {
+  const roleKey = (edge.participants ?? []).map((p) => `${slug(p.role ?? "role")}-${slug(p.standing ?? "standing")}`).join("__");
+  return `pattern:${slug(edge.relation)}:${roleKey}`;
 }
 
 /**
@@ -24,12 +30,11 @@ export function discoverPatternCandidates(entries = [], { minInstances = 3 } = {
   }
 
   const candidates = [];
-  let ordinal = 0;
   for (const [signature, instances] of groups) {
     if (instances.length < minInstances) continue;
     candidates.push(Object.freeze({
       schema: "EOPatternCandidate@1",
-      id: `pattern:${ordinal}:${instances[0].relation}`,
+      id: patternId(instances[0]),
       signature,
       relation: instances[0].relation,
       structuralMapping: Object.freeze((instances[0].participants ?? []).map((p) => Object.freeze({ role: p.role ?? null, standing: p.standing ?? null }))),
@@ -39,7 +44,6 @@ export function discoverPatternCandidates(entries = [], { minInstances = 3 } = {
       counterInstances: Object.freeze([]),
       status: "provisional",
     }));
-    ordinal += 1;
   }
   return Object.freeze(candidates);
 }
