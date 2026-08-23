@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   receivedGround, obligation, openObligation, deltaFold, createRecursiveReader,
-  createReadingTaskState, proposeObligationTasks, wakeTasks,
+  createReadingTaskState, proposeObligationTasks, wakeTasks, scheduleTasks,
   createCausalTextPerceiver,
 } from "../packages/engine/index.js";
 
@@ -53,6 +53,20 @@ test("task strategy and wake refs are derived from unresolved Fold structure", (
   assert.equal(task.targets.includes("surface:creature"), true);
   assert.equal(task.targets.includes("occ:1:0:subject"), true);
   assert.equal(task.questions.length >= 2, true);
+});
+
+test("bounded task scheduling prefers consequential persistent uncertainty", () => {
+  const fold = receivedGround({
+    sequence: 12,
+    obligations: [
+      obligation({ id: "obligation:identity:low", distinction: "low", openedAt: 11, grounds: ["ref:low"], consequences: [] }),
+      obligation({ id: "obligation:identity:high", distinction: "high", openedAt: 2, grounds: ["ref:high"], consequences: [{ kind: "a" }, { kind: "b" }] }),
+    ],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  const scheduled = scheduleTasks(state.tasks, fold, { limit: 1 });
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].obligation_id, "obligation:identity:high");
 });
 
 test("reading tasks wake by graph reference rather than lexical similarity", () => {
