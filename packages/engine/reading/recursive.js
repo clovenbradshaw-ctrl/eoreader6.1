@@ -4,6 +4,7 @@ import { perceive as defaultPerceive } from "../perception/index.js";
 import { witness as defaultWitness } from "../witness/index.js";
 import { relevantNeighborhood, interrogateCube, deriveEOTransformations } from "../reasoning/fold-conditioned.js";
 import { deriveSurprise, deriveTension, deriveRelease } from "../dynamics/index.js";
+import { buildHypergraph, indexHypergraphEntries } from "../hypergraph/index.js";
 import {
   createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
   executeClarificationTask, scheduleTasks,
@@ -13,6 +14,25 @@ import { projectTasks } from "../holon/task-log.js";
 export function encounter(value) {
   return Object.freeze({ schema: "Encounter@1", ...value });
 }
+
+const graphObjectsFromObservation = (observation) => [
+  observation,
+  ...(observation?.hyperedges ?? []),
+  ...(observation?.graphEntries ?? []),
+];
+
+const graphObjectsFromDelta = (delta, fold) => {
+  const out = [];
+  for (const operation of delta?.operations ?? []) {
+    out.push(operation);
+    if (operation?.payload?.value?.id) out.push(operation.payload.value);
+    if (operation?.payload?.action === "resolve-obligation" && operation.payload.id) {
+      const revised = (fold?.obligations ?? []).find((item) => item?.id === operation.payload.id);
+      if (revised) out.push(revised);
+    }
+  }
+  return out;
+};
 
 export function createRecursiveReader({
   seed = {}, priors = [], perceivers = [], adapters = {}, taskLog = null,
@@ -24,6 +44,18 @@ export function createRecursiveReader({
   let tasks = createReadingTaskState(taskLog);
   tasks = proposeObligationTasks(tasks, fold).log;
   const log = [];
+
+  // Transient consequence index. It is reconstructible from Fold/log and is
+  // deliberately not itself historical state. Reusing it makes each new
+  // encounter pay for new structure rather than re-indexing the whole book.
+  const graphIndex = buildHypergraph([
+    ...(fold?.graphEntries ?? []),
+    ...(fold?.expectations ?? []),
+    ...(fold?.obligations ?? []),
+    ...(fold?.activeFrames ?? []),
+    ...(fold?.unresolvedAlternatives ?? []),
+    ...(fold?.transformationObjects ?? []),
+  ]);
 
   async function step(input) {
     const currentEncounter = input?.schema === "Encounter@1" ? input : encounter(input);
@@ -40,6 +72,10 @@ export function createRecursiveReader({
       admit: adapters.admit,
     });
 
+    // New witnessed structure becomes searchable once, before any task asks
+    // whether it changes an existing consequential distinction.
+    indexHypergraphEntries(graphIndex, observations.flatMap(graphObjectsFromObservation));
+
     const awakenedTasks = wakeTasks(orientationTasks, observations);
     const scheduledTasks = scheduleTasks(awakenedTasks, beforeFold, { limit: taskExecutionBudget });
     const taskEvidence = [];
@@ -51,6 +87,7 @@ export function createRecursiveReader({
         observations,
         fold: beforeFold,
         orientation,
+        graph: graphIndex,
       });
       if (!result) continue;
       tasks = appendTaskResult(tasks, task, result);
@@ -69,8 +106,10 @@ export function createRecursiveReader({
       }));
     }
 
+    indexHypergraphEntries(graphIndex, taskEvidence);
     const neighborhood = (adapters.retrieve ?? relevantNeighborhood)(beforeFold, [...observations, ...taskEvidence], {
       select: adapters.selectNeighborhood,
+      graph: graphIndex,
     });
     const interrogation = await (adapters.interrogate ?? interrogateCube)([...observations, ...taskEvidence], neighborhood, {
       ask: adapters.ask,
@@ -85,6 +124,7 @@ export function createRecursiveReader({
     for (const observation of observations) nextFold = applyObservation(nextFold, observation);
     nextFold = applyDelta(nextFold, canonicalDelta);
     fold = nextFold;
+    indexHypergraphEntries(graphIndex, graphObjectsFromDelta(canonicalDelta, fold));
 
     const taskUpdate = proposeObligationTasks(tasks, fold);
     tasks = taskUpdate.log;
