@@ -78,20 +78,6 @@ function earnedClosedClass(table) {
   return candidate.size * 2 < table.freq.size ? candidate : new Set();
 }
 
-function lexicalVerbVocabulary(result, minSurfaces, posPrior) {
-  if (!posPrior) return result.verbs;
-  const verbs = new Set();
-  for (const candidate of result.candidates ?? []) {
-    if (candidate.surfaces < minSurfaces) continue;
-    const counts = candidate.upos;
-    if (!counts) { verbs.add(candidate.verb); continue; }
-    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
-    const lexicalShare = total ? (counts.VERB ?? 0) / total : 0;
-    if (lexicalShare > 0.5) verbs.add(candidate.verb);
-  }
-  return verbs;
-}
-
 function lexicalNounOccurrences(text, sequencePosition, encounterRef, posPrior) {
   if (!posPrior?.forms) return [];
   const out = [];
@@ -158,26 +144,64 @@ function taskTargetOccurrences(text, sequencePosition, encounterRef, orientation
   return out;
 }
 
+function mergeRelationEvidence(store, candidates = []) {
+  for (const candidate of candidates) {
+    if (!candidate?.verb) continue;
+    if (!store.has(candidate.verb)) store.set(candidate.verb, { surfaceForms: new Set(), upos: candidate.upos ?? null, verbDominant: candidate.verbDominant !== false });
+    const record = store.get(candidate.verb);
+    for (const surface of candidate.surfaceForms ?? []) record.surfaceForms.add(surface);
+    if (candidate.upos) record.upos = candidate.upos;
+    if (candidate.verbDominant === false) record.verbDominant = false;
+  }
+}
+
+function admittedRelationVerbs(store, minSurfaces) {
+  const verbs = new Set();
+  for (const [verb, record] of store) {
+    if (record.verbDominant !== false && record.surfaceForms.size >= minSurfaces) verbs.add(verb);
+  }
+  return verbs;
+}
+
 export function createCausalTextPerceiver({ minRelationSurfaces = 2, refreshEvery = 25, posPrior = null } = {}) {
   if (!Number.isInteger(refreshEvery) || refreshEvery < 1) throw new TypeError("refreshEvery must be a positive integer");
   if (posPrior && (posPrior.schema !== "POSPrior@1" || !posPrior.provenance?.source)) throw new TypeError("posPrior must be a giver-named POSPrior@1");
   const priorSentences = [];
   let priorText = "";
+  let relationRefreshFrom = 0;
+  const relationEvidence = new Map();
   let cache = { closed: new Set(), refs: new Map(), referents: [], gaps: [], verbs: new Set() };
 
   const refresh = () => {
+    // Surface/kind discovery still evaluates the accumulated causal past, but
+    // relation-vocabulary learning scans only the NEW batch. The old path ran
+    // a growing surface regex over the entire growing book every refresh — a
+    // quadratic/cubic multiplier on long works. Distinct supporting surfaces
+    // are accumulated explicitly, so relation admission keeps its original
+    // recurrence meaning without rereading old material.
     const priorWords = tokenize(priorText);
     const table = buildFrequencyTable(priorWords);
     const closed = earnedClosedClass(table);
     const surfaces = extractSurfaces(priorSentences, { functionWords: closed });
     const discovered = discoverReferents(surfaces);
-    const relationResult = discoverRelationVocab(priorText, { surfaces, functionWords: closed, minSurfaces: minRelationSurfaces, posPrior });
+    const batchSentences = priorSentences.slice(relationRefreshFrom);
+    const batchText = batchSentences.map((sentence) => sentence.text).join("\n");
+    if (batchText && surfaces.length) {
+      const relationResult = discoverRelationVocab(batchText, {
+        surfaces,
+        functionWords: closed,
+        minSurfaces: 1,
+        posPrior,
+      });
+      mergeRelationEvidence(relationEvidence, relationResult.candidates);
+    }
+    relationRefreshFrom = priorSentences.length;
     cache = {
       closed,
       refs: surfaceMap(discovered.events),
       referents: referentObjects(discovered.events),
       gaps: discovered.gaps,
-      verbs: lexicalVerbVocabulary(relationResult, minRelationSurfaces, posPrior),
+      verbs: admittedRelationVerbs(relationEvidence, minRelationSurfaces),
     };
   };
 
