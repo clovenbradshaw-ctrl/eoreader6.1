@@ -115,7 +115,15 @@ export function createRecursiveReader({
       ask: adapters.ask,
     });
     const delta = adapters.revise
-      ? await adapters.revise({ observations, taskEvidence, neighborhood, interrogation, fold: beforeFold, tasks: projectTasks(tasks) })
+      ? await adapters.revise({
+          observations,
+          taskEvidence,
+          neighborhood,
+          interrogation,
+          fold: beforeFold,
+          tasks: projectTasks(tasks),
+          graph: graphIndex,
+        })
       : deriveEOTransformations(interrogation, { id: `delta:${currentEncounter.sequencePosition ?? log.length}` });
     const canonicalDelta = delta?.schema === "DeltaFold@1" ? delta : deltaFold([]);
 
