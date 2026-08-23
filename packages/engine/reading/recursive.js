@@ -6,7 +6,7 @@ import { relevantNeighborhood, interrogateCube, deriveEOTransformations } from "
 import { deriveSurprise, deriveTension, deriveRelease } from "../dynamics/index.js";
 import {
   createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
-  executeClarificationTask,
+  executeClarificationTask, scheduleTasks,
 } from "../tasks/reading.js";
 import { projectTasks } from "../holon/task-log.js";
 
@@ -14,7 +14,12 @@ export function encounter(value) {
   return Object.freeze({ schema: "Encounter@1", ...value });
 }
 
-export function createRecursiveReader({ seed = {}, priors = [], perceivers = [], adapters = {}, taskLog = null } = {}) {
+export function createRecursiveReader({
+  seed = {}, priors = [], perceivers = [], adapters = {}, taskLog = null,
+  taskOrientationBudget = 24, taskExecutionBudget = 4,
+} = {}) {
+  if (!Number.isInteger(taskOrientationBudget) || taskOrientationBudget < 0) throw new TypeError("taskOrientationBudget must be a non-negative integer");
+  if (!Number.isInteger(taskExecutionBudget) || taskExecutionBudget < 0) throw new TypeError("taskExecutionBudget must be a non-negative integer");
   let fold = receivedGround(seed);
   let tasks = createReadingTaskState(taskLog);
   tasks = proposeObligationTasks(tasks, fold).log;
@@ -24,7 +29,8 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
     const currentEncounter = input?.schema === "Encounter@1" ? input : encounter(input);
     const beforeFold = fold;
     const liveTasksBefore = projectTasks(tasks);
-    const orientation = deriveOrientation(beforeFold, { tasks: liveTasksBefore });
+    const orientationTasks = scheduleTasks(liveTasksBefore, beforeFold, { limit: taskOrientationBudget });
+    const orientation = deriveOrientation(beforeFold, { tasks: orientationTasks });
 
     const candidates = await (adapters.perceive ?? defaultPerceive)(currentEncounter, orientation, {
       perceivers,
@@ -34,10 +40,11 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
       admit: adapters.admit,
     });
 
-    const awakenedTasks = wakeTasks(liveTasksBefore, observations);
+    const awakenedTasks = wakeTasks(orientationTasks, observations);
+    const scheduledTasks = scheduleTasks(awakenedTasks, beforeFold, { limit: taskExecutionBudget });
     const taskEvidence = [];
     const executeTask = adapters.executeTask ?? executeClarificationTask;
-    for (const task of awakenedTasks) {
+    for (const task of scheduledTasks) {
       const result = await executeTask({
         task,
         encounter: currentEncounter,
@@ -57,6 +64,7 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
         disposition: result.disposition ?? "unresolved",
         evidence: Object.freeze([...(result.evidence ?? [])]),
         candidates: Object.freeze([...(result.candidates ?? [])]),
+        depth: result.depth ?? null,
         detail: result.detail ?? null,
       }));
     }
@@ -88,6 +96,7 @@ export function createRecursiveReader({ seed = {}, priors = [], perceivers = [],
       candidates,
       observations,
       awakenedTasks,
+      scheduledTasks,
       taskEvidence,
       proposedTasks: taskUpdate.proposed,
       tasks: Object.freeze(liveTasksAfter),
