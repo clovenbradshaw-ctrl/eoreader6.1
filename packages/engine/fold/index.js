@@ -1,11 +1,6 @@
 import { cellOf } from "../operators.js";
 
 const STATES = new Set(["open", "strengthened", "weakened", "fulfilled", "violated", "reframed", "superseded"]);
-const LIST_KEYS = [
-  "witnessed", "provisional", "expectations", "obligations", "exclusions",
-  "unresolvedAlternatives", "activeFrames", "receivedPriors", "graphEntries",
-  "transformationObjects", "transformationHistoryRefs",
-];
 const emptyClasses = () => ({
   witnessed: [],
   provisional: [],
@@ -21,12 +16,12 @@ const emptyClasses = () => ({
 });
 
 const clone = (value) => value == null ? value : structuredClone(value);
-const copyFold = (fold) => {
-  const source = fold ?? receivedGround();
-  const next = { ...source };
-  for (const key of LIST_KEYS) next[key] = [...(source[key] ?? [])];
-  return next;
-};
+
+/**
+ * Fold values are persistent projections: unchanged arrays are safe to share.
+ * Only the classes actually revised by an operation receive a new array.
+ */
+const copyFold = (fold) => ({ ...(fold ?? receivedGround()) });
 
 export function receivedGround(seed = {}) {
   return {
@@ -68,7 +63,7 @@ export function deltaFold(operations = [], meta = {}) {
   });
 }
 
-function upsertById(list, value) {
+function upsertById(list = [], value) {
   const next = [...list];
   const i = value?.id == null ? -1 : next.findIndex((item) => item?.id === value.id);
   if (i >= 0) next[i] = { ...next[i], ...clone(value) };
@@ -76,13 +71,33 @@ function upsertById(list, value) {
   return next;
 }
 
-function removeById(list, id) {
-  return id == null ? [...list] : list.filter((item) => item?.id !== id);
+/** One pass over existing state, one copy, however many new graph objects arrive. */
+function upsertManyById(list = [], values = []) {
+  if (!values.length) return list;
+  const next = [...list];
+  const index = new Map();
+  for (let i = 0; i < next.length; i += 1) if (next[i]?.id != null) index.set(next[i].id, i);
+  for (const raw of values) {
+    if (!raw) continue;
+    const value = clone(raw);
+    const id = value?.id;
+    if (id != null && index.has(id)) {
+      const i = index.get(id);
+      next[i] = { ...next[i], ...value };
+      continue;
+    }
+    if (id != null) index.set(id, next.length);
+    next.push(value);
+  }
+  return next;
 }
 
-function addGraphEntry(fold, value) {
-  if (!value?.id || !value?.schema) return;
-  fold.graphEntries = upsertById(fold.graphEntries ?? [], value);
+function removeById(list = [], id) {
+  return id == null ? list : list.filter((item) => item?.id !== id);
+}
+
+function graphable(value) {
+  return value?.id && value?.schema ? value : null;
 }
 
 /** Admit a witnessed observation into a reconstructed Fold without pretending it is a transformation. */
@@ -90,66 +105,64 @@ export function applyObservation(fold, observation) {
   if (observation?.schema !== "Observation@1") throw new TypeError("applyObservation requires Observation@1");
   const next = copyFold(fold);
   next.witnessed = upsertById(next.witnessed ?? [], observation);
-  addGraphEntry(next, observation);
-  for (const edge of observation.hyperedges ?? []) addGraphEntry(next, edge);
-  for (const entry of observation.graphEntries ?? []) addGraphEntry(next, entry);
+  const additions = [
+    observation,
+    ...(observation.hyperedges ?? []),
+    ...(observation.graphEntries ?? []),
+  ].filter(graphable);
+  next.graphEntries = upsertManyById(next.graphEntries ?? [], additions);
   return next;
 }
 
+/** Apply one payload and return graph objects whose current projection changed. */
 function applyPayload(fold, operation) {
-  if (operation.operator === "NUL") return;
+  if (operation.operator === "NUL") return [];
   const payload = operation.payload ?? {};
   switch (payload.action) {
     case "provisional":
-      fold.provisional = upsertById(fold.provisional, payload.value);
-      addGraphEntry(fold, payload.value);
-      break;
+      fold.provisional = upsertById(fold.provisional ?? [], payload.value);
+      return [payload.value].filter(graphable);
     case "expectation": {
       const value = payload.value ?? {};
       if (value.state && !STATES.has(value.state)) throw new TypeError(`unknown expectation state: ${value.state}`);
-      fold.expectations = upsertById(fold.expectations, value);
-      addGraphEntry(fold, value);
-      break;
+      fold.expectations = upsertById(fold.expectations ?? [], value);
+      return [value].filter(graphable);
     }
     case "obligation":
-      fold.obligations = upsertById(fold.obligations, payload.value);
-      addGraphEntry(fold, payload.value);
-      break;
+      fold.obligations = upsertById(fold.obligations ?? [], payload.value);
+      return [payload.value].filter(graphable);
     case "exclusion":
-      fold.exclusions = upsertById(fold.exclusions, payload.value);
-      addGraphEntry(fold, payload.value);
-      break;
+      fold.exclusions = upsertById(fold.exclusions ?? [], payload.value);
+      return [payload.value].filter(graphable);
     case "alternative":
-      fold.unresolvedAlternatives = upsertById(fold.unresolvedAlternatives, payload.value);
-      addGraphEntry(fold, payload.value);
-      break;
+      fold.unresolvedAlternatives = upsertById(fold.unresolvedAlternatives ?? [], payload.value);
+      return [payload.value].filter(graphable);
     case "frame":
-      fold.activeFrames = upsertById(fold.activeFrames, payload.value);
-      addGraphEntry(fold, payload.value);
-      break;
+      fold.activeFrames = upsertById(fold.activeFrames ?? [], payload.value);
+      return [payload.value].filter(graphable);
     case "prior":
-      fold.receivedPriors = upsertById(fold.receivedPriors, payload.value);
-      break;
+      fold.receivedPriors = upsertById(fold.receivedPriors ?? [], payload.value);
+      return [];
     case "hyperedge":
-      addGraphEntry(fold, payload.value);
-      break;
     case "graph-object":
-      addGraphEntry(fold, payload.value);
-      break;
+      return [payload.value].filter(graphable);
     case "resolve-obligation": {
-      const existing = fold.obligations.find((item) => item?.id === payload.id);
-      const revised = existing ? { ...existing, status: payload.status ?? "resolved", resolvedAt: fold.sequence + 1, resolutionRefs: [...(existing.resolutionRefs ?? []), operation.id].filter(Boolean) } : null;
-      if (revised) {
-        fold.obligations = upsertById(fold.obligations, revised);
-        addGraphEntry(fold, revised);
-      }
-      break;
+      const existing = (fold.obligations ?? []).find((item) => item?.id === payload.id);
+      const revised = existing ? {
+        ...existing,
+        status: payload.status ?? "resolved",
+        resolvedAt: fold.sequence + 1,
+        resolutionRefs: [...(existing.resolutionRefs ?? []), operation.id].filter(Boolean),
+      } : null;
+      if (!revised) return [];
+      fold.obligations = upsertById(fold.obligations ?? [], revised);
+      return [revised];
     }
     case "remove-provisional":
-      fold.provisional = removeById(fold.provisional, payload.id);
-      break;
+      fold.provisional = removeById(fold.provisional ?? [], payload.id);
+      return [];
     default:
-      break;
+      return [];
   }
 }
 
@@ -159,15 +172,18 @@ export function applyDelta(fold, delta) {
   const next = copyFold(fold);
   next.sequence = (next.sequence ?? 0) + 1;
   let opIndex = 0;
+  const operations = [];
+  const graphUpdates = [];
   for (const rawOperation of delta.operations ?? []) {
     if (rawOperation?.schema !== "EOOperation@1") throw new TypeError("DeltaFold contains a non-EO operation");
     if (rawOperation.operator === "NUL" && rawOperation.payload?.action) throw new TypeError("NUL cannot mutate Fold state");
     const operation = rawOperation.id ? rawOperation : { ...rawOperation, id: `${delta.id ?? `delta:${next.sequence}`}:op:${opIndex}` };
     opIndex += 1;
-    applyPayload(next, operation);
-    next.transformationObjects = upsertById(next.transformationObjects ?? [], operation);
-    addGraphEntry(next, operation);
+    operations.push(operation);
+    graphUpdates.push(...applyPayload(next, operation));
   }
+  next.transformationObjects = upsertManyById(next.transformationObjects ?? [], operations);
+  next.graphEntries = upsertManyById(next.graphEntries ?? [], [...operations, ...graphUpdates].filter(graphable));
   const ref = delta.id ?? `delta:${next.sequence}`;
   next.transformationHistoryRefs = [...(next.transformationHistoryRefs ?? []), ref];
   return next;
@@ -184,7 +200,7 @@ export function reconstruct(entries = [], seed = {}) {
     }
     if (entry?.schema === "EOHyperedge@1") {
       const next = copyFold(fold);
-      addGraphEntry(next, entry);
+      next.graphEntries = upsertManyById(next.graphEntries ?? [], [entry]);
       fold = next;
       continue;
     }
