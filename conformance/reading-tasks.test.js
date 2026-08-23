@@ -1,0 +1,161 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  receivedGround, obligation, openObligation, deltaFold, createRecursiveReader,
+  createReadingTaskState, proposeObligationTasks, wakeTasks, appendTaskResult,
+  deriveOrientation, eoOperation,
+} from "../packages/engine/index.js";
+
+const fixturePerceiver = {
+  id: "fixture",
+  perceive: (encounter) => ({
+    candidate: { distinctions: encounter.distinctions ?? [{ ref: "ref:alice" }] },
+    anchor: encounter.anchor,
+    evidence: encounter.material,
+  }),
+};
+
+test("open Fold obligations propose append-only clarification tasks without asserting truth", () => {
+  const fold = receivedGround({
+    sequence: 4,
+    obligations: [obligation({
+      id: "obligation:identity:alice",
+      distinction: "which identity does this surface denote?",
+      grounds: ["ref:alice"],
+      consequences: ["later attribution"],
+    })],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  assert.equal(state.proposed.length, 1);
+  assert.equal(state.tasks.length, 1);
+  assert.equal(state.tasks[0].operator, null);
+  assert.equal(state.tasks[0].scope.futureAllowed, false);
+  assert.equal(fold.witnessed.length, 0);
+});
+
+test("reading tasks wake by graph reference rather than lexical similarity", () => {
+  const fold = receivedGround({
+    obligations: [obligation({
+      id: "obligation:identity:alice",
+      distinction: "identity unresolved",
+      grounds: ["ref:alice"],
+    })],
+  });
+  const state = proposeObligationTasks(createReadingTaskState(), fold);
+  const observations = [{
+    schema: "Observation@1",
+    id: "obs:next",
+    distinctions: [{ ref: "ref:alice", surface: "completely different wording" }],
+  }];
+  const awake = wakeTasks(state.tasks, observations);
+  assert.equal(awake.length, 1);
+  assert.equal(awake[0].task_id, "task:obligation:obligation:identity:alice");
+});
+
+test("task results remain evidence and cannot mutate the Fold without EO interrogation", async () => {
+  const seed = receivedGround({
+    obligations: [obligation({
+      id: "obligation:identity:alice",
+      distinction: "identity unresolved",
+      grounds: ["ref:alice"],
+    })],
+  });
+  const reader = createRecursiveReader({
+    seed,
+    perceivers: [fixturePerceiver],
+    adapters: {
+      executeTask: () => ({
+        disposition: "resolved",
+        evidence: ["obs:claimed-resolution"],
+        candidates: ["ref:alice"],
+      }),
+      ask: () => null,
+    },
+  });
+
+  const turn = await reader.step({
+    source: "fixture",
+    modality: "text",
+    anchor: 1,
+    material: "Alice appeared.",
+    distinctions: [{ ref: "ref:alice" }],
+    sequencePosition: 0,
+  });
+
+  assert.equal(turn.awakenedTasks.length, 1);
+  assert.equal(turn.taskEvidence.length, 1);
+  assert.equal(turn.taskEvidence[0].disposition, "resolved");
+  assert.equal(reader.getFold().obligations[0].status, "open");
+});
+
+test("task evidence may change Fold only through an earned EO transformation", async () => {
+  const seed = receivedGround({
+    obligations: [obligation({
+      id: "obligation:identity:alice",
+      distinction: "identity unresolved",
+      grounds: ["ref:alice"],
+    })],
+  });
+  const reader = createRecursiveReader({
+    seed,
+    perceivers: [fixturePerceiver],
+    adapters: {
+      executeTask: () => ({
+        disposition: "supported",
+        evidence: ["obs:identity-witness"],
+        candidates: ["ref:alice"],
+      }),
+      ask: ({ address, observations }) => {
+        const taskEvidence = observations.find((o) => o.schema === "TaskEvidence@1");
+        if (!taskEvidence || address.op !== "DEF" || address.grain !== "Figure") return null;
+        return {
+          changed: true,
+          evidence: taskEvidence.id,
+          effects: [{
+            op: "DEF",
+            grain: "Figure",
+            witness: taskEvidence.id,
+            payload: { action: "resolve-obligation", id: "obligation:identity:alice", status: "resolved" },
+          }],
+        };
+      },
+    },
+  });
+
+  const turn = await reader.step({
+    source: "fixture",
+    modality: "text",
+    anchor: 1,
+    material: "Alice appeared.",
+    distinctions: [{ ref: "ref:alice" }],
+    sequencePosition: 0,
+  });
+
+  assert.equal(turn.deltaFold.operations.some((op) => op.operator === "DEF"), true);
+  assert.equal(reader.getFold().obligations[0].status, "resolved");
+});
+
+test("tasks created after revision condition the next Orientation", async () => {
+  const reader = createRecursiveReader({
+    perceivers: [fixturePerceiver],
+    adapters: {
+      revise: ({ observations, fold }) => {
+        if (fold.obligations.length) return deltaFold([]);
+        const o = obligation({
+          id: "obligation:identity:alice",
+          distinction: "who is Alice here?",
+          grounds: ["ref:alice"],
+          consequences: ["attribution"],
+        });
+        return deltaFold([openObligation(o, { witness: observations[0]?.id ?? "obs:1" })], { id: "delta:open" });
+      },
+    },
+  });
+
+  const first = await reader.step({ source: "x", modality: "text", anchor: 1, material: "Alice", sequencePosition: 0 });
+  assert.equal(first.proposedTasks.length, 1);
+  const second = await reader.step({ source: "x", modality: "text", anchor: 2, material: "Again", sequencePosition: 1 });
+  assert.equal(second.orientation.activeTasks.length, 1);
+  assert.equal(second.orientation.taskQuestions[0].targets.includes("ref:alice"), true);
+});
