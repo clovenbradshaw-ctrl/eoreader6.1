@@ -9,8 +9,8 @@ const allObservationEntries = (observations = []) => observations.flatMap((obs) 
   ...(obs.graphEntries ?? []),
 ]);
 
-function existingIds(fold) {
-  return new Set((fold?.graphEntries ?? []).map((entry) => entry?.id).filter(Boolean));
+function existingEntries(fold) {
+  return new Map((fold?.graphEntries ?? []).map((entry) => [entry?.id, entry]).filter(([id]) => Boolean(id)));
 }
 
 function existingObligationIds(fold) {
@@ -75,22 +75,32 @@ function competingValueObligations(fold, graph, newEdgeIds) {
       openedAt: (fold?.sequence ?? 0) + 1,
       persistence: 0,
     });
-    ops.push(openObligation(value, { witness: group.filter((item) => newEdgeIds.has(item.edge.id)).map((item) => item.edge.witness).filter(Boolean), grain: "Figure", op: "DEF" }));
+    ops.push(openObligation(value, {
+      witness: group.filter((item) => newEdgeIds.has(item.edge.id)).map((item) => item.edge.witness).filter(Boolean),
+      grain: "Figure",
+      op: "DEF",
+    }));
   }
   return ops;
 }
 
 function patternOperations(fold, graph, newEdgeIds, { minPatternInstances = 3 } = {}) {
-  const known = existingIds(fold);
+  const known = existingEntries(fold);
   const operations = [];
   for (const pattern of discoverPatternCandidates(graph.entries, { minInstances: minPatternInstances })) {
     if (!pattern.instances.some((id) => newEdgeIds.has(id))) continue;
-    if (known.has(pattern.id)) continue;
+    const prior = known.get(pattern.id);
+    if (prior?.schema === "EOPatternCandidate@1" && (prior.support ?? 0) >= pattern.support) continue;
     operations.push(eoOperation({
       op: "SYN",
       grain: "Pattern",
       witness: pattern.witnessRefs,
-      consequence: { kind: "structural_recurrence", pattern: pattern.id, support: pattern.support },
+      consequence: {
+        kind: prior ? "structural_recurrence_strengthened" : "structural_recurrence",
+        pattern: pattern.id,
+        beforeSupport: prior?.support ?? 0,
+        support: pattern.support,
+      },
       inputs: pattern.instances,
       outputs: [pattern.id],
       payload: { action: "graph-object", value: pattern },
