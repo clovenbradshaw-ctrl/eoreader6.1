@@ -15,6 +15,7 @@
     "./witness": "./witness/index.js",
     "./expectations": "./expectations/index.js",
     "./obligations": "./obligations/index.js",
+    "./tasks/reading": "./tasks/reading.js",
     "./dynamics": "./dynamics/index.js",
     "./reading/recursive": "./reading/recursive.js",
     "./reasoning/fold-conditioned": "./reasoning/fold-conditioned.js",
