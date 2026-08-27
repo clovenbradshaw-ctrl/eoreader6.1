@@ -47,8 +47,8 @@ import {
   sessionRelations,
   CORPUS_API_VERSION,
 } from "./corpus.js";
-import { attachGraph, sessionGraphSnapshot, referentLookup, referentFace, reconcileGraphStandings } from "./graph.js";
-import { readTriples, strongestEdges, nodeWeights } from "../engine/emergence/graph.js";
+import { attachGraph, sessionGraphSnapshot, referentLookup } from "./graph.js";
+import { readTriples, strongestEdges } from "../engine/emergence/graph.js";
 import { readLinks, bindingTriples } from "../engine/emergence/binding.js";
 import { splitSentences } from "../engine/perceiver/text/spans.js";
 import { diaNorm } from "../engine/perceiver/text/surfaces.js";
@@ -69,8 +69,10 @@ import { DOMAINS, GRAINS, TERRAIN_BY_DOMAIN } from "../engine/operators.js";
 // ── declared numbers, each with its giver ───────────────────────────────────
 // host/reading.js's own chunk size, unchanged — the same 40-word chunk
 // read.mjs always built, so an Atmosphere series here and one from
-// admitReading are the same measurement.
-const CHUNK_WORDS = 40;
+// admitReading are the same measurement. Exported so a second caller
+// wanting the calibrated regime (not a re-declared, uncalibrated one) can
+// reuse the identical constants rather than guess new ones.
+export const CHUNK_WORDS = 40;
 
 // loops/atmosphere.js's own calibrated regime numbers: window=5/draws=256/
 // tolerance=3 is the parameter set conformance/atmosphere.test.js declares
@@ -80,7 +82,7 @@ const CHUNK_WORDS = 40;
 // difference — 55-90% at stride 1 versus 0-3% at stride `window`. (It also
 // happens to be the difference between 148s and ~30s on a 3.3MB novel.)
 // statistic and seed are left at readAtmosphere's own declared defaults.
-const ATMOSPHERE_REGIME = Object.freeze({ window: 5, draws: 256, tolerance: 3, hop: 5 });
+export const ATMOSPHERE_REGIME = Object.freeze({ window: 5, draws: 256, tolerance: 3, hop: 5 });
 
 // This file's own engineering starting points — caps on what one response
 // carries, not on what was computed. Every truncation they cause is counted
@@ -310,68 +312,26 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
   // canonicalisation (graph.js's own referentLookup), same organ; the only
   // difference from one-call admission is that decay applies per stage,
   // which is the organ's own reading semantics, declared above.
-  //
-  // CONSERVATIVE, NOT GREEDY, on the cast side of the graph (2026-08-21): a
-  // referent the cast has already typed `apparatus` (a narrating byline
-  // re-stapled to most sentences — corpus.js's own measured demotion) is
-  // WITHHELD from the co-arrival binding register, and the withholding is a
-  // typed Void entry naming who was withheld. An apparatus co-arrives with
-  // everyone by construction, so binding it as cast reads the container's
-  // own voice as the story's structure. Its STATED relations still enter —
-  // "X has learned…" is genuinely stated by the material — but the node
-  // carries its standing (reconciled below), so a reader can tell belief
-  // about the story from belief about the wire that carried it. The gap is
-  // recomputed and pushed on EVERY call, not only the admitting one, so the
-  // Void ledger stays whole on a re-render.
-  const apparatusReferents = entity.referents.filter((r) => r.individuation === "apparatus");
-  const bindableReferents = entity.referents.filter((r) => r.individuation !== "apparatus");
-  if (apparatusReferents.length) {
-    voidLedger.push(
-      gapEntry("Network", "binding", {
-        reason: "apparatus_withheld_from_binding",
-        detail:
-          `${apparatusReferents.length} referent(s) the cast types apparatus withheld from co-arrival binding: ` +
-          `${apparatusReferents.map((r) => r.display || r.id).join(", ")} — a narrating apparatus co-arrives with ` +
-          "everything, so binding it as cast would read the container's own voice as the story's structure",
-        withheld: apparatusReferents.map((r) => ({ referent: r.id, display: r.display || r.id })),
-      }),
-    );
-  }
   if (!session._terrainsGraphAdmitted) session._terrainsGraphAdmitted = new Set();
   let stages = session._terrainsGraphStages?.get?.(sourceId) ?? null;
   if (!session._terrainsGraphAdmitted.has(sourceId)) {
     session._terrainsGraphAdmitted.add(sourceId);
     const graph = attachGraph(session);
     const lookup = referentLookup(session, sourceId);
-    const triples = rel.relations.map((t) => ({
-      subject: lookup.resolve(t.subject, t.subjectOffset ?? t.offset),
-      verb: t.verb,
-      object: lookup.resolve(t.object, t.objectOffset ?? t.offset),
-      polarity: t.polarity,
-    }));
+    const canon = (side) => lookup.get(String(side).toLowerCase()) ?? side;
+    const triples = rel.relations.map((t) => ({ subject: canon(t.subject), verb: t.verb, object: canon(t.object), polarity: t.polarity }));
     stages = [];
-    // Each stage's nodes carry `weight` — the summed CURRENT (decayed)
-    // incident edge weight at that stage (engine graph.js::nodeWeights) —
-    // and are ranked by it: the cursor scrubs the graph's own re-weighted
-    // belief as-of-that-point, not a lifetime mentions tally that can only
-    // grow ("frequency is not significance" — referents/entity.js's own
-    // register discipline, applied to this ranking 2026-08-21).
-    const snap = (label, upTo, of) => {
-      const weights = nodeWeights(graph);
+    const snap = (label, upTo, of) =>
       stages.push({
         label,
         upTo,
         of,
         tick: graph.tick,
-        nodes: [...graph.nodes.values()]
-          .map((n) => ({ ...n, weight: weights.get(n.id) ?? 0 }))
-          .sort((a, b) => b.weight - a.weight || b.mentions - a.mentions)
-          .slice(0, GRAPH_LIMIT),
+        nodes: [...graph.nodes.values()].sort((a, b) => b.mentions - a.mentions).slice(0, GRAPH_LIMIT).map((n) => ({ ...n })),
         edges: strongestEdges(graph, GRAPH_LIMIT),
         nodeCount: graph.nodes.size,
         edgeCount: graph.edges.size,
       });
-    };
     const per = Math.max(1, Math.ceil(triples.length / GRAPH_STAGES));
     for (let s = 0; s < triples.length; s += per) {
       const batch = triples.slice(s, s + per);
@@ -380,21 +340,15 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     }
 
     // ── binding: the co-arrival Link over the cast, its own final stage ──
-    // The register is keyed by `referentFace` — the SAME stable referent id
-    // the SVO canonicalisation above lands triples on — so one referent is
-    // ONE node whichever organ speaks about it. Display strings remain
-    // presentation rather than graph identity. Apparatus referents are
-    // withheld (bindableReferents; the
-    // typed Void entry above says who and why).
-    let binding = { entities: 0, pairsTested: 0, witnessed: 0, apparatusWithheld: apparatusReferents.length, params: BINDING };
+    let binding = { entities: 0, pairsTested: 0, witnessed: 0, params: BINDING };
     const sentences = splitSentences(text);
     const surfacePatterns = [];
-    for (const r of bindableReferents) {
+    for (const r of entity.referents) {
       for (const s of r.surfaces ?? []) {
         const surfaceText = typeof s === "string" ? s : s?.surface;
         const n = diaNorm(surfaceText ?? "");
         if (n.length < 2) continue;
-        surfacePatterns.push([referentFace(r), new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "u")]);
+        surfacePatterns.push([r.id ?? r.display, new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "u")]);
       }
     }
     if (sentences.length * surfacePatterns.length > BINDING_SCAN_CAP) {
@@ -473,13 +427,6 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     if (!session._terrainsGraphStages) session._terrainsGraphStages = new Map();
     session._terrainsGraphStages.set(sourceId, stages);
   }
-  // Reconciled on EVERY call, not only the admitting one: the cast is
-  // re-derived as a document grows (discoveredCast recomputes on chunk-count
-  // change), so a re-render after more material has landed is exactly when a
-  // standing is most likely to have moved — the moment this whole mechanism
-  // exists for. A call with nothing new to say is a no-op by construction
-  // (restandNode refuses to repeat an unchanged verdict).
-  const { restood, unresolved } = reconcileGraphStandings(session, { sourceId });
   const network = {
     ...sessionGraphSnapshot(session, { limit: GRAPH_LIMIT }),
     stages: stages ?? [],
@@ -488,27 +435,6 @@ export function sessionTerrains(session, { sourceId, emit } = {}) {
     stageNote: "belief admitted in ordered stages; decay applies per stage — the organ's own reading semantics",
     limit: GRAPH_LIMIT,
   };
-  if (restood.length) {
-    voidLedger.push(
-      gapEntry("Network", "reconcileGraphStandings", {
-        reason: "standing_revised",
-        detail: restood.map((r) => `${r.node}: ${r.was ?? "(none)"} → ${r.standing}`).join("; "),
-        restood,
-      }),
-    );
-  }
-  if (unresolved.length) {
-    voidLedger.push(
-      gapEntry("Network", "reconcileGraphStandings", {
-        reason: "standing_unresolved",
-        detail:
-          `${unresolved.length} referent(s) the cast has typed carry no matching graph node — ` +
-          `${unresolved.map((u) => `${u.referent} (${u.standing})`).join(", ")}; the relation extractor's own ` +
-          "subject span for this referent did not canonicalise to one of its registered surfaces",
-        unresolved,
-      }),
-    );
-  }
   if (network.nodeCount === 0) {
     voidLedger.push(gapEntry("Network", "sessionGraphSnapshot", { silence: "computed-and-empty", detail: "no triples survived into the belief graph" }));
   }
@@ -708,8 +634,12 @@ export function foldExtract({ text, charStart, charEnd, word, budgetSentences } 
  * threshold: the same declared number, at the same meaning.
  */
 // Deterministic rng, the same recurrence nul/index.js declares for its own
-// grounds — a null that cannot be replayed cannot be testimony.
-const mulberry = (seed) => {
+// grounds — a null that cannot be replayed cannot be testimony. Exported so
+// a second caller needing the identical seeded stream (e.g. a value-redeal
+// null arm over a different record shape) reuses this generator rather than
+// re-declaring the same recurrence a second place — CLAUDE.md's own
+// "reconcile, don't just dedupe" rule applied before a second copy exists.
+export const mulberry = (seed) => {
   let a = (seed | 0) + 0x6d2b79f5;
   return () => {
     a = (a + 0x6d2b79f5) | 0;

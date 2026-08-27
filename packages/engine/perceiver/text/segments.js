@@ -241,6 +241,13 @@ export const outlineOfIndex = (index, { max = 500, minBody = 40 } = {}) => {
  *
  * Returns null when no structural boundary is anywhere within the reach — the
  * caller then reports "no structural boundary detected", never a guess.
+ *
+ * `radius`'s default (6000) and the floor/ceiling it is clamped through
+ * (600 chars minimum, a quarter of the material maximum) are engineering
+ * starting points, not yet validated against a golden — no measurement
+ * backs these specific numbers over some other window size, the same
+ * standing packages/host/corpus.js's PRONOUN_MIN_ACTIVATION/
+ * PRONOUN_MIN_MARGIN hold.
  */
 export const discoverSegment = (index, nearOffset, { radius = 6000 } = {}) => {
   const total = index.total;

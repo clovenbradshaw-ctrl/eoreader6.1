@@ -92,7 +92,12 @@ export const POPULATION_SPEC = Object.freeze({
  * that two beings in the same scene land inside it without having to share a
  * segment boundary. `draws: 199` matches conformance/binding.test.js's own
  * convention for this organ. `alpha` is the displacement-null significance
- * threshold below which an edge is admitted.
+ * threshold below which an edge is admitted — 0.05 is not an isolated pick
+ * here: `bindLinks` (below) runs `emergence/binding.js`'s reversalNull, and
+ * that file's own header comment (binding.js, "A3: reversal null") reports
+ * a real measured false-positive rate at nominal alpha 0.05 for exactly
+ * this pooling method (6.5%/7.3%/5.8% across three densities). This value
+ * inherits that calibration rather than re-deriving or guessing one.
  */
 export const LINK_SPEC = Object.freeze({ window: 15, draws: 199, seed: 20260812, alpha: 0.05 });
 

@@ -9,10 +9,11 @@ import { createRegistry, register } from "../../provenance/index.js";
 import { createSession as makeDiscourseSession } from "../../discourse/index.js";
 import { lineIndex, outlineOfIndex, discoverSegment } from "../engine/perceiver/text/segments.js";
 import { tokenize, buildFrequencyTable, functionWordSet } from "../engine/perceiver/text/material.js";
-import { splitSentences, deriveAbbreviations, stripContainer } from "../engine/perceiver/text/spans.js";
+import { splitSentences, deriveAbbreviations, stripContainer, blankLabelRows } from "../engine/perceiver/text/spans.js";
 import { extractSurfaces, discoverReferents, diaNorm, namesCorefer } from "../engine/perceiver/text/surfaces.js";
 import { resolvePronouns } from "../engine/perceiver/text/pronouns.js";
 import { discoverRelationVocab, extractRelations } from "../engine/perceiver/text/relations.js";
+import { extractCaseRelations } from "../engine/perceiver/text/case-relations.js";
 import { projectReferents } from "../engine/referents/index.js";
 
 // The cells this host organ occupies on the operator grid (engine/operators.js):
@@ -903,14 +904,16 @@ const classifyIndividuation = (r, relations) => {
 // that static analysis.
 const PRIORS_RELATIVE_PATH = ["..", "..", "bin", "priors", "lang", ""].join("/");
 const priorsRoot = new URL(PRIORS_RELATIVE_PATH, import.meta.url);
-const POS_PRIORS_RELATIVE_PATH = ["..", "..", "bin", "priors", "pos", ""].join("/");
-const posPriorsRoot = new URL(POS_PRIORS_RELATIVE_PATH, import.meta.url);
 
 // @2 (2026-08-19) added `attested`/`region` provenance blocks alongside the
 // existing `provenance`/`notes`/`abbreviations` keys this loader reads —
 // additive only, the shape this function actually consumes is unchanged, so
 // both versions are accepted rather than one being silently obsoleted.
-const ABBREVIATION_PRIOR_SCHEMAS = new Set(["AbbreviationPrior@1", "AbbreviationPrior@2"]);
+// @3 (2026-08-21) adds `sentence_terminators`/`closing_quote_chars` — the
+// same additive discipline: a language's rules of punctuation are RECEIVED
+// knowledge (measured off real corpora by scripts/build-lang-prior-*.mjs),
+// never hardcoded into spans.js, whose frozen defaults remain script/latn.
+const ABBREVIATION_PRIOR_SCHEMAS = new Set(["AbbreviationPrior@1", "AbbreviationPrior@2", "AbbreviationPrior@3"]);
 
 const loadAbbreviationPrior = (language) => {
   const path = new URL(`${language}.json`, priorsRoot);
@@ -921,18 +924,15 @@ const loadAbbreviationPrior = (language) => {
       `loadAbbreviationPrior: expected one of [${[...ABBREVIATION_PRIOR_SCHEMAS].join(", ")}], got ${raw.schema}`,
     );
   if (!raw.provenance?.source) throw new TypeError("loadAbbreviationPrior: a prior must name its giver");
-  return { language: raw.language, giver: raw.provenance.source, abbreviations: raw.abbreviations };
-};
-
-const loadPosPrior = (language) => {
-  const filename = language === "en" ? "en-ud-ewt.json" : `${language}.json`;
-  const path = new URL(filename, posPriorsRoot);
-  if (!fs.existsSync(path)) return null;
-  const raw = JSON.parse(fs.readFileSync(path, "utf8"));
-  if (raw.schema !== "POSPrior@1")
-    throw new TypeError(`loadPosPrior: expected schema "POSPrior@1", got ${raw.schema}`);
-  if (!raw.provenance?.source) throw new TypeError("loadPosPrior: a prior must name its giver");
-  return raw;
+  return {
+    language: raw.language,
+    giver: raw.provenance.source,
+    abbreviations: raw.abbreviations,
+    sentenceTerminators: raw.sentence_terminators ?? null,
+    closingQuoteChars: raw.closing_quote_chars ?? null,
+    surfaceLexicon: Array.isArray(raw.surface_lexicon) ? raw.surface_lexicon : null,
+    relationCaseMarkers: raw.relation_case_markers ?? null,
+  };
 };
 
 // The document-local half of discoveredCast, factored out so a caller that
@@ -966,11 +966,17 @@ function extractDocSurfaces(session, doc) {
   // before — no language was ever asserted here without one being given.
   let abbreviations = null;
   let abbreviationGiver = null;
+  let sentenceTerminators = null;
+  let closingQuoteChars = null;
+  let surfaceLexicon = null;
   if (doc.language) {
     const prior = loadAbbreviationPrior(doc.language);
     if (prior) {
       abbreviations = prior.abbreviations;
       abbreviationGiver = prior.giver;
+      sentenceTerminators = prior.sentenceTerminators;
+      closingQuoteChars = prior.closingQuoteChars;
+      surfaceLexicon = prior.surfaceLexicon;
     } else {
       gaps.push({
         reason: "no_abbreviation_prior_for_language",
@@ -980,7 +986,7 @@ function extractDocSurfaces(session, doc) {
     }
   }
   if (!abbreviations) abbreviations = deriveAbbreviations(body);
-  const sentences = splitSentences(body, { abbreviations });
+  const sentences = splitSentences(body, { abbreviations, sentenceTerminators, closingQuoteChars });
 
   let surfaces = [];
   let functionWords = null;
@@ -992,7 +998,7 @@ function extractDocSurfaces(session, doc) {
     });
   } else {
     functionWords = functionWordSet(buildFrequencyTable(tokenize(body)));
-    surfaces = extractSurfaces(sentences, { functionWords, abbreviations });
+    surfaces = extractSurfaces(sentences, { functionWords, abbreviations, lexicon: surfaceLexicon });
     if (!surfaces.length) {
       gaps.push({
         reason: "no_candidate_surfaces",
@@ -1039,6 +1045,30 @@ function discoveredCast(session, doc) {
   // explains, rather than re-scanned on every call.
   let relations = [];
 
+  // UNDERNEATH word order: a language that MARKS grammatical role with
+  // particles (Japanese は/が/を) states what SVO position only implies.
+  // This runs BEFORE the surfaces gate deliberately — case-marked reading
+  // needs no discovered surfaces (that gate exists for the SVO reader's
+  // verb-vocabulary discovery, which is surface-driven), and an unspaced
+  // script produces zero capitalised surfaces yet still states its
+  // relations. The markers arrive through the same received prior as
+  // everything else language-specific; with none, extractCaseRelations is
+  // inert and this composition is exactly the pre-existing behaviour.
+  {
+    let caseMarkers = null;
+    let sentenceTerminators = null;
+    let closingQuoteChars = null;
+    if (doc.language) {
+      const relPrior = loadAbbreviationPrior(doc.language);
+      caseMarkers = relPrior?.relationCaseMarkers ?? null;
+      sentenceTerminators = relPrior?.sentenceTerminators ?? null;
+      closingQuoteChars = relPrior?.closingQuoteChars ?? null;
+    }
+    if (caseMarkers) {
+      relations = relations.concat(extractCaseRelations(blankLabelRows(doc.text || doc.chunks.map((c) => c.text).join("\n")), { caseMarkers, sentenceTerminators, closingQuoteChars }));
+    }
+  }
+
   // extractDocSurfaces already reported the applicable one of
   // no_sentence_units_in_document / no_candidate_surfaces above, if either
   // applied — nothing further to discover from an empty surface list.
@@ -1068,11 +1098,16 @@ function discoveredCast(session, doc) {
       // most permissive reading, appropriate here because this signal is
       // read RELATIVE to other referents in the same document, never
       // against an absolute count.
-      const posPrior = doc.language ? loadPosPrior(doc.language) : null;
-      relations = extractRelations(body, {
-        verbs: discoverRelationVocab(body, { surfaces, functionWords, minSurfaces: 1, posPrior }).verbs,
-        functionWords,
-      });
+      // blankLabelRows first (spans.js): succession-box rows ("In office",
+      // "Preceded by X") have no terminal punctuation and no blank line to
+      // their neighbor, so MATCHER's own deliberately newline-crossing
+      // whitespace connectors (built that way for hard-wrapped Gutenberg
+      // prose) glued them into false relations — confirmed live against
+      // real fetched Wikipedia material. Blanked before BOTH calls so
+      // vocabulary discovery and extraction read the same furniture-free
+      // text; length-preserving, so `body`'s own offsets are untouched.
+      const relationsBody = blankLabelRows(body);
+      relations = extractRelations(relationsBody, { verbs: discoverRelationVocab(relationsBody, { surfaces, functionWords, minSurfaces: 1 }).verbs, functionWords });
       // discoverReferents emits the same gap once per referent, because at
       // that level each referent is the unit. Forwarding 63 identical
       // objects to a reader-facing audit log is noise that buries the gaps

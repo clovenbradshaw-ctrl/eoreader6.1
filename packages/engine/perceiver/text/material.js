@@ -206,7 +206,13 @@ const selfEntropyMicrobits = (words) => {
 // almost always function words (the, a, of, and...) — closed-class,
 // structural, carrying little content on their own. A word is "relevant"
 // when it does NOT belong to that small, over-represented set.
-const DEFAULT_RELEVANCE_THRESHOLD = 0.006; // ~0.6% of all tokens — tuned against real text, see conformance test
+// ~0.6% of all tokens. NOT checked by conformance/material.test.js (that
+// file pins causalSurprisalSeries's own gamma, a different mechanism in
+// this same module) — no test here exercises tokenRelevance/
+// functionWordSet or this constant at all. An engineering starting point,
+// not yet validated against a golden, the same standing packages/host/
+// corpus.js's PRONOUN_MIN_ACTIVATION/PRONOUN_MIN_MARGIN hold.
+const DEFAULT_RELEVANCE_THRESHOLD = 0.006;
 
 export const tokenRelevance = (word, table, { threshold = DEFAULT_RELEVANCE_THRESHOLD } = {}) => {
   if (table.total === 0) return 1; // no history yet — nothing has earned irrelevance
