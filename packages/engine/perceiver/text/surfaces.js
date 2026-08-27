@@ -172,22 +172,147 @@ export const normaliseSurface = (surface) =>
  *   counted in letters and digits. A single capitalised glyph is an initial,
  *   an axis label or a maths variable — measured on a quantum-computing paper,
  *   M, L, S, J, C and W took six of the top ten places.
+ * @param {Iterable<string>|null} [options.lexicon] RECEIVED candidate
+ *   vocabulary (AbbreviationPrior@3's surface_lexicon; a gazetteer, a
+ *   document's own front matter, a previous reading's cast). Matched
+ *   whole-form against each sentence and admitted directly — the giver's
+ *   assertion IS the namehood evidence, the same standing every other
+ *   channel here ultimately rests on.
+ *
+ *   This is not a fallback bolted beside capitalisation; it is the same
+ *   lesson the audio perceiver already teaches (perceiver/audio reads the
+ *   medium's own spectrum, never staff notation): CAPITALISATION IS ONE
+ *   SCRIPT'S CONVENTION, NOT THE PRIMARY CHANNEL. It happens to be the
+ *   strongest signal Latin prose carries for free, so this organ grew up
+ *   reading it — but an unspaced, caseless script (Japanese はがを between
+ *   kanji names) carries no such glyph evidence at all, and a source that
+ *   arrives with its vocabulary declared should never have been unreadable
+ *   just because it doesn't capitalise. Received forms work for EVERY
+ *   script; the capitalisation scan remains what it is for the scripts
+ *   that have it.
  */
-export const extractSurfaces = (sentences, { functionWords = null, abbreviations = null, minGlyphs = 2 } = {}) => {
+// RUN-BREAKING MARKS, as a CATEGORY rather than an enumeration.
+//
+// This started as `[,;:]`, gained `|` in 2026-08-20 for search-result
+// titles, and that fix's own note said the quiet part out loud: the pipe
+// was "a run-breaking mark this file had a category for and simply never
+// listed." Brackets were the next one, found the same way — by running
+// real material this organ had never been checked against. Measured live
+// 2026-08-26 on Hannibal Hamlin's own Wikipedia lead:
+//
+//   "Hannibal Hamlin (August 27, 1809 - July 4, 1891) was an American..."
+//
+// produced surfaces ["Hamlin", "Hamlin August", "July", ...] — "Hannibal
+// Hamlin" never formed at all, "Hamlin August" was glued straight across
+// the parenthesis, and the only relation the sentence yielded was
+// "an American -politician-> ...". The subject of the sentence was lost,
+// so the fact that Hamlin was a vice president could not be read out of
+// the one sentence that states it plainly.
+//
+// Listed one character at a time this never ends — the same trap this
+// repo already refused for succession boxes and for site-specific title
+// conventions. Unicode already carries the category: \p{Ps} is every
+// opening punctuation mark in every script and \p{Pe} every closing one,
+// so ( [ { （ 「 【 and their partners are covered without a list, and a
+// script this codebase has never been run against is covered in advance
+// rather than after the next incident.
+//
+// Deliberately NOT widened to all of \p{Po}: that would sweep in the
+// apostrophe, and a raw chunk ending in one would then break a run no
+// reader would say is broken.
+const RUN_BREAK = /[,;:|\p{Ps}\p{Pe}]/u;
+const RUN_BREAK_ENDS = /[,;:|\p{Ps}\p{Pe}]\s*$/u;
+const RUN_BREAK_OPENS = /^[\p{Ps}\p{Pe}]/u;
+
+export const extractSurfaces = (sentences, { functionWords = null, abbreviations = null, minGlyphs = 2, lexicon = null } = {}) => {
   const capCounts = new Map();   // surface -> times seen capitalised, NOT sentence-initial
   const lowerCounts = new Map(); // lowercased form -> times seen lowercase anywhere
   const sentenceIndex = new Map(); // surface -> Set(sentence order)
 
   const abbrev = abbreviations ? new Set(abbreviations) : null;
 
+  // Received vocabulary: longest-form-first LITERAL matching over the raw
+  // sentence text. No boundary assertions — word boundaries are themselves a
+  // script convention, and an unspaced script writes its particles hard
+  // against the name (田中太郎らは: the name never ends at a "boundary").
+  // Measured failing with \\b-style guards: every form came back NOT FOUND.
+  // A giver declares full canonical forms; overlap between a short and long
+  // received form resolves by length order, and double-counting a substring
+  // the giver ALSO declared is the giver's own declaration to fix.
+  let receivedRx = null;
+  if (lexicon) {
+    const forms = [...new Set([...lexicon].map((s) => String(s).trim()).filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    if (forms.length) {
+      const esc = forms.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      receivedRx = new RegExp(esc, "gu");
+    }
+  }
+
   for (const sent of sentences) {
-    const toks = sent.text.split(/\s+/).map((t) => t.replace(/^[^\p{L}]+|[^\p{L}'’]+$/gu, "")).filter(Boolean);
+    // Two facts must survive stripping, not just the letters: which token
+    // each raw chunk stripped down to, AND whether a run-breaking mark
+    // (comma/semicolon/colon/pipe) sat between it and the token before it.
+    // Both are read off the SAME raw split, in one pass, so they can never
+    // drift out of alignment with each other.
+    //
+    // Pipe added 2026-08-20, the identical fix class as the comma incident
+    // this file's own header already documents ("Bilíbin, Prince Andrew's
+    // host" — a comma that used to not break a run) — found the same way,
+    // by running real material this organ had never been checked against: a
+    // web search result's own title convention, "Topic | Section | Site
+    // Name" (measured live: "Hannibal Hamlin | Abraham Lincoln, Maine,
+    // Civil War | Britannica"), glued "Hamlin" and "Abraham Lincoln" into
+    // one spurious "Hamlin Abraham Lincoln" surface and "Civil War" into
+    // "Civil War Britannica" — a run-breaking mark this file had a category
+    // for and simply never listed. Book prose (this organ's original proving
+    // ground) essentially never uses a bare pipe as punctuation, so the gap
+    // was invisible until material shaped like a search-results page reached
+    // it. `stripped` already reduces a lone "|" token to "" (line 195's own
+    // branch runs), so the fix is exactly the one line each of these two
+    // checks already reserved for this: the pipe joins the class.
+    const rawToks = sent.text.split(/\s+/);
+    const toks = [];
+    const brokenBefore = [];
+    let pendingBreak = false;
+    for (const raw of rawToks) {
+      const stripped = raw.replace(/^[^\p{L}]+|[^\p{L}'’]+$/gu, "");
+      if (!stripped) {
+        // A whitespace-delimited chunk that is punctuation alone (a bare
+        // "," between two words that themselves had no adjoining space)
+        // still carries the break forward — it contributes no token, but
+        // must not let the break it marks go unnoticed.
+        if (RUN_BREAK.test(raw)) pendingBreak = true;
+        continue;
+      }
+      toks.push(stripped);
+      // TWO SIDES, because a bracket is not a comma. A comma trails the
+      // token before it, so the previous raw chunk's ending marks the
+      // break; an opening bracket LEADS the token after it, and checking
+      // only the previous chunk's tail cannot see it. Both read off the
+      // same raw chunk, so neither can drift from the other.
+      brokenBefore.push(pendingBreak || RUN_BREAK_OPENS.test(raw));
+      pendingBreak = RUN_BREAK_ENDS.test(raw);
+    }
     // A unit set entirely in capitals is a heading or a running head, and every
     // token in it is capitalised by typography. Reading capitalisation as
     // evidence here is the sentence-initial mistake at unit scale — on Process
     // and Reality it put the table of contents into the cast. Skipped for
     // capitalisation evidence; its lowercase counts are moot, there are none.
     if (toks.length > 1 && toks.every(isAllCaps)) continue;
+    // Received forms first — a giver-declared surface counts wherever it
+    // sits in the sentence, in any script.
+    if (receivedRx) {
+      receivedRx.lastIndex = 0;
+      let rm;
+      while ((rm = receivedRx.exec(sent.text))) {
+        const surface = normaliseSurface(rm[0]);
+        if (!surface) continue;
+        capCounts.set(surface, (capCounts.get(surface) ?? 0) + 1);
+        if (!sentenceIndex.has(surface)) sentenceIndex.set(surface, new Set());
+        sentenceIndex.get(surface).add(sent.order);
+      }
+    }
     for (let i = 0; i < toks.length; i++) {
       if (LOWER_TOKEN.test(toks[i])) {
         const k = diaNorm(toks[i]);
@@ -199,8 +324,17 @@ export const extractSurfaces = (sentences, { functionWords = null, abbreviations
     let i = 1;
     while (i < toks.length) {
       if (!CAP_TOKEN.test(toks[i])) { i++; continue; }
-      let j = i;
-      while (j < toks.length && CAP_TOKEN.test(toks[j])) j++;
+      // A run may always START at a capitalised token regardless of what
+      // preceded it (a name following a comma — "the general, Kutúzov,
+      // said" — must still begin its own run) but may only EXTEND across a
+      // token with no break immediately before it. Without this, two
+      // different people's names separated only by a comma ("Bilíbin,
+      // Prince Andrew's host") read as one continuous run and manufacture
+      // a name neither of them has — measured on War and Peace: the token
+      // sequence for "Bilíbin, Prince Andrew" recurred as its own spurious
+      // candidate 52 times, entangling two distinct referents' coreference.
+      let j = i + 1;
+      while (j < toks.length && CAP_TOKEN.test(toks[j]) && !brokenBefore[j]) j++;
       const run = toks.slice(i, j);
       // An all-caps run inside an otherwise mixed-case unit is the same
       // typography as an all-caps unit — a part title quoted mid-paragraph.
@@ -243,16 +377,146 @@ export const extractSurfaces = (sentences, { functionWords = null, abbreviations
   // coin than chance alone would produce AT THIS WORD'S OWN SAMPLE SIZE —
   // derived per candidate from its own two counts, not a fixed shared band.
   const surfaces = [];
+  const receivedSurfaces = new Set();
+  if (receivedRx) {
+    // Recompute which counted candidates arrived by reception, so the
+    // capitalisation filters below cannot silently veto a giver's assertion
+    // — those filters read evidence THIS channel never claimed to have.
+    for (const form of [...new Set([...lexicon].map((s) => String(s).trim()).filter(Boolean))]) {
+      receivedSurfaces.add(normaliseSurface(form));
+    }
+  }
   for (const [surface, cap] of capCounts) {
     const words = surface.split(/\s+/);
     // Numbers and single glyphs, per the two orthographic facts above.
     if (words.every(isRomanNumeral)) continue;
     if (surface.replace(/[^\p{L}\p{N}]/gu, "").length < minGlyphs) continue;
-    if (words.length === 1) {
+    if (words.length === 1 && !receivedSurfaces.has(surface)) {
       if (abbrev && abbrev.has(surface)) continue;
       if (functionWords && functionWords.has(diaNorm(surface))) continue;
       const lower = lowerCounts.get(diaNorm(surface)) ?? 0;
       if (lower > 0 && !capitalisationIsSignificant(cap, lower)) continue;
+    }
+    surfaces.push({ surface, mentions: cap, sentences: sentenceIndex.get(surface).size });
+  }
+  return surfaces.sort((a, b) => b.mentions - a.mentions);
+};
+
+/**
+ * Sentence-INITIAL capitalized runs only — the mirror image of
+ * `extractSurfaces`'s own main scan, which deliberately starts at token
+ * index 1 of every sentence ("capitalised runs, skipping the sentence-
+ * initial token: it is capitalised by position and carries no evidence of
+ * namehood on its own"). That exclusion is correct for CAPITALIZATION
+ * EVIDENCE — a sentence-initial token proves nothing about namehood by
+ * itself — but it has a real, disclosed cost: a name written out ONLY at
+ * the head of a sentence (encyclopedia-lede style — "Hannibal Hamlin was
+ * ..." followed only by "He...") never becomes a candidate AT ALL,
+ * anywhere, because `extractSurfaces` never looks at position 0 for
+ * ANY surface. This function looks ONLY at position 0 — the mirror gap —
+ * so a caller with independent, convergent evidence a leading run is a
+ * real name (never this function alone) has something to test that
+ * evidence against.
+ *
+ * DELIBERATELY NOT A DECISION ABOUT NAMEHOOD, and evidence-free in a way
+ * `extractSurfaces` is not: that function's `lower === 0` shortcut is
+ * itself real evidence ("the strongest possible evidence for namehood,
+ * nothing left to test against") — a word NEVER seen lowercase anywhere.
+ * Here, there is no non-initial occurrence to compare against BY
+ * CONSTRUCTION, so `capitalisationIsSignificant` cannot run and does not
+ * run. Every candidate returned is exactly as uncertain as "a capitalized
+ * word opened this sentence" — which is why `discoverReferents` must never
+ * be pointed at this function's raw output the way it is pointed at
+ * `extractSurfaces`'s own: nothing here has cleared, or could clear, ANY
+ * recurrence bar on its own. A caller is responsible for treating every
+ * result as PROVISIONAL, confirming a candidate through independent
+ * mechanical evidence before admitting it alongside a real referent
+ * `discoverReferents` established on its own merits.
+ *
+ * Same orthographic guards as `extractSurfaces` (roman numerals, minGlyphs,
+ * all-caps units/runs, the abbreviation/function-word closed classes) —
+ * reused, not re-derived, so a leading run that would have been rejected
+ * as a candidate had it appeared mid-sentence is rejected exactly as
+ * consistently here. The ONE guard that cannot transfer is
+ * `capitalisationIsSignificant` itself, for the reason stated above.
+ *
+ * @param {Array<{text: string, order: number}>} sentences
+ * @param {object} [options]
+ * @param {Set<string>|null} [options.functionWords] same closed class
+ *   `extractSurfaces` takes — "The", "He", "But", "When" open sentences
+ *   constantly and carry zero naming evidence; without this, EVERY common
+ *   sentence-opener would nominate itself as a candidate.
+ * @param {Iterable<string>|null} [options.abbreviations] forwarded,
+ *   unchanged in meaning, to the same guard `extractSurfaces` applies.
+ * @param {number} [options.minGlyphs] ditto.
+ * @returns {Array<{surface, mentions, sentences}>} shaped exactly like
+ *   `extractSurfaces`'s own return value — a caller can hand either
+ *   straight to `discoverReferents`. `sentences` here counts how many
+ *   sentences this exact surface OPENED — never conflated with
+ *   `extractSurfaces`'s own `sentences` count (a fundamentally different,
+ *   weaker kind of evidence: position, not recurrence) — a caller must not
+ *   silently sum the two.
+ */
+export const extractLeadingSurfaces = (sentences, { functionWords = null, abbreviations = null, minGlyphs = 2 } = {}) => {
+  const capCounts = new Map();
+  const sentenceIndex = new Map();
+  const abbrev = abbreviations ? new Set(abbreviations) : null;
+
+  for (const sent of sentences) {
+    // The identical tokenize-and-track-breaks pass extractSurfaces runs —
+    // see that function's own comment for why both facts (the stripped
+    // token, and whether a run-breaking mark preceded it) must come off
+    // the SAME raw split in one pass.
+    const rawToks = sent.text.split(/\s+/);
+    const toks = [];
+    const brokenBefore = [];
+    let pendingBreak = false;
+    for (const raw of rawToks) {
+      const stripped = raw.replace(/^[^\p{L}]+|[^\p{L}'’]+$/gu, "");
+      if (!stripped) {
+        if (RUN_BREAK.test(raw)) pendingBreak = true;
+        continue;
+      }
+      toks.push(stripped);
+      // TWO SIDES, because a bracket is not a comma. A comma trails the
+      // token before it, so the previous raw chunk's ending marks the
+      // break; an opening bracket LEADS the token after it, and checking
+      // only the previous chunk's tail cannot see it. Both read off the
+      // same raw chunk, so neither can drift from the other.
+      brokenBefore.push(pendingBreak || RUN_BREAK_OPENS.test(raw));
+      pendingBreak = RUN_BREAK_ENDS.test(raw);
+    }
+    if (!toks.length || !CAP_TOKEN.test(toks[0])) continue;
+    // An all-caps UNIT (a heading, a running head) is typography, not a
+    // name, sentence-initial exactly as much as mid-sentence.
+    if (toks.length > 1 && toks.every(isAllCaps)) continue;
+
+    // The run starting AT index 0 — extractSurfaces's own extension rule,
+    // just anchored one token earlier (that function starts scanning FOR a
+    // run at i=1; this one already knows toks[0] qualifies and extends
+    // from there).
+    let j = 1;
+    while (j < toks.length && CAP_TOKEN.test(toks[j]) && !brokenBefore[j]) j++;
+    const run = toks.slice(0, j);
+    if (run.length > 1 && run.every(isAllCaps)) continue;
+
+    for (let len = 1; len <= Math.min(run.length, 4); len++) {
+      const surface = normaliseSurface(run.slice(0, len).join(" "));
+      if (!surface) continue;
+      capCounts.set(surface, (capCounts.get(surface) ?? 0) + 1);
+      if (!sentenceIndex.has(surface)) sentenceIndex.set(surface, new Set());
+      sentenceIndex.get(surface).add(sent.order);
+    }
+  }
+
+  const surfaces = [];
+  for (const [surface, cap] of capCounts) {
+    const words = surface.split(/\s+/);
+    if (words.every(isRomanNumeral)) continue;
+    if (surface.replace(/[^\p{L}\p{N}]/gu, "").length < minGlyphs) continue;
+    if (words.length === 1) {
+      if (abbrev && abbrev.has(surface)) continue;
+      if (functionWords && functionWords.has(diaNorm(surface))) continue;
     }
     surfaces.push({ surface, mentions: cap, sentences: sentenceIndex.get(surface).size });
   }
@@ -413,7 +677,6 @@ const deriveMinSentences = (surfaces) => {
  */
 export const discoverReferents = (surfaces, { minSentences, minPartners, groups } = {}) => {
   const events = [];
-  const assigned = new Map(); // surface -> referent_id
   const generic = groups
     ? groups.reduce((out, g) => {
         for (const t of genericTokens(g, { minPartners })) out.add(t);
@@ -456,23 +719,68 @@ export const discoverReferents = (surfaces, { minSentences, minPartners, groups 
     return diaNorm(a) === diaNorm(b);
   };
 
+  // UNION-FIND, NOT GREEDY FIRST-MATCH. corefersIndividuated is not
+  // transitive: "Henry" ⊂ "Henry Clerval" and "Clerval" ⊂ "Henry Clerval"
+  // both hold, but "Henry" and "Clerval" do not directly corefer with each
+  // other (no containment, no shared final token). The first cut of this
+  // loop joined a surface to the FIRST already-admitted surface it matched
+  // and stopped there — correct only when the connecting surface ("Henry
+  // Clerval") happens to be admitted before BOTH of the surfaces it
+  // connects, and silently order-dependent otherwise: whichever of "Henry"
+  // /"Clerval" is admitted first claims "Henry Clerval" when it arrives,
+  // and the other is left in its own, separate, un-merged referent — with
+  // no error, no gap, just a quietly worse cast. `admitted` is processed in
+  // `surfaces`' own mentions-descending order, so this depended on relative
+  // mention counts that any change elsewhere in the pool can perturb.
+  // Union-find closes this properly: every corefering pair still comes from
+  // exactly the same `corefersIndividuated` judgment, unchanged, but the
+  // GROUPING is now the transitive closure of that relation regardless of
+  // admission order — the same fix `scripts/hyperlexicon-definitions-data.mjs
+  // ::mergeReferents` already proved out for the analogous hub-fusion
+  // problem, applied here to the relation this file itself computes.
+  const parent = new Map();
+  const find = (s) => {
+    let root = s;
+    while (parent.get(root) !== root) root = parent.get(root);
+    let cur = s;
+    while (parent.get(cur) !== root) {
+      const next = parent.get(cur);
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  const union = (a, b) => {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  const admitted = [];
   for (const entry of surfaces) {
     const { surface, sentences } = entry;
     if (sentences <= sentencesFloorOf(entry)) continue;
-
-    let referentId = null;
-    for (const [existing, id] of assigned) {
-      if (corefersIndividuated(surface, existing)) { referentId = id; break; }
+    parent.set(surface, surface);
+    for (const existing of admitted) {
+      if (corefersIndividuated(surface, existing)) union(surface, existing);
     }
-    if (!referentId) referentId = `ref:auto:${diaNorm(surface).replace(/\s+/g, "_")}`;
+    admitted.push(surface);
+  }
 
+  // Referent ids are named from the FIRST-ADMITTED surface of each group
+  // (mentions-descending order, same as before) so a run against the same
+  // corpus always yields the same ids — deterministic, not dependent on
+  // Map/Set iteration order.
+  const idForRoot = new Map();
+  for (const surface of admitted) {
+    const root = find(surface);
+    if (!idForRoot.has(root)) idForRoot.set(root, `ref:auto:${diaNorm(surface).replace(/\s+/g, "_")}`);
+    const referentId = idForRoot.get(root);
     events.push({
       type: "DEF.admit",
       referent_id: referentId,
       surface,
       provenance: { giver: "surfaces/discoverReferents", tier: "engine", basis: "name-variant coreference" },
     });
-    assigned.set(surface, referentId);
   }
 
   const referentIds = new Set(events.map((e) => e.referent_id));

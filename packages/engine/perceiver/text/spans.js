@@ -166,6 +166,60 @@ export const stripContainer = (text) => {
   return { text: s, offset, front: Object.freeze(front), looks_like_material: looksLikeMaterial(s) };
 };
 
+/**
+ * Remove every well-formed span wrapped in a DECLARED delimiter pair,
+ * wherever it sits on a line — the whole line, or embedded inline within a
+ * line that is otherwise real content. The delimiter pair is a received
+ * fact about the SOURCE's own convention (SEED.md #1: a prior is received,
+ * never derived) — this never guesses at what a source's markup looks like
+ * from its content, the same standing `language` already holds at the host
+ * tier (corpus.js's admitChunked).
+ *
+ * WHY A LINE-LEVEL, WHOLE-LINE-ONLY TEST IS NOT ENOUGH, measured against a
+ * real tagged-transcript corpus (goldens/network/texts/shakespeare/ —
+ * <ACT n> / <SCENE n> / <NAME> / <STAGE DIR> tags): most structural markup
+ * is one whole line (`<Enter Mariners.>`), but not all of it — a stage
+ * direction can sit inline at the tail of a real line of dialogue and the
+ * matching close tag at the head of the next (`...Bring her to try with
+ * main-course. <STAGE DIR>` / `</STAGE DIR> A plague upon this howling!
+ * ...`, checked directly against the raw source rather than assumed). A
+ * whole-line-only test keeps the tag on both lines, corrupting the surface
+ * pool with "DIR"/"STAGE"/"STAGE DIR" as if they were recurring proper
+ * nouns. Stripping the SPAN itself, never the line it sits in, is correct
+ * for the block-only case too (the span degenerates to the whole line) —
+ * this is a strict generalisation, not a narrowing.
+ *
+ * DOES NOT CROSS A NEWLINE. Confirmed against the same source before this
+ * was written: a STAGE DIR block that visually spans several lines is
+ * several individually well-formed spans in a row (each tag, and each
+ * bracketed stage direction inside it, closes on the line it opens on),
+ * never one delimiter pair with a literal newline inside it. A convention
+ * that genuinely needs a delimiter spanning lines is different, undeclared
+ * behaviour and is left alone here rather than guessed at — this function
+ * would simply find no match and report `removed: 0`, never silently do
+ * the wrong thing.
+ *
+ * Non-nesting: the body between `open` and `close` may not itself contain
+ * either delimiter, so a shortest-span match never over-runs into a
+ * SECOND tag (`<A> text <B>` strips to " text ", never past the first `>`).
+ * A convention whose markup genuinely nests needs a different mechanism —
+ * this one is honest about not being that.
+ *
+ * Returns `{ text, removed }` — `removed` is the count of spans taken out,
+ * so a caller can tell "found nothing to strip" apart from a silent no-op
+ * (P4: a gap is a result, not an assumption).
+ */
+export const stripDelimitedMarkup = (text, { open, close } = {}) => {
+  if (!open || !close)
+    throw new TypeError("stripDelimitedMarkup: a delimiter pair {open, close} must be declared, never inferred");
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const body = `[^${escRe(open)}${open === close ? "" : escRe(close)}\\n]*`;
+  const re = new RegExp(`${escRe(open)}${body}${escRe(close)}`, "g");
+  const src = String(text ?? "");
+  const matches = src.match(re);
+  return { text: src.replace(re, ""), removed: matches ? matches.length : 0 };
+};
+
 import { SENTENCE_TERMINATORS, CLOSING_QUOTES } from "./priors.js";
 
 const PARAGRAPH_BREAK = /\n\s*\n+/g;
@@ -232,6 +286,17 @@ const tokenEndingAt = (s, i) => {
   return s.slice(j, i);
 };
 
+// A lone capital letter before a period is a middle initial ("John C.
+// Breckinridge") or a similar abbreviation, not a real sentence end, in
+// any language/prior combination — a one-letter sentence is vanishingly
+// rare next to how common initials are. General, not a word-list entry:
+// this is true regardless of what's in `abbreviations`, and closes
+// exactly the failure the infobox fix above surfaces directly (a
+// succession-box "Preceded by" field with a middle initial glued a real
+// value in half — confirmed live on the real Breckinridge/Hamlin
+// material this fix was built against).
+const isSingleCapitalLetter = (token) => token.length === 1 && /\p{Lu}/u.test(token);
+
 const pushSentence = (s, start, end, out) => {
   const raw = s.slice(start, end);
   const trimmed = raw.trim();
@@ -240,14 +305,101 @@ const pushSentence = (s, start, end, out) => {
   out.push({ text: trimmed, offset: start + leading, order: out.length });
 };
 
-const splitSentencesInRange = (s, rangeStart, rangeEnd, out, abbreviations) => {
+// ATTEMPTED AND REVERTED (2026-08-20) — a bare-newline boundary rule
+// ("no terminator since the last boundary, next line opens uppercase or
+// numeric") fixed the target case (Wikipedia infobox rows gluing into
+// garbage relations) but MEASURED a real regression before shipping,
+// exactly the discipline P5.5 asks for: conformance/host-graph.test.js's
+// real Frankenstein fixture failed to discover "Henry Clerval" as one
+// referent, because "Henry" line-wraps onto its own line with "Clerval"
+// starting the next — structurally identical, under that rule, to an
+// infobox row followed by another. The reasoning that this would be rare
+// ("word-wrapped prose almost always continues lowercase") was wrong in
+// practice: a two-word proper NAME wrapping at the space between its
+// parts is common, not rare, across a 200K-word novel, and it broke
+// character-name discovery, the most foundational thing this engine does.
+// Reverted rather than shipped half-fixed. The narrower, still-open
+// problem (infobox/succession-box rows gluing across bare newlines) is
+// real and still unfixed here; a safe fix needs a signal that
+// distinguishes a complete label-value row from a mid-name wrap — tried
+// and rejected under time pressure: a word-count floor alone (2+ words)
+// still misfires on two-word name fragments ("Mary Wollstonecraft" /
+// "Shelley"). Named as open work, not solved by a narrower guess assumed
+// safe without the same live measurement this reversion is evidence for.
+
+/**
+ * Blank (length-preserving, offsets untouched) Wikipedia-style succession-
+ * box rows — "In office", "Preceded by X", "Succeeded by Y", "President
+ * X", and the record's own ordinal+office title line — BEFORE the text
+ * ever reaches a clause matcher whose whitespace connectors deliberately
+ * span newlines (relations.js::MATCHER, built that way on purpose for
+ * Gutenberg hard-wrapped prose — see that file's own header; disabling
+ * newline-crossing there broke real hard-wrapped text once already, so
+ * this fixes the problem by removing the furniture from what the matcher
+ * SEES, never by changing how it searches). Same "furniture, not content"
+ * posture as stripContainer/blankStructure elsewhere in this project
+ * family — the row stays real text, addressable by offset; it is just
+ * never handed to anything that would try to relate it to its neighbors
+ * as prose.
+ *
+ * NARROW AND PATTERN-BASED, NOT A GENERAL INFOBOX DETECTOR — on purpose,
+ * after two broader approaches were tried and measured to fail. A bare
+ * newline-boundary rule (no terminator, next line capitalized) fixed the
+ * target case and then broke real character-name discovery on Frankenstein
+ * ("Henry\nClerval", a hard-wrapped name reading exactly like two infobox
+ * rows) — reverted the same day. A self-referential "short relative to
+ * this text's own median line length" signal never fired at all on a real
+ * fetched Wikipedia page: extracted web text is dominated by short
+ * furniture (nav, references, citations) throughout, so the page's own
+ * median (13 characters, measured) sits BELOW the actual infobox rows
+ * (9-40 characters) rather than above them — the assumption that infobox
+ * rows read as short by comparison does not hold on real, noisy material.
+ * This is the third attempt: reuse the-fold's succession.js's own five
+ * patterns directly (duplicated, not imported — the engine does not
+ * depend on an application repo; the same duplication succession.js's
+ * sibling hyperlexicon.js already accepts for graph.js's key format, for
+ * the identical reason). These patterns are validated, narrow, and safe
+ * against the same risk that sank the first two attempts: "In office" or
+ * "Preceded by NAME" occurring as a bare line is not something real prose
+ * does, hard-wrapped or not, so there is no plausible false positive
+ * shaped like the Frankenstein regression to guard against here.
+ */
+const SUCC_TITLE_RE = /^\d+(?:st|nd|rd|th)\s+.+?\s+of the United States$/i;
+const SUCC_IN_OFFICE_RE = /^In office$/i;
+const SUCC_PRECEDED_RE = /^Preceded by\s+.+$/i;
+const SUCC_SUCCEEDED_RE = /^Succeeded by\s+.+$/i;
+const SUCC_PRESIDENT_RE = /^President\s+.+$/;
+const isSuccessionBoxLine = (line) => {
+  const t = line.trim();
+  return (
+    SUCC_TITLE_RE.test(t) ||
+    SUCC_IN_OFFICE_RE.test(t) ||
+    SUCC_PRECEDED_RE.test(t) ||
+    SUCC_SUCCEEDED_RE.test(t) ||
+    SUCC_PRESIDENT_RE.test(t)
+  );
+};
+
+export function blankLabelRows(text) {
+  const s = String(text ?? "");
+  const lines = s.split("\n");
+  const out = lines.map((line) => (isSuccessionBoxLine(line) ? " ".repeat(line.length) : line));
+  return out.join("\n");
+}
+
+const splitSentencesInRange = (s, rangeStart, rangeEnd, out, abbreviations, terminators, closingQuotes, receivedMarks) => {
   let start = rangeStart;
   for (let i = rangeStart; i < rangeEnd; i++) {
-    if (!SENTENCE_TERMINATORS.has(s[i])) continue;
+    if (!terminators.has(s[i])) continue;
     let end = i + 1;
-    while (end < rangeEnd && CLOSING_QUOTES.has(s[end])) end += 1;
-    if (end < rangeEnd && !/\s/.test(s[end])) continue; // a decimal point, not a stop
-    if (s[i] === "." && abbreviations.has(tokenEndingAt(s, i))) continue; // a title, not a stop
+    while (end < rangeEnd && closingQuotes.has(s[end])) end += 1;
+    // The whitespace guard exists for the DEFAULT Latin set: it is what
+    // tells "3.14" from "3. 14". A mark RECEIVED by language prior carries
+    // its own evidence — the giving corpus was measured, and an unspaced
+    // script writes 。 hard against the next sentence's first character.
+    // Received marks are exempt; the default set behaves exactly as before.
+    if (end < rangeEnd && !/\s/.test(s[end]) && !receivedMarks.has(s[i])) continue; // a decimal point, not a stop
+    if (s[i] === "." && (abbreviations.has(tokenEndingAt(s, i)) || isSingleCapitalLetter(tokenEndingAt(s, i)))) continue; // a title or an initial, not a stop
     pushSentence(s, start, end, out);
     start = end;
   }
@@ -260,10 +412,33 @@ const splitSentencesInRange = (s, rangeStart, rangeEnd, out, abbreviations) => {
  * @param {Iterable<string>|null} [options.abbreviations] - tokens that take a
  *   trailing period without ending a sentence. A LANGUAGE prior; pass one from
  *   bin/priors/lang/*.json. Omit to derive a weaker set from the text itself.
+ * @param {Iterable<string>|null} [options.sentenceTerminators] - marks that
+ *   end a sentence, RECEIVED by language prior (AbbreviationPrior@3) and
+ *   merged over the frozen script/latn default. Received marks are exempt
+ *   from the whitespace guard: an unspaced script writes its terminator hard
+ *   against the next sentence, and the giving corpus's measurement — not this
+ *   engine's Latin habits — is the evidence.
+ * @param {Iterable<string>|null} [options.closingQuoteChars] - closing
+ *   brackets/quotes that may follow a terminator inside one sentence
+ *   (Japanese 」 after dialogue), same channel as sentenceTerminators.
  */
-export const splitSentences = (text, { abbreviations = null } = {}) => {
+export const splitSentences = (text, { abbreviations = null, sentenceTerminators = null, closingQuoteChars = null } = {}) => {
   const s = String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const abbrev = abbreviations ? new Set(abbreviations) : deriveAbbreviations(s);
+  // Received marks MERGE over the frozen script/latn default — a Japanese
+  // document may still contain an English sentence, and the prior extends
+  // reception, it does not replace what script/latn already earned.
+  // receivedMarks tracks exactly which marks arrived by prior (vs default),
+  // because only those are exempt from the whitespace guard: their giver's
+  // corpus was measured writing them hard against the next sentence.
+  let terminators = SENTENCE_TERMINATORS;
+  let closingQuotes = CLOSING_QUOTES;
+  let receivedMarks = new Set();
+  if (sentenceTerminators || closingQuoteChars) {
+    receivedMarks = new Set([...(sentenceTerminators ?? [])].filter((m) => !SENTENCE_TERMINATORS.has(m)));
+    terminators = new Set([...SENTENCE_TERMINATORS, ...(sentenceTerminators ?? [])]);
+    closingQuotes = new Set([...CLOSING_QUOTES, ...(closingQuoteChars ?? [])]);
+  }
   const paragraphs = [];
   let paraStart = 0;
   let pm;
@@ -275,7 +450,7 @@ export const splitSentences = (text, { abbreviations = null } = {}) => {
   paragraphs.push({ start: paraStart, end: s.length });
 
   const sentences = [];
-  for (const para of paragraphs) splitSentencesInRange(s, para.start, para.end, sentences, abbrev);
+  for (const para of paragraphs) splitSentencesInRange(s, para.start, para.end, sentences, abbrev, terminators, closingQuotes, receivedMarks);
   sentences.forEach((sent, i) => { sent.order = i; });
   return sentences;
 };

@@ -156,6 +156,65 @@ const findThirdPersonSingular = (text) => {
   return hits;
 };
 
+// The one rule both `resolvePronouns` (below, streaming/causal) and
+// `referentGenderEvidence` (a standalone, whole-document export for
+// callers that only want the tally, e.g. a same-referent contradiction
+// check) share: gender evidence accrues only when exactly one referent is
+// named in a sentence alongside a pronoun, AND that pronoun sits in the
+// same clause as the naming — see this file's own header, "GENDER IS A
+// HARD FILTER... DERIVED, NOT TYPED IN," for why same-sentence alone is
+// too wide a net. One function, so the rule can only be right or wrong in
+// one place, never drift between a causal caller and a whole-document one.
+const accumulateGenderEvidence = (sentence, namedMatches, pronounHits, genderEvidence) => {
+  const named = new Set(namedMatches.map((n) => n.ref));
+  if (named.size !== 1 || pronounHits.length === 0) return;
+  const [only] = named;
+  const spansForOnly = namedMatches.filter((n) => n.ref === only).map((n) => n.index);
+  const ev = genderEvidence.get(only) ?? { m: 0, f: 0 };
+  for (const hit of pronounHits) {
+    if (spansForOnly.some((idx) => sameClause(sentence.text, idx, hit.index))) ev[hit.gender]++;
+  }
+  genderEvidence.set(only, ev);
+};
+
+// referentId -> "m" | "f" | "unknown" from a raw {m, f} evidence tally —
+// "unknown" for no evidence AND for genuinely contested evidence alike
+// (never guessed either way); this is `resolvePronouns`'s own internal
+// `referentGender` rule, exported so a caller outside this file's
+// activation-binding pass can ask the same question of the same evidence.
+export const genderClass = (ev) => {
+  if (!ev) return "unknown";
+  if (ev.m > 0 && ev.f === 0) return "m";
+  if (ev.f > 0 && ev.m === 0) return "f";
+  return "unknown";
+};
+
+/**
+ * Whole-document gender evidence per referent — the same clause-gated rule
+ * `resolvePronouns` accrues internally (accumulateGenderEvidence, above),
+ * exposed standalone for a caller that needs it WITHOUT running pronoun
+ * binding at all. Concretely: a same-person merge/contradiction check. Two
+ * referents with clear, opposite gender evidence (genderClass returns "m"
+ * for one and "f" for the other) cannot be the same person — a real,
+ * measured signal (which gendered pronoun a text actually used beside this
+ * name), never a hand-set threshold.
+ *
+ * @param {Array<{text: string, offset: number, order: number}>} sentences
+ * @param {Map<string,string>|Record<string,string>} referentSurfaces surface -> referentId
+ * @returns {Map<string,{m: number, f: number}>} referentId -> raw tally
+ */
+export const referentGenderEvidence = (sentences, referentSurfaces) => {
+  const surfaceToReferent = referentSurfaces instanceof Map ? referentSurfaces : new Map(Object.entries(referentSurfaces ?? {}));
+  const matcher = surfaceMatcher([...surfaceToReferent.keys()]);
+  const genderEvidence = new Map();
+  for (const sentence of sentences ?? []) {
+    const namedMatches = namedMatchesIn(sentence.text, matcher, surfaceToReferent);
+    const pronounHits = findThirdPersonSingular(sentence.text);
+    accumulateGenderEvidence(sentence, namedMatches, pronounHits, genderEvidence);
+  }
+  return genderEvidence;
+};
+
 // Activation.js's own declared operating point (IDF_FLOOR, MIN_LEN inside
 // activation.js) is not exported, so the encode/recall calls below leave
 // `idfFloor`/`minLen` undefined when the caller does not override them —
@@ -227,13 +286,7 @@ export const resolvePronouns = (
   const bindings = [];
   const gaps = [];
 
-  const referentGender = (r) => {
-    const ev = genderEvidence.get(r);
-    if (!ev) return "unknown";
-    if (ev.m > 0 && ev.f === 0) return "m";
-    if (ev.f > 0 && ev.m === 0) return "f";
-    return "unknown"; // no evidence, or genuinely contested — never guessed
-  };
+  const referentGender = (r) => genderClass(genderEvidence.get(r));
 
   for (const sentence of sentences ?? []) {
     const ws = tokens(sentence.text);
@@ -344,24 +397,11 @@ export const resolvePronouns = (
       }
     }
 
-    // Gender evidence: only when exactly one referent is named alongside a
-    // pronoun in the SAME sentence, AND that pronoun sits in the same
-    // clause as (at least one occurrence of) the naming — the one case
-    // where the signal is actually clean. Same sentence alone is not enough
-    // (see the section header above): an attribution clause can put the
-    // sentence's only literally-named surface nowhere near the clause the
-    // pronoun's antecedent actually lives in. Causal: this only ever
-    // informs LATER sentences' candidate filtering, never the one it was
-    // read from.
-    if (named.size === 1 && pronounHits.length > 0) {
-      const [only] = named;
-      const spansForOnly = namedMatches.filter((n) => n.ref === only).map((n) => n.index);
-      const ev = genderEvidence.get(only) ?? { m: 0, f: 0 };
-      for (const hit of pronounHits) {
-        if (spansForOnly.some((idx) => sameClause(sentence.text, idx, hit.index))) ev[hit.gender]++;
-      }
-      genderEvidence.set(only, ev);
-    }
+    // Gender evidence (accumulateGenderEvidence, module-shared with the
+    // standalone referentGenderEvidence export above — same rule, one
+    // place). Causal here: this only ever informs LATER sentences'
+    // candidate filtering, never the one it was read from.
+    accumulateGenderEvidence(sentence, namedMatches, pronounHits, genderEvidence);
 
     namedByFrame.set(sentence.order, named);
     encodeFrame(state, sentence.order, ws, trace, { edgeSlots });

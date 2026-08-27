@@ -77,6 +77,7 @@
 
 import { diaNorm } from "./surfaces.js";
 import { NEGATION_WORDS, THIRD_PERSON_SINGULAR } from "./priors.js";
+import { classifyWord, dominantClass } from "./wordclass.js";
 
 // The cell this organ occupies on the operator grid (engine/operators.js):
 // CON · Link · Binding — subject · verb · object triples; the graph's
@@ -205,18 +206,39 @@ const SENTENCE_END = /[.!?;]/g;
  * (LOSS-LESS-LADDER.md L3: a verb is admitted once it has ALREADY followed
  * minSurfaces distinct surfaces, never on the strength of the whole text).
  *
- * `posPrior`, when supplied, is a giver-named `POSPrior@1`. A connector is
- * admitted only when VERB+AUX account for more than half of its attested
- * uses. Unattested forms remain admitted as an explicit prior gap rather
- * than being treated as non-verbs: a witness cannot refuse what it never
- * saw. Genuinely mixed attested forms are refused and remain available to an
- * occurrence-level resolver; one anomalous annotation cannot turn a common
- * preposition into a verb.
- * Omit the prior and the original material-only behaviour is unchanged.
+ * `posPrior` (optional, POSPrior@1-shaped — perceiver/text/wordclass.js's
+ * own contract, e.g. scripts/corpus/pos-prior-eng.json): when supplied,
+ * every entry in `candidates` also carries `grammar` — this candidate's
+ * FORM classified by wordclass.js's `classifyWord`/`dominantClass` against
+ * real Universal Dependencies treebank evidence, never a guess and never
+ * collapsed unless a class clears `grammarMinShare` (required alongside
+ * `posPrior`, the same "declared, never defaulted" contract `dominantClass`
+ * itself already holds). ADDITIVE ONLY: `verbs` is unchanged either way —
+ * this organ's own header already establishes why a wider vocabulary can
+ * only widen what extractRelations HEARS, never fabricate an edge, so nothing
+ * is filtered out on a caller's behalf. What `grammar` gives a caller is a
+ * measured answer to a question this file's own header names as open,
+ * twice: SLOT (which position a candidate fills — the ONE thing this
+ * function has ever measured) is not CLASS (what part of speech the token's
+ * FORM actually is). "party" recurred after 2 distinct surfaces in a real
+ * live specimen (the-fold, 2026-08-19) and was admitted as a verb candidate
+ * on slot evidence alone; the treebank's own count for that form is
+ * `{PROPN:9, NOUN:22, VERB:1}` — 68.75% noun, 3% verb — exactly the
+ * "auxiliaries and prepositions the Zipf threshold didn't catch" class this
+ * file's own header already named as residual noise in the anchor-one-end
+ * design, now measurable instead of merely disclosed as a limitation.
+ * `posPrior` omitted (the default): behavior and shape are BYTE-IDENTICAL
+ * to before this parameter existed — no `grammar` key is added at all,
+ * so an existing caller snapshotting `candidates` sees no difference.
  */
-export const discoverRelationVocab = (text, { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS, posPrior = null } = {}) => {
+export const discoverRelationVocab = (
+  text,
+  { surfaces, functionWords = null, minSurfaces, negationWords = NEGATION_WORDS, posPrior = null, grammarMinShare } = {},
+) => {
   if (!Number.isInteger(minSurfaces) || minSurfaces < 1)
     throw new TypeError("discoverRelationVocab: minSurfaces is declared — how much recurrence counts as a pattern is the caller's to say, never a default here");
+  if (posPrior && !Number.isFinite(grammarMinShare))
+    throw new TypeError("discoverRelationVocab: grammarMinShare is declared alongside posPrior — how dominant a class must be to collapse is never a default (dominantClass's own contract)");
 
   const s = String(text ?? "");
   const names = [...(surfaces ?? [])]
@@ -229,7 +251,34 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
   // surfaceToId: "Victor Frankenstein" must win over "Victor" at the same
   // start offset, or the shorter surface eats half the longer one's hits.
   const SURFACE_RE = new RegExp(`\\b(?:${uniqueNames.map(escapeRe).join("|")})\\b`, "gu");
-  const AFTER = /^\s*([\p{L}\p{N}'’]+)/u;
+  // A BRACKETED ASIDE IS SKIPPED, not treated as the end of the sentence.
+  //
+  // This read the token immediately after a surface occurrence, allowing
+  // only whitespace between them — so any aside opening with a bracket hid
+  // the verb entirely. Measured live 2026-08-26, on the sentence that
+  // states the fact plainly:
+  //
+  //   "Hannibal Hamlin (August 27, 1809 - July 4, 1891) was the 15th
+  //    vice president of the United States"
+  //
+  // The token after "Hamlin" is "(August", not "was", so no verb was ever
+  // nominated for him and the sentence yielded no edge naming him as a
+  // subject. A question with two right answers came back with one, all day,
+  // because of it.
+  //
+  // The skip is category-based and omnilingual, the same generalization
+  // surfaces.js's own run-break marks now use: \p{Ps}...\p{Pe} is every
+  // paired bracket in every script, so （ ） 「 」 【 】 ［ ］ are covered
+  // without listing them and a script never yet run against is covered in
+  // advance. Zero-or-more, so the no-bracket case is byte-identical to
+  // before and a run of asides is crossed the same way one is.
+  //
+  // Why skipping is right rather than a workaround: a parenthetical here
+  // carries facts ABOUT the surface just named — its dates, its aliases —
+  // not a new subject taking its own verb. The being and its aside are one
+  // mention, so the token that follows the MENTION is the token that
+  // follows the being.
+  const AFTER = /^\s*(?:[\p{Ps}][^\p{Pe}]*[\p{Pe}]\s*)*([\p{L}\p{N}'’]+)/u;
 
   const surfacesByToken = new Map(); // lowercase token -> Set(surfaces it directly followed)
   let m;
@@ -253,13 +302,22 @@ export const discoverRelationVocab = (text, { surfaces, functionWords = null, mi
   const verbs = new Set();
   const candidates = [];
   for (const [token, seenAfter] of surfacesByToken) {
-    const attested = posPrior?.forms?.[token] ?? null;
-    const attestedTotal = attested ? Object.values(attested).reduce((sum, count) => sum + count, 0) : 0;
-    const verbShare = attestedTotal ? ((attested.VERB ?? 0) + (attested.AUX ?? 0)) / attestedTotal : 0;
-    const verbDominant = !posPrior || !attested || verbShare > 0.5;
-    const posStanding = !posPrior ? "not_supplied" : !attested ? "gap" : verbDominant ? "verb_dominant" : "nonverb_dominant";
-    candidates.push({ verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter), verbDominant, verbShare, posStanding, upos: attested });
-    if (seenAfter.size >= minSurfaces && verbDominant) verbs.add(token);
+    const entry = { verb: token, surfaces: seenAfter.size, surfaceForms: Array.from(seenAfter) };
+    // Additive only (see this function's own header): `grammar` never
+    // changes which tokens land in `verbs` — it answers a question SLOT
+    // evidence alone cannot, disclosed for a caller that wants it.
+    if (posPrior) {
+      const classification = classifyWord(token, { posPrior });
+      const top = classification.found ? dominantClass(classification, { minShare: grammarMinShare }) : null;
+      entry.grammar = {
+        found: classification.found,
+        candidates: classification.candidates,
+        dominant: top,
+        plausibleAsVerb: top ? top.thraxClass === "verb" : null,
+      };
+    }
+    candidates.push(entry);
+    if (seenAfter.size >= minSurfaces) verbs.add(token);
   }
   candidates.sort((x, y) => y.surfaces - x.surfaces);
 
@@ -338,7 +396,18 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
   // reproducing a real corrupted admit in the checked-in civic-prose golden
   // data before this fix. Two regexes agreeing to parse the same text is a
   // liability by construction; one is now the only source of truth.
-  const MATCHER = new RegExp(`(?<=^|[^\\p{L}])(${W}(?:\\s+${W})?)\\s+(${VERB_ALT})\\s+${OBJECT_GROUP}`, "giu");
+  // A bracketed aside may stand between the subject and its verb, and is
+  // crossed rather than treated as the end of the clause — the same
+  // category rule this file's own AFTER scan and surfaces.js's run-break
+  // marks now use (\p{Ps}...\p{Pe}, every paired bracket in every script,
+  // never an enumerated list). Third and last site of the same wall:
+  // "Hannibal Hamlin (August 27, 1809 - July 4, 1891) was ..." has the
+  // subject and the verb separated by the aside, so a bare `\s+` between
+  // them could never pair Hamlin with "was" no matter what the vocabulary
+  // discovered. Zero-or-more, so a sentence with no aside matches exactly
+  // as it did before.
+  const ASIDE = `[\\p{Ps}][^\\p{Pe}]*[\\p{Pe}]`;
+  const MATCHER = new RegExp(`(?<=^|[^\\p{L}])(${W}(?:\\s+${W})?)\\s+(?:${ASIDE}\\s+)*(${VERB_ALT})\\s+${OBJECT_GROUP}`, "giu");
 
   // The exact terminator set the OLD (pre-function-word-bound) object
   // capture used to reach: `.`, `,`, `;`, or end of string. Used below only
@@ -453,9 +522,14 @@ export const extractRelations = (text, { verbs, limit = Infinity, functionWords 
         verb,
         object,
         polarity: negationBeforeVerb.test(before) ? "-" : "+",
-        offset: m.index,
-        subjectOffset: m.index,
-        objectOffset: m.index + m[0].lastIndexOf(m[3]),
+        // Which CONVENTION read this triple. SVO position is one script
+        // family's word-order habit, not physics — the physics is the
+        // measured verb vocabulary and the corpus's own statistics; the
+        // template is a convention this engine grew up with and must be
+        // able to steer away from (perceiver/text/case-relations.js is the
+        // underneath layer). Disclosed per-triple so no consumer can
+        // mistake a convention's output for a law.
+        via: "svo-position",
       });
       if (rels.length >= limit) { previousMatchEnd = clauseEndAfter(m.index + m[0].length); break; }
     }
