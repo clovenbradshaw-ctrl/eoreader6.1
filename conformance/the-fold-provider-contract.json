@@ -9,7 +9,7 @@
   },
   "browserModules": {
     "packages/engine/perceiver/text/segments.js": ["lineIndex", "outlineOfIndex"],
-    "packages/engine/perceiver/text/spans.js": ["splitSentences", "blankLabelRows"],
+    "packages/engine/perceiver/text/spans.js": ["splitSentences"],
     "packages/engine/perceiver/text/surfaces.js": ["extractSurfaces", "discoverReferents", "namesCorefer", "diaNorm"],
     "packages/engine/perceiver/text/pronouns.js": ["resolvePronouns"],
     "packages/engine/perceiver/text/relations.js": ["discoverRelationVocab", "extractRelations"],

@@ -48,6 +48,15 @@ test("no content-word Sets at module scope outside the prior register", () => {
   // received linguistic prior words. They never participate in admission.
   const allowedSets = new Map([
     [join("packages", "engine", "prediction", "commitments.js"), ["SUPPORTED_KINDS"]],
+    // A fold entry's own state-machine vocabulary (open/strengthened/
+    // weakened/fulfilled/violated/reframed/superseded), validated only
+    // against a value this module itself wrote to `.state` — never
+    // matched against received text.
+    [join("packages", "engine", "fold", "index.js"), ["STATES"]],
+    // A task/obligation's own status vocabulary (resolved/closed/
+    // superseded/retracted), validated only against `.status` — same
+    // reasoning as STATES above.
+    [join("packages", "engine", "tasks", "reading.js"), ["CLOSED"]],
   ]);
 
   const violations = [];
