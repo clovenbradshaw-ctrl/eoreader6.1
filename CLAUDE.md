@@ -418,3 +418,80 @@ worktree already carries (`conformance/host-terrains.test.js`'s belief-
 graph-standing referent-fragmentation case, unrelated to this change and
 confirmed via `git stash` to fail identically without it), zero
 regressions.
+
+
+## The ledger writes agreement, contest AND retraction — check which branch reaches the record before believing a report (added 2026-09-04)
+
+**Before trusting any organ's typed report, ask where the report GOES.**
+An organ that returns a finding its caller does not land is an organ with
+no output, and it will pass its own tests forever.
+
+**The incident this rule is named for.** `organs/corroboration.js` heard
+contradictions, tallied them, and returned a `contests` structure whose
+only reader was its own test. The Map holding them was rebuilt every call
+and commented `// THIS RUN`. So `askValue`'s contested-first ranking — the
+highest-information ask the walk can make — worked only inside the run that
+heard the disagreement; the next run read the same note as `thin` and never
+sought the third source that would settle it. Meanwhile
+`derivation.js::concedePremise`'s transitive cascade was complete, tested,
+and had no input at all, because the record was only ever written in the
+agreement branch. The organ was not weak. It was unreachable.
+
+**The fix, and why it needed no new schema.** `OPERATOR_BASIS.CONTESTED`
+had been sitting in `kernel/task-log.js` since the kernel was written and
+was used by nothing on disk — grep it before concluding a concept has no
+home here. The ledger now has three acts, and only the third withdraws
+anything:
+
+| act | operator | what it does | what it must not do |
+|---|---|---|---|
+| `attest` | SYN·Figure | lands a corroborating witness | — |
+| `dispute` | CON·Figure·CONTESTED | lands a disagreement with its decider and byte address | move a witness, a span, or a standing |
+| `concede` | REC·Figure | withdraws the note, cascading to products | fire without a recorded trigger |
+
+`settleDispute` closes a contest and **hands back** a ready concession
+rather than performing one — settling is never convicting.
+
+**The two checks worth copying.** (1) A leak assay, not a promise: assert
+the witness set, span set and `standingOf` are byte-identical across the
+new act; if a "neutral" act moves a standing it has become a verdict.
+(2) A durability control: read the finding back with a reader that never
+saw the run (`makeNotes()` over the log alone) and assert the ranking
+changes. `native/tests/dispute.test.js` keeps the old per-run behaviour in
+the suite as the thing being fixed.
+
+**A contest carries its KIND, and an untyped one is not routed.**
+"Contradicted" is not one thing: individuation, provenance, force and grain
+are all decidable at n=1; only a genuine `contest` needs a third source.
+Measured, both real contradictions in the succession material were
+individuation, so routing on "is it disputed" spends the seeker where it
+can settle nothing. `dispute` defaults to `untyped` (what a model witness
+can honestly produce) and `contestedSearch` requires a declared `kinds`;
+everything else returns in `unrouted` with a reason. An unrouted
+disagreement needs typing, not a source.
+
+**And check the guard is reachable.** The existing contradiction test
+wrapped its assertions in `if (out.contradicted.length)`. A guard that is
+never entered passes forever and reads as rigor from outside. Verify
+reachability, then make the assertion unconditional. See the-fold
+POLICIES.md P86 and P87.
+
+## Corroboration count is a label that rides, not a permission that gates (added 2026-09-04)
+
+`premisesOf(notes, {floor, carry})` — `carry` is declared, never inferred.
+The floor answered two different questions with one number: how well
+attested a claim is (token-level, evidentiary) and whether you may build on
+it (structural, theory-shaped). Measured: on a single-source ledger the old
+gate does not make floor 6 sparse, it makes it **empty** — 0 premises, 0
+derived. With `carry: true` the same ledger derives, every below-floor
+premise is named in `carried` with its level, and every product records
+`restsOn` — the **min** across its transitive grounds, never the mean,
+because an average lets a strong premise launder a single-source one.
+
+What licenses building on n=1 is not the count. It is that the tower still
+falls: `exposure(log, premise)` reports what would fall before anything is
+decided (the same walk `withdrawDerived` performs, so the dry run IS the
+cascade), and `concedePremise` takes down exactly that set. Do not add a
+log-odds gate until the witness is calibrated — the one measurement this
+engine has puts it at LR = 1.0, and summing invented likelihood ratios is
+a change of units that fails invisibly.
