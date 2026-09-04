@@ -474,7 +474,7 @@ disagreement needs typing, not a source.
 wrapped its assertions in `if (out.contradicted.length)`. A guard that is
 never entered passes forever and reads as rigor from outside. Verify
 reachability, then make the assertion unconditional. See the-fold
-POLICIES.md P86 and P87.
+POLICIES.md P88 and P89.
 
 ## Corroboration count is a label that rides, not a permission that gates (added 2026-09-04)
 
@@ -495,3 +495,46 @@ cascade), and `concedePremise` takes down exactly that set. Do not add a
 log-odds gate until the witness is calibrated — the one measurement this
 engine has puts it at LR = 1.0, and summing invented likelihood ratios is
 a change of units that fails invisibly.
+
+
+## State the reader's configuration, or the numbers are about the harness (added 2026-09-04)
+
+**Before concluding anything about MATERIAL, show that the reader was in
+the configuration whose results are on the record.** A driver that cannot
+say what its reader was set to is not measuring the material.
+
+**The incident this rule is named for.** A probe concluded that two
+accounts of Borodino share no functional relation, that prose extraction
+yields only copulas, and that the wall sits upstream of the witness. Real
+arithmetic, real null, correctly size-matched. All of it withdrawn the same
+day: the ledger was built with `hl.admit(log, edges, { witness })` and no
+`classifyConnector`, so the admission door was open and every extraction
+artifact entered with the standing of a real assertion. Three opt-in
+extraction levers were also off. The run reported
+`and | was | mortally wounded` as evidence about Tolstoy.
+
+**Four checks, cheapest first.**
+
+1. `admit` without a gate is an open door. P57's own dump
+   (`complete list —is→ given above`) is what that produces; P82's received
+   walls are what closes it.
+2. Never compare names as strings. P11: identity goes through
+   `extractSurfaces` / `discoverReferents` / `namesCorefer`, never a local
+   notion of "the same name." A `toLowerCase()` join across sources
+   reproduces the recorded Bezúkhov-flagged-invented failure.
+3. An exact-structural-match test measures its own strictness, not the
+   material (P29 — the same graph scored 80% under an entailment rubric).
+4. Grep `the-fold/POLICIES.md` before deriving a finding about how reading
+   works. P76 already recorded that slot-finding is positional, **and
+   closed the wrong next step** ("a second case-marking strategy that still
+   recovers subject and object is the same borrowed category surviving
+   through a different mechanism"). A rediscovered finding arrives without
+   the correction attached to it.
+
+**Print the configuration beside the numbers.** Gate on/off, walls on/off,
+levers, which organ resolved identity. That one line is what makes the
+difference between a measurement and a harness reading visible rather than
+ambient — the same reason P88's guard-reachability check exists, pointed
+the other way: a guard that cannot be reached passes forever; a door left
+open admits everything and reads as the material being poor. Both are the
+instrument's own state mistaken for a fact about the world.
