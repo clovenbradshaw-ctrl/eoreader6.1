@@ -396,6 +396,26 @@ First consumer implementation: the-fold's `cast.js` + `grounding.js`
 
 ---
 
+## P8 — Omnimodal means the kernel is blind, never that a medium's real structure gets thinned to look uniform
+
+User direction, verbatim, the session this was written: *"the fact is word order and often capitalization DOES contain meaning in english and we should not ignore that"* / *"we just need to have the reader learn to use the relative rules, but we dont want to ignore any meaningful structure to make something omnimodal."*
+
+**The rule.** `native/kernel/` stays medium-blind by design (`notes.js`'s own header: "no sentence, word, verb, note-as-music, bar, frame-of-film" — enforced by a test that fails if one appears). That blindness lives in the KERNEL. Every ADAPTER (`native/adapters/text/`, and whatever a future audio/video/code adapter turns out to be) is expected to use everything real its own medium and language actually offer — capitalisation and word order in English, whatever the analogous structure is elsewhere — in full, not thinned toward some lowest common denominator in the name of "omnimodal." Omnimodal is a property of the KERNEL's vocabulary (arrangement, admit, fold — none of it naming a medium), never a mandate that every adapter perform equally well, or use equally little, across every medium. A mechanism scoped to one language is not thereby a defect.
+
+**Already the law, not a new invention — this entry gathers it under one number.** EO-constitution Article II.13, "the script earning test": a mechanism scoped to one language or script is not a defect; asserting it is script-agnostic without a cross-script fixture, or without naming that scope as a received giver, is — the silence is the more severe failure than the scope. P7.1 already applies this once (the diacritic fold: "the blanket combining-mark strip was tried and reverted for silently claiming cross-script generality"), and `surfaces.js`'s own scope note applies it a second time (an algorithmic substitute for capitalisation on caseless scripts was tried and reverted on the identical constitutional ground). Both predate this entry; neither had a policy number of its own to be found under.
+
+**How to apply it, concretely, when a mechanism returns nothing on some material.** The question is never "how do we make this mechanism work everywhere" if that means weakening what it correctly does where it DOES apply. The question is: does this material's own medium/language have a real, analogous signal this mechanism simply isn't reading yet (READING-SPEC S87's positional-signature fix for caseless scripts; S88's proposed possessive-determiner signal for kinship-term casts) — build or propose THAT, additive, never subtractive. Or does it genuinely have none yet (Chinese/Japanese being-discovery, checked this session: tried once via an algorithmic capitalisation-substitute, reverted per II.13, and no working replacement exists — confirmed independently on real Japanese prose in `native/eval/the-fold/results/asserted-crosslingual.md`, same `no_candidate_surfaces` gap) — then the honest sidecar is a disclosed, typed gap (`script_without_case`, `needsWitness: true`), not a thinner reading of the languages that DO have the signal. A gap disclosed is not a failure this rule asks anyone to close by degrading what already works.
+
+## P9 — A relation shape that CAN be n-ary is not the same as one that IS — check what actually gets fed to it before calling it universal
+
+The kernel's real general-purpose relation shape is `EOHyperedge@1` (`native/kernel/hypergraph.js::hyperedge`): an ORDERED, ARBITRARY-LENGTH `participants` array, its only structural requirement `participants.length > 0` — genuinely medium-agnostic, and proven so (`notes.js`'s own ledger has been fed arrangements from MIDI, WAV, video, turbulence fields). `end1/label/end2` (`arrangementOf`, the shape P76 renamed subject/verb/object into) is a NARROWER PROJECTION of that hyperedge, built specifically for the witness/corroboration ledger (`relation-composition.js`'s `firstEnd`/`secondEnd` explicitly take only `participants[0]` and `participants[length-1]`) — a specialization, not the promotion to a general mechanism its own surrounding comments can read as implying.
+
+**Checked, and it matters:** every actual constructor that currently exists — `native/adapters/text/recursive.js`, `derivation.js`, `sequence.js`, `reaction.js`, every eval script — populates exactly 2 participants. Nobody feeds `hyperedge()` a true 3-argument relation ("gave X to Y") or a genuinely 1-argument one, because the one text extractor wired everywhere (`native/adapters/text/relations.js`) hard-requires a subject group AND a mandatory object group (`if (!subject || !object) continue`) before it will emit anything at all. A true intransitive clause ("the Fox jumped") can never satisfy that gate, in any configuration, however rich the downstream kernel machinery is — because the object slot is mandatory upstream of it. This is not a defect in the n-ary hyperedge schema; it is a defect in the one adapter everyone currently reads through, which never asks the richer schema for more or fewer than two ends. `live_priors/scripts/eot-sidecar.mjs` and `eot-digest.mjs` both read this same narrow path — `relation-composition.js`'s chaining, `reaction.js`'s composition circuit, and `notes.js`'s witness/cut/void apparatus exist and are tested, but none of it is wired into either script; it is reachable today only through the-fold's own `app.js`/`holon.js` and eoreader7's `native/eval/the-fold/` drivers.
+
+**The lesson, general beyond this one gate:** "we already renamed the fields to something medium-neutral" is a claim about NAMING, not about whether the mechanism feeding those fields is actually using the generality on offer. Before citing a shape as evidence of a universal mechanism, check what actually constructs it — the same discipline P8 asks for the being-discovery side, applied here to the relation-arity side.
+
+---
+
 # Attempt log
 
 Append-only. Every attempt is recorded with what it cost and what it taught,
@@ -748,11 +768,14 @@ derived boundary, `NEGATION_BEFORE_VERB` no longer bounds word count at
 all — once the window is honestly clause-scoped, any trigger inside it is a
 real one.
 
-**Measured net effect**, `extractRelations` on pg2600 end to end (same
+~~**Measured net effect**, `extractRelations` on pg2600 end to end (same
 40,659 triples both before and after — this only touches polarity, never
 subject/verb/object): negative-polarity count went from 1,167 (2.87%) to
 2,433 (5.98%) — 1,266 triples recovered from a silently fabricated "+" to a
-correct "-". The remaining, named gap: a negation sitting in a clause whose
+correct "-".~~ **Superseded — see A19's "Final, corrected numbers" table
+below: measured against the pre-chorus-review code, and superseded there
+by the post-SPLITTER-fix figure (1,167 → 1,395, 1.69% of a much larger
+82,421-triple total).** The remaining, named gap: a negation sitting in a clause whose
 own verb isn't in `verbs` (so MATCHER never claims that span) can still
 bleed forward across a comma+conjunction into a later, unrelated verb if no
 sentence-terminator intervenes — quantified at ~31 of 43,342 candidate
@@ -1156,3 +1179,13 @@ instrument and **gap** for real-corpus funnel counts. Evidence flags:
 funnels, choose the first loss seam by those counts, inspect its row-level Born
 or null records, and test any resulting mechanism on held-out material before
 re-scoring these networks.
+
+### A26 · Batching the reader's own vocabulary update is an engineering compromise, not a reading model — and it was stale (2026-09-09)
+
+**What was tried.** `native/adapters/text/recursive.js::createCausalTextPerceiver`'s `refreshEvery` (default 25) batches how often the reader projects its accumulated evidence into a usable verb vocabulary and referent cast. LaVar (`eoreader7/LAVAR.md`) read a real 14-sentence children's book through the real pipeline (`native/eval/lavar/read-real.mjs`) at that default and got zero relation edges, zero referent bindings — the text ends before `priorSentences.length % 25 === 0` ever fires a second time, so the reader is stuck using the empty vocabulary it started with for the entire text.
+
+**What was checked before changing anything.** The batching's own justification, read from its neighboring comment: refresh used to re-tokenize and re-scan the WHOLE prefix every call, O(n²), 75s on Frankenstein / ~80min on Les Misérables. That justification predates a later fix (the `foldedTo`/`relationRefreshFrom` split) that made refresh itself incremental — it now folds only evidence NEW since the last call. Measured directly, real book (Alice in Wonderland, 1687 sentences): `refreshEvery: 1` costs 5.68s against 2.34s at `refreshEvery: 25` — 2.4x slower, nowhere near the old O(n²) blowup — and finds MORE structure (11950 vs 11669 graph entries), because continuous updating stops holding the verb vocabulary and cast frozen at a stale earlier batch. User direction, verbatim, the session this changed: *"why are we doing batches at all?"* / *"people don't work like that."*
+
+**What it changed.** `refreshEvery`'s default is now 1. No material length is safe under any fixed batch size (a book shorter than the batch gets nothing; a book not an exact multiple loses its trailing fraction, invisible on a long novel and total on a short one) — the fix removes the batch boundary rather than picking a smaller one, because there is no material-length-derivable minimum that is safe in general. A caller with its own measured performance reason may still declare a larger value explicitly; it is no longer this file's silent default. `native/tests/referent-merge.test.js`, `resume-state.test.js`, `hypergraph.test.js`, `addresses-birth.test.js`, `native/conformance/artifact-prior-boundary.test.mjs` — every existing caller already declared its own `refreshEvery` explicitly and is unaffected; all 20 cases still pass.
+
+**Open, not yet attempted.** The archived sidecars (`native/eval/the-fold/results/readings/archive/`, recipe `causalTextPerceiver_reviseTextFold_refresh25`) were all read at the stale default and were not re-read here — whether their coverage loss is negligible (long novels) or structural (any passage that happened to fall in an under-25-sentence remainder) is unmeasured. Re-running them at `refreshEvery: 1` and diffing is the natural next check, named rather than assumed.
