@@ -396,6 +396,10 @@ First consumer implementation: the-fold's `cast.js` + `grounding.js`
 
 ---
 
+**Misfiled and moved, same session.** Two entries briefly numbered P8 and P9 here — on the kernel/adapter omnimodal boundary, and on `EOHyperedge@1` vs. what `native/adapters/text/relations.js` actually constructs — were written to this file by mistake. This file documents the OLD `packages/engine/`/`packages/host/` architecture P0–P7 describe; both new entries cited only `native/` paths, which this repo's own current work, and belong in `native/READING-SPEC.md` (this repo's file for exactly that). Moved there as S89 and S90 before anything was built on the misfiled copies. User correction, verbatim: *"why are you in 6.1!?? this is all eoreader7."*
+
+---
+
 # Attempt log
 
 Append-only. Every attempt is recorded with what it cost and what it taught,
@@ -748,11 +752,14 @@ derived boundary, `NEGATION_BEFORE_VERB` no longer bounds word count at
 all — once the window is honestly clause-scoped, any trigger inside it is a
 real one.
 
-**Measured net effect**, `extractRelations` on pg2600 end to end (same
+~~**Measured net effect**, `extractRelations` on pg2600 end to end (same
 40,659 triples both before and after — this only touches polarity, never
 subject/verb/object): negative-polarity count went from 1,167 (2.87%) to
 2,433 (5.98%) — 1,266 triples recovered from a silently fabricated "+" to a
-correct "-". The remaining, named gap: a negation sitting in a clause whose
+correct "-".~~ **Superseded — see A19's "Final, corrected numbers" table
+below: measured against the pre-chorus-review code, and superseded there
+by the post-SPLITTER-fix figure (1,167 → 1,395, 1.69% of a much larger
+82,421-triple total).** The remaining, named gap: a negation sitting in a clause whose
 own verb isn't in `verbs` (so MATCHER never claims that span) can still
 bleed forward across a comma+conjunction into a later, unrelated verb if no
 sentence-terminator intervenes — quantified at ~31 of 43,342 candidate
@@ -1156,3 +1163,7 @@ instrument and **gap** for real-corpus funnel counts. Evidence flags:
 funnels, choose the first loss seam by those counts, inspect its row-level Born
 or null records, and test any resulting mechanism on held-out material before
 re-scoring these networks.
+
+### A26 — misfiled and moved, same session
+
+Briefly numbered A26 here (the `refreshEvery` batching fix in `native/adapters/text/recursive.js`): wrong file, same mistake as P8/P9 above — this attempt log is about the legacy `packages/engine/` architecture, and the entry cited only `native/` paths. Moved to `native/READING-SPEC.md` as S91 before anything was built on the misfiled copy.
